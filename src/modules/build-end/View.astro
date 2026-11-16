@@ -1,0 +1,26 @@
+---
+import type { Content } from "../../core/fields";
+import type { PageData } from "../../core/types";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; data: PageData }
+const { content: c, data } = Astro.props;
+const b = data.build;
+const i = b ? data.builds.findIndex((x) => x.id === b.id) : -1;
+const next = data.builds.length > 1 && i >= 0 ? data.builds[(i + 1) % data.builds.length] : undefined;
+---
+{b && (
+  <section class="be">
+    <div class="wrap be-inner">
+      <a class="btn btn-sun btn-lg" href={`/projects#${b.slug}`}>{c.back.value}</a>
+      {next && <p>{c.nextLabel.value} <a class="link-u" href={`/builds/${next.slug}`}>{next.meta.title.value}</a></p>}
+    </div>
+  </section>
+)}
+<style>
+  .be { background: var(--black); color: var(--white); padding: 56px 0 0; }
+  .be-inner { display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; padding-bottom: 8px; }
+  .be p { color: var(--muted-dark); }
+  .be p a { color: var(--white); }
+  .btn-sun { background: var(--sun); color: var(--black); }
+  .btn-sun:hover { background: var(--white); }
+</style>

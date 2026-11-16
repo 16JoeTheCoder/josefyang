@@ -1,0 +1,105 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import Icon from "../../components/Icon.astro";
+import type { Content } from "../../core/fields";
+import { buildFields } from "../../core/build-fields";
+import type { PageData } from "../../core/types";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; data: PageData }
+const { content: c, data } = Astro.props;
+const F = mod.fields;
+const builds = data.builds;
+const bench = builds.find((b) => b.meta.status === "bench");
+const n = builds.length;
+const failed = data.settings.site.failedPill.value;
+---
+<section class="sel" data-selector>
+  <div class="lamp" aria-hidden="true"></div>
+  <div class="wrap sel-head">
+    <T v={c.heading} f={F.heading} as="h1" />
+    {bench && (
+      <p class="sel-bench">{c.benchPrefix.value} {bench.meta.title.value}. <a class="link-u" href="/devlog">{c.benchLink.value}</a></p>
+    )}
+  </div>
+  {n === 0 ? <div class="wrap"><T v={c.emptyNote} f={F.emptyNote} class="sel-empty" /></div> : (
+    <>
+      <div class="sel-track" data-track tabindex="0" role="listbox" aria-label={c.heading.value} aria-describedby="sel-hint">
+        {builds.map((b, i) => (
+          <article class="card" id={`b-${b.slug}`} data-card data-slug={b.slug} data-index={i} role="option" aria-selected={i === 0 ? "true" : "false"}>
+            <a class="card-img" href={`/builds/${b.slug}`} tabindex="-1" data-open>
+              <Img v={b.meta.selectorImage} f={buildFields.selectorImage} sizes="(max-width: 860px) 84vw, 56vw" eager={i < 3} />
+              {b.meta.status === "failed" && <span class="pill pill-failed card-failed">{failed}</span>}
+            </a>
+            <div class="card-info">
+              <h2 class="card-name"><a href={`/builds/${b.slug}`} data-name-link>{b.meta.title.value}</a></h2>
+              <T v={b.meta.summary} f={buildFields.summary} class="card-sum" />
+              <p class="card-meta">{b.meta.kind === "software" ? c.software.value : c.hardware.value}, {b.meta.year.value}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div class="wrap sel-controls">
+        <button class="icon-btn" type="button" data-prev aria-label={c.prevLabel.value}><Icon name="arrow-left" /></button>
+        <a class="btn btn-sun btn-lg" data-lock href={`/builds/${builds[0]!.slug}`}>{c.openButton.value}</a>
+        <button class="icon-btn" type="button" data-next aria-label={c.nextLabel.value}><Icon name="arrow-right" /></button>
+      </div>
+      <p class="wrap sel-hint" id="sel-hint">{c.hint.value} <span aria-live="polite"><span data-pos>1</span> {c.ofWord.value} {n}</span></p>
+    </>
+  )}
+</section>
+<script>
+  import { onPage } from "../../core/island";
+  import { mountSelector } from "./island";
+  onPage("[data-selector]", mountSelector);
+</script>
+<style>
+  .sel { position: relative; overflow: hidden; background: var(--black); color: var(--white); padding: calc(var(--nav-h) + 72px) 0 var(--section-y); min-height: 100svh; }
+  .lamp { position: absolute; left: 50%; top: 38%; width: 1400px; height: 1000px; translate: -50% -50%; background: radial-gradient(closest-side, var(--light-16), var(--light-05) 55%, transparent); pointer-events: none; }
+  .sel-head { position: relative; display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; }
+  .sel-head :global(h1) { font-size: var(--size-xxl); }
+  .sel-bench { color: var(--muted-dark); font-size: var(--size-s); }
+  .sel-bench a { color: var(--white); }
+  .sel :global(.sel-empty) { margin-top: 48px; color: var(--muted-dark); }
+  .sel-track {
+    position: relative; display: flex; gap: 2vw; margin-top: 48px; overflow-x: auto; scroll-snap-type: x mandatory;
+    padding-inline: 22vw; scrollbar-width: none; overscroll-behavior-x: contain; outline: none;
+  }
+  .sel-track::-webkit-scrollbar { display: none; }
+  .sel-track:focus-visible .card[aria-selected="true"] .card-img { outline: 2px solid var(--sun); outline-offset: 6px; }
+  .card { flex: 0 0 56vw; scroll-snap-align: center; transition: opacity 500ms var(--ease-out), transform 600ms var(--ease-out); }
+  .card[aria-selected="false"] { opacity: 0.35; transform: scale(0.82); }
+  .card-img { position: relative; display: block; border-radius: var(--radius-m); text-decoration: none; }
+  .card-img :global(.img-empty) { background: var(--granite); }
+  .card[aria-selected="true"] .card-img :global(.img-slot) { box-shadow: 0 40px 80px -30px var(--light-18); }
+  .card-failed { position: absolute; top: 14px; left: 14px; background: var(--black); border-color: var(--muted-dark); }
+  .card-info { text-align: center; margin-top: 32px; transition: opacity 400ms var(--ease-out); }
+  .card[aria-selected="false"] .card-info { opacity: 0; }
+  .card-name a { text-decoration: none; }
+  .card-name { font-family: var(--font-display); font-weight: 900; font-stretch: 72%; font-size: var(--size-giant); line-height: 0.9; letter-spacing: var(--track-display); overflow-wrap: anywhere; text-wrap: balance; }
+  .card :global(.card-sum) { margin: 16px auto 0; color: var(--muted-dark); max-width: 48ch; }
+  .card-meta { margin-top: 10px; font-size: var(--size-s); }
+  .sel-controls { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 36px; }
+  .icon-btn { width: 56px; height: 56px; display: grid; place-items: center; border-radius: var(--pill); border: 1.5px solid var(--muted-dark); background: transparent; color: var(--white); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+  .icon-btn:hover { background: var(--white); color: var(--black); }
+  .icon-btn:disabled { opacity: 0.3; cursor: default; background: transparent; color: var(--white); }
+  .btn-sun { background: var(--sun); color: var(--black); }
+  .btn-sun:hover { background: var(--white); }
+  .sel-hint { margin-top: 18px; text-align: center; font-size: var(--size-s); color: var(--muted-dark); }
+
+  @media (max-width: 860px) {
+    .sel-track { padding-inline: 8vw; gap: 4vw; }
+    .card { flex-basis: 84vw; }
+    .card[aria-selected="false"] { transform: scale(0.92); }
+    .card-name { font-size: var(--size-xxl); }
+  }
+  /* Reduced motion: a plain grid, every build visible, no selector. */
+  @media (prefers-reduced-motion: reduce) {
+    .sel-track { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 40px; padding-inline: var(--gutter); max-width: calc(var(--container) + 2 * var(--gutter)); margin-inline: auto; overflow: visible; }
+    .card, .card[aria-selected="false"] { opacity: 1; transform: none; }
+    .card[aria-selected="false"] .card-info { opacity: 1; }
+    .card-info { text-align: left; }
+    .card-name { font-size: var(--size-xl); }
+    .sel-controls, .sel-hint { display: none; }
+  }
+</style>

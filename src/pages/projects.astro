@@ -1,0 +1,10 @@
+---
+import { env } from "cloudflare:workers";
+import Base from "../layouts/Base.astro";
+import RenderSections from "../core/RenderSections.astro";
+import { loadPageData } from "../core/db";
+const { data, sections } = await loadPageData(env.DB, Astro.locals.mode, "projects");
+---
+<Base settings={data.settings} active="projects" title="Projects">
+  <RenderSections page="projects" sections={sections} data={data} />
+</Base>

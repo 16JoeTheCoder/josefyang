@@ -1,0 +1,80 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import Icon from "../../components/Icon.astro";
+import type { Content } from "../../core/fields";
+import type { PageData } from "../../core/types";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; data: PageData }
+const { content: c, data } = Astro.props;
+const F = mod.fields;
+const ct = data.settings.contacts;
+const socials = [
+  { url: ct.instagram, label: ct.instagramLabel.value, icon: "instagram" },
+  { url: ct.github, label: ct.githubLabel.value, icon: "github" },
+].filter((s) => s.url);
+---
+<section class="hero ground-granite">
+  <div class="wrap hero-inner">
+    <T v={c.headline} f={F.headline} as="h1" class="hero-title" />
+    <T v={c.line} f={F.line} class="hero-line" />
+    {socials.length > 0 && (
+      <ul class="hero-socials">
+        {socials.map((s) => <li><a class="soc" href={s.url} target="_blank" rel="noopener me"><Icon name={s.icon} size={18} />{s.label}</a></li>)}
+      </ul>
+    )}
+    <div class="hero-portrait">
+      <Img v={c.portrait} f={F.portrait} class="portrait" eager sizes="(max-width: 720px) 80vw, 460px" grey />
+    </div>
+  </div>
+  {c.showCoffee && (
+    <svg class="decor coffee" viewBox="0 0 150 150" role="img" aria-label={c.coffeeLabel.value}>
+      <circle cx="70" cy="75" r="62" fill="var(--white)" />
+      <circle cx="70" cy="75" r="44" fill="var(--obj-coffee)" />
+      <circle cx="70" cy="75" r="34" fill="var(--obj-crema)" />
+      <path d="M70 60 C60 50 48 64 70 88 C92 64 80 50 70 60 Z" fill="var(--obj-coffee)" />
+      <rect x="128" y="66" width="20" height="18" rx="9" fill="var(--white)" />
+    </svg>
+  )}
+  {c.showPhone && (
+    <div class="decor phone" role="img" aria-label={`${c.phoneLabel.value}: ${c.phoneTitle.value}, ${c.phoneTrack.value}`}>
+      <div class="phone-screen">
+        <div class="phone-art"></div>
+        <span class="phone-title">{c.phoneTitle.value}</span>
+        <span class="phone-track">{c.phoneTrack.value}</span>
+        <div class="phone-bar"><div></div></div>
+      </div>
+    </div>
+  )}
+</section>
+<style>
+  .hero { position: relative; overflow: hidden; padding-top: calc(var(--nav-h) + 72px); }
+  .hero-inner { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .hero-inner :global(.hero-title) { max-width: 12em; font-size: clamp(3rem, 1.2rem + 5.6vw, 6.5rem); line-height: 0.92; }
+  .hero-inner :global(.hero-title[data-fit="1"]) { font-size: clamp(2.6rem, 1rem + 4.8vw, 5.5rem); }
+  .hero-inner :global(.hero-title[data-fit="2"]) { font-size: var(--size-xl); }
+  .hero-inner :global(.hero-line) { margin-top: 26px; font-size: var(--lead); color: var(--black); max-width: none; }
+  .hero-socials { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+  .soc { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: var(--pill); background: var(--white); font-family: var(--font-display); font-size: 0.9375rem; font-weight: 600; text-decoration: none; box-shadow: var(--shadow-soft); transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
+  .soc:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -10px var(--shade-35); }
+  .hero-portrait { width: min(460px, 78vw); margin-top: 56px; }
+  .hero-portrait :global(.portrait) { border-radius: 999px 999px 0 0; }
+  .hero-portrait :global(.img-empty) { background: color-mix(in srgb, var(--hairline) 70%, var(--granite)); justify-content: center; }
+  .hero-portrait :global(.img-object img) { object-position: 50% 100%; filter: grayscale(1) contrast(1.05) drop-shadow(0 30px 30px var(--shade-18)); }
+  .decor { position: absolute; z-index: 0; }
+  .coffee { width: clamp(96px, 10vw, 150px); left: 9%; top: 56%; filter: drop-shadow(0 4px 3px var(--shade-08)) drop-shadow(0 18px 18px var(--shade-18)); }
+  .phone { right: 9%; top: 50%; width: clamp(110px, 10.5vw, 150px); aspect-ratio: 1 / 2; padding: 10px; background: var(--obj-device); border-radius: 26px; transform: rotate(12deg); box-shadow: var(--shadow-contact), 0 30px 40px -18px var(--shade-45); }
+  .phone-screen { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: 18px 12px; border-radius: 18px; background: var(--obj-screen); color: var(--white); font-family: var(--font-display); font-size: 11px; line-height: 1.2; text-align: left; }
+  .phone-art { aspect-ratio: 1; border-radius: 8px; background: var(--sun); }
+  .phone-title { font-weight: 700; font-size: 12px; }
+  .phone-track { color: var(--muted-dark); }
+  .phone-bar { height: 3px; background: var(--obj-track); border-radius: 2px; }
+  .phone-bar div { width: 40%; height: 3px; background: var(--white); }
+  @media (max-width: 860px) {
+    .hero { padding-top: calc(var(--nav-h) + 56px); }
+    .coffee { left: -22px; top: auto; bottom: 34%; width: 92px; }
+    .phone { right: -26px; top: auto; bottom: 26%; width: 92px; padding: 7px; border-radius: 18px; }
+    .phone-screen { padding: 10px 8px; border-radius: 12px; font-size: 9px; }
+    .phone-title { font-size: 10px; }
+  }
+</style>

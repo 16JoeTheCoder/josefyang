@@ -1,0 +1,81 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import type { Content } from "../../core/fields";
+import type { PageData } from "../../core/types";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; data: PageData }
+const { content: c, data } = Astro.props;
+const F = mod.fields;
+const ms = data.milestones;
+const planned = Math.max(c.plannedLayers, ms.length, 1);
+const printed = ms.length;
+---
+<section class="rig-sec on-sun" data-rig style={`--layers:${planned};--printed:${printed};--p:${printed}`}>
+  <div class="wrap rig-grid">
+    <div class="rig" aria-hidden="true">
+      <div class="rig-top"></div>
+      <div class="rod rod-l"><span class="clamp"></span></div>
+      <div class="rod rod-r"><span class="clamp"></span></div>
+      <div class="figure">
+        <div class="ghost"></div>
+        <div class="printed">
+          <Img v={c.figure} f={F.figure} sizes="300px" emptyLabel={false} class="fig-img" />
+          <div class="lines"></div>
+        </div>
+      </div>
+      <div class="carriage"><span class="nozzle"></span></div>
+      <div class="bed"></div>
+    </div>
+    <div class="rig-text">
+      <T v={c.heading} f={F.heading} as="h2" />
+      <T v={c.line} f={F.line} class="rig-line" />
+      <p class="rig-count"><strong data-rig-count>{printed}</strong> / {planned} {c.layersLabel.value}</p>
+      <ol class="ms">
+        {ms.map((m, i) => (
+          <li data-ms={i}>
+            <p class="ms-label">{m.label}</p>
+            <div><h3>{m.title}</h3>{m.body && <p>{m.body}</p>}</div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </div>
+</section>
+<script>
+  import { onPage } from "../../core/island";
+  import { mountRig } from "./island";
+  onPage("[data-rig]", mountRig);
+</script>
+<style>
+  .rig-sec { background: var(--sun); padding: var(--section-y) 0; }
+  .rig-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 64px; align-items: center; }
+  .rig { position: relative; width: min(100%, 380px); aspect-ratio: 3 / 4; margin-inline: auto; --frac: calc(var(--p) / var(--layers)); }
+  .rig-top { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--black); }
+  .rod { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--black); }
+  .rod-l { left: 8%; } .rod-r { right: 8%; }
+  .clamp { position: absolute; left: 50%; top: calc(88% - var(--frac) * 70%); width: 18px; height: 18px; translate: -50% -50%; border: 3px solid var(--black); background: var(--sun); transition: top 500ms var(--ease-out); }
+  .bed { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--black); }
+  .figure { position: absolute; left: 22%; right: 22%; top: 18%; bottom: 3px; }
+  .ghost { position: absolute; inset: 0; border: 2px dashed var(--black); border-bottom: 0; border-radius: 999px 999px 0 0; opacity: 0.55; }
+  .printed { position: absolute; inset: 0; clip-path: inset(calc((1 - var(--frac)) * 100%) 0 0 0); transition: clip-path 500ms var(--ease-out); }
+  .printed :global(.fig-img) { height: 100%; aspect-ratio: auto; border-radius: 999px 999px 0 0; }
+  .printed :global(.img-empty) { background: var(--black); color: var(--sun); }
+  .printed :global(.img-empty .icon) { display: none; }
+  .printed :global(.img-object img) { object-position: 50% 100%; filter: grayscale(1) contrast(1.1); }
+  .lines { position: absolute; inset: 0; background: repeating-linear-gradient(to top, transparent 0, transparent calc(100% / var(--layers) - 2px), var(--sun) calc(100% / var(--layers) - 2px), var(--sun) calc(100% / var(--layers))); opacity: 0.9; }
+  .carriage { position: absolute; left: 8%; right: 8%; top: calc(18% + (1 - var(--frac)) * (82% - 3px)); height: 3px; background: var(--black); transition: top 500ms var(--ease-out); }
+  .nozzle { position: absolute; left: 50%; top: -14px; width: 26px; height: 22px; translate: -50% 0; background: var(--black); clip-path: polygon(0 0, 100% 0, 100% 60%, 60% 100%, 40% 100%, 0 60%); }
+  .rig-text :global(h2) { font-size: var(--size-xl); }
+  .rig-text :global(.rig-line) { margin-top: 16px; max-width: 40ch; }
+  .rig-count { margin-top: 24px; font-family: var(--font-display); font-size: var(--size-s); font-variant-numeric: tabular-nums; }
+  .rig-count strong { font-weight: 900; font-size: 1.6em; }
+  .ms { margin-top: 24px; border-top: 1px solid var(--black); }
+  .ms li { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 5fr); gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--black); transition: opacity 400ms var(--ease-out); }
+  .ms li.is-pending { opacity: 0.72; translate: 8px 0; }
+  .ms li { transition: opacity 400ms var(--ease-out), translate 500ms var(--ease-out); }
+  .ms-label { font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); }
+  .ms h3 { font-family: var(--font-display); font-weight: 800; font-size: var(--size-l); line-height: 1.15; letter-spacing: -0.01em; }
+  .ms p:not(.ms-label) { margin-top: 4px; font-size: var(--size-s); color: var(--sun-ink); }
+  @media (max-width: 860px) { .rig-grid { grid-template-columns: 1fr; gap: 48px; } .rig { width: min(80%, 320px); } .ms li { grid-template-columns: 1fr; gap: 4px; } }
+</style>

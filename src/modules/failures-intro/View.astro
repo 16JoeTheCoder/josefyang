@@ -1,0 +1,18 @@
+---
+import T from "../../components/T.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields> }
+const { content: c } = Astro.props;
+---
+<section class="fi ground-granite-fine">
+  <div class="wrap">
+    <T v={c.heading} f={mod.fields.heading} as="h1" class="fi-title" />
+    <T v={c.line} f={mod.fields.line} class="fi-line" />
+  </div>
+</section>
+<style>
+  .fi { padding: calc(var(--nav-h) + 72px) 0 24px; }
+  .fi :global(.fi-title) { max-width: 9ch; }
+  .fi :global(.fi-line) { margin-top: 28px; max-width: 34ch; font-size: var(--lead); }
+</style>

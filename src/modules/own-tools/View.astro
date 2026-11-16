@@ -1,0 +1,50 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import Icon from "../../components/Icon.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields> }
+const { content: c } = Astro.props;
+const F = mod.fields;
+const B = F.first.fields;
+const blocks = [c.first, c.second];
+---
+<section class="tools">
+  <div class="wrap">
+    <T v={c.heading} f={F.heading} as="h2" />
+    <T v={c.line} f={F.line} class="tools-line" />
+    {blocks.map((b, i) => (
+      <div class:list={["case", i % 2 === 1 && "case-flip"]}>
+        <div class="case-img"><Img v={b.image} f={B.image} sizes="(max-width: 900px) 92vw, 640px" /></div>
+        <div class="case-text">
+          <T v={b.name} f={B.name} as="h3" class="case-name" />
+          <T v={b.headline} f={B.headline} as="p" class="case-headline" />
+          <T v={b.text} f={B.text} class="case-body" />
+          {b.stats.length > 0 && (
+            <ul class="stats">{b.stats.map((s) => <li><Icon name={s.icon} size={36} /><span>{s.label.value}</span></li>)}</ul>
+          )}
+          {b.url && <a class="btn btn-primary" href={b.url} {...(b.url.startsWith("http") ? { target: "_blank", rel: "noopener" } : {})}>{b.button.value}</a>}
+        </div>
+      </div>
+    ))}
+  </div>
+</section>
+<style>
+  .tools { background: var(--section); padding: var(--section-y) 0; }
+  .tools :global(.tools-line) { margin-top: 18px; color: var(--muted); }
+  .case { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 64px; align-items: center; margin-top: var(--space-9); }
+  .case-flip .case-img { order: 2; }
+  .case-img :global(.img-slot) { box-shadow: var(--shadow-object); background: color-mix(in srgb, var(--hairline) 70%, var(--section)); }
+  .case-text :global(.case-name) { font-size: var(--size-l); font-weight: 800; }
+  .case-text :global(.case-headline) { margin-top: 10px; font-size: var(--size-xl); max-width: 14ch; }
+  .case-text :global(.case-body) { margin-top: 18px; color: var(--muted); }
+  .stats { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 24px; }
+  .stats li { display: flex; align-items: center; gap: 12px; font-size: var(--size-s); line-height: 1.35; max-width: 16ch; }
+  .stats :global(.icon) { flex: none; }
+  .case-text .btn { margin-top: 28px; }
+  @media (max-width: 900px) {
+    .case { grid-template-columns: 1fr; gap: 32px; margin-top: var(--space-8); }
+    .case-flip .case-img { order: 0; }
+  }
+</style>

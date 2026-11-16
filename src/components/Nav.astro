@@ -1,0 +1,54 @@
+---
+/** Floating pill nav (02-design-system Components). Mobile: logo + menu button opening a full-screen popover (no JS). */
+import type { SiteSettings } from "../core/settings";
+import Icon from "./Icon.astro";
+interface Props { site: SiteSettings["site"]; active?: string }
+const { site, active } = Astro.props;
+const links = [
+  { href: "/projects", label: site.navProjects.value, id: "projects" },
+  { href: "/failures", label: site.navFailures.value, id: "failures" },
+  { href: "/devlog", label: site.navDevlog.value, id: "devlog" },
+  { href: "/about", label: site.navAbout.value, id: "about" },
+  { href: "#contact", label: site.navContact.value, id: "contact" },
+];
+---
+<header class="nav">
+  <nav aria-label={site.navLabel.value} class="nav-pill">
+    <a href="/" class="nav-logo" aria-current={active === "home" ? "page" : undefined}><span class="nav-mark" aria-hidden="true"></span>{site.logo.value}</a>
+    <ul class="nav-links">
+      {links.map((l) => <li><a href={l.href} aria-current={active === l.id ? "page" : undefined}>{l.label}</a></li>)}
+    </ul>
+    <button class="nav-menu-btn" popovertarget="nav-sheet" aria-label={site.menuLabel.value}><Icon name="menu" /><span>{site.menuLabel.value}</span></button>
+  </nav>
+  <div id="nav-sheet" popover class="nav-sheet">
+    <button class="nav-close" popovertarget="nav-sheet" popovertargetaction="hide" aria-label={site.closeMenuLabel.value}><Icon name="close" size={28} /></button>
+    <ul>
+      <li><a href="/">{site.colHome.value}</a></li>
+      {links.map((l) => <li><a href={l.href} aria-current={active === l.id ? "page" : undefined}>{l.label}</a></li>)}
+    </ul>
+  </div>
+</header>
+<style>
+  .nav { position: absolute; inset: 0 0 auto 0; z-index: 50; display: flex; justify-content: center; padding: 22px var(--gutter) 0; pointer-events: none; }
+  .nav-pill { pointer-events: auto; display: flex; align-items: center; gap: 34px; padding: 0 12px 0 26px; min-height: 54px; background: var(--white); color: var(--black); border-radius: var(--pill); box-shadow: var(--shadow-nav); font-family: var(--font-display); font-size: 0.9375rem; font-weight: 500; }
+  .nav a { text-decoration: none; }
+  .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; }
+  .nav-mark { width: 14px; height: 14px; background: var(--sun); flex: none; }
+  .nav-links { display: flex; gap: 6px; }
+  .nav-links a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; white-space: nowrap; text-underline-offset: 6px; }
+  .nav-links a:hover, .nav-links a[aria-current="page"] { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; }
+  .nav-links li:last-child a { background: var(--black); color: var(--white); border-radius: var(--pill); padding: 0 18px; margin-left: 4px; }
+  .nav-links li:last-child a:hover { background: var(--muted); text-decoration: none; }
+  .nav-menu-btn { display: none; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 0 14px; border: 0; background: var(--black); color: var(--white); border-radius: var(--pill); font-family: var(--font-display); font-weight: 700; cursor: pointer; }
+  .nav-sheet { inset: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; margin: 0; border: 0; padding: 88px var(--gutter) 40px; background: var(--black); color: var(--white); }
+  .nav-sheet ul { display: flex; flex-direction: column; gap: 4px; }
+  .nav-sheet a { display: block; font-family: var(--font-display); font-weight: 900; font-size: clamp(2.5rem, 12vw, 4rem); line-height: 1.05; letter-spacing: var(--track-display); padding: 6px 0; text-decoration: none; }
+  .nav-sheet a[aria-current="page"] { color: var(--sun); }
+  .nav-close { position: absolute; top: 22px; right: var(--gutter); width: 48px; height: 48px; display: grid; place-items: center; background: transparent; border: 1.5px solid var(--white); color: var(--white); border-radius: var(--pill); cursor: pointer; }
+  @media (max-width: 860px) {
+    .nav { justify-content: stretch; padding-top: 14px; }
+    .nav-pill { width: 100%; justify-content: space-between; padding: 0 6px 0 20px; }
+    .nav-links { display: none; }
+    .nav-menu-btn { display: inline-flex; }
+  }
+</style>

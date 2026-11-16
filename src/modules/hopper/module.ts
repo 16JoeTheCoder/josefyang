@@ -1,0 +1,39 @@
+import { defineModule } from "../../core/module";
+import { f, t } from "../../core/fields";
+
+export default defineModule({
+  id: "hopper",
+  name: "The hopper",
+  version: 1,
+  description: "Failures gimmick: failed builds as tiles around a hopper. Drag one in, tap it, or focus it and press Feed it in; the hopper prints a slip. A plain list of slips with reduced motion.",
+  island: true,
+  pages: ["failures"],
+  fields: {
+    feedButton: f.button("Feed button"),
+    stageLabel: f.label("Screen-reader label", { max: 80, maxLines: 1 }),
+    printoutFor: f.label("Slip: 'Printout for'", { max: 24, maxLines: 1 }),
+    hardware: f.label("Kind: hardware", { max: 16, maxLines: 1 }),
+    software: f.label("Kind: software", { max: 16, maxLines: 1 }),
+    abandoned: f.label("Word before the date (e.g. 'abandoned')", { max: 20, maxLines: 1 }),
+    brokeHeading: f.subheading("What broke heading", { max: 24, maxLines: 1 }),
+    learnedHeading: f.subheading("What it taught me heading", { max: 24, maxLines: 1 }),
+    lessonLink: f.label("Lesson link text", { max: 32, maxLines: 1 }),
+    buildLink: f.label("Build page link text", { max: 32, maxLines: 1 }),
+    waiting: f.body("Slip text before anything is fed", { max: 100, maxLines: 2 }),
+    emptyNote: f.body("Shown when nothing has failed yet", { max: 140, maxLines: 3 }),
+  },
+  defaults: {
+    feedButton: t("Feed it in"),
+    stageLabel: t("Failed builds around the hopper. Choose one to print its slip."),
+    printoutFor: t("Printout for"),
+    hardware: t("Hardware"),
+    software: t("Software"),
+    abandoned: t("abandoned"),
+    brokeHeading: t("What broke"),
+    learnedHeading: t("What it taught me"),
+    lessonLink: t("See where the lesson went"),
+    buildLink: t("Open the build page"),
+    waiting: t("Nothing printed yet. Feed a build into the hopper."),
+    emptyNote: t("Nothing has broken badly enough to make this page yet. Give it time."),
+  },
+});

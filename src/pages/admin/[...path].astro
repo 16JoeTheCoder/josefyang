@@ -1,0 +1,19 @@
+---
+/** Mounts the Preact admin. Access-protected by the middleware (and Cloudflare Access at the edge). */
+import "../../styles/tokens.css";
+import App from "../../admin/App";
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Admin, Josef Yang</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <style is:global>*,*::before,*::after{box-sizing:border-box}body{margin:0}ul,ol{list-style:none;margin:0;padding:0}</style>
+  </head>
+  <body>
+    <App client:only="preact" />
+  </body>
+</html>

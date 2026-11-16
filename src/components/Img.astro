@@ -1,0 +1,62 @@
+---
+/** One image slot: fixed ratio, Fill / Fit / Object modes, designed empty state (05 §2, architecture §5.5 #2a). */
+import { env } from "cloudflare:workers";
+import type { ImageField, ImageValue } from "../core/fields";
+import { fallbackSrc, mediaBase, srcset } from "../core/media";
+import Icon from "./Icon.astro";
+interface Props {
+  v: ImageValue | null | undefined;
+  f: Pick<ImageField, "ratio" | "empty">;
+  sizes?: string;
+  eager?: boolean;
+  class?: string;
+  /** Override the slot ratio (e.g. per breakpoint via CSS var). */
+  ratio?: string;
+  grey?: boolean;
+  emptyLabel?: boolean;
+}
+const { v, f, sizes = "100vw", eager = false, class: cls = "", ratio, grey = false, emptyLabel = true } = Astro.props;
+const base = mediaBase(env.MEDIA_BASE_URL);
+const has = !!(v && v.mediaId && v.key);
+const mode = v?.mode ?? "fill";
+const objectFallback = mode === "object" && v?.transparent === false;
+const style = [
+  `--ratio:${ratio ?? f.ratio}`,
+  has ? `--fx:${(v!.focal.x * 100).toFixed(1)}%;--fy:${(v!.focal.y * 100).toFixed(1)}%;--zoom:${v!.zoom}` : "",
+].join(";");
+---
+{has ? (
+  <div class:list={["img-slot", `img-${objectFallback ? "fill" : mode}`, grey && "img-grey", cls]} style={style}>
+    <img
+      src={fallbackSrc(base, v!)}
+      srcset={srcset(base, v!) || undefined}
+      sizes={sizes}
+      alt={v!.alt}
+      width={v!.w}
+      height={v!.h}
+      loading={eager ? "eager" : "lazy"}
+      fetchpriority={eager ? "high" : undefined}
+      decoding="async"
+    />
+  </div>
+) : (
+  <div class:list={["img-slot", "img-empty", `img-${mode}-empty`, cls]} style={style} role="img" aria-label={f.empty}>
+    <Icon name="image" size={36} />
+    {emptyLabel && <span>{f.empty}</span>}
+  </div>
+)}
+<style is:global>
+  .img-slot { position: relative; aspect-ratio: var(--ratio); width: 100%; overflow: hidden; border-radius: var(--radius-m); }
+  .img-slot img { width: 100%; height: 100%; }
+  .img-fill img { object-fit: cover; object-position: var(--fx) var(--fy); transform: scale(var(--zoom)); transform-origin: var(--fx) var(--fy); }
+  .img-fit { background: var(--tile); }
+  .img-fit img { object-fit: contain; }
+  .img-object { overflow: visible; border-radius: 0; }
+  .img-object img { object-fit: contain; }
+  .img-grey img { filter: grayscale(1) contrast(1.05); }
+  .img-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    background: var(--tile); color: var(--tile-ink); text-align: center; padding: 16px;
+    font-family: var(--font-body); font-size: var(--size-xs); line-height: 1.4; text-decoration: none;
+  }
+</style>

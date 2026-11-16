@@ -1,0 +1,32 @@
+---
+import T from "../../components/T.astro";
+import Icon from "../../components/Icon.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields> }
+const { content: c } = Astro.props;
+const F = mod.fields;
+---
+<section class="me">
+  <div class="wrap">
+    <T v={c.heading} f={F.heading} as="h2" class="me-title" />
+    <ul class="me-grid">
+      {c.items.map((it) => (
+        <li>
+          <Icon name={it.icon} size={30} />
+          <T v={it.title} f={F.items.of.title} as="h3" />
+          <T v={it.text} f={F.items.of.text} class="me-text" />
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+<style>
+  .me { background: var(--white); padding: var(--section-y) 0; }
+  .me :global(.me-title) { max-width: 13ch; }
+  .me-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 48px; row-gap: 64px; margin-top: var(--space-8); }
+  .me-grid li > :global(h3) { margin-top: 20px; }
+  .me-grid :global(.me-text) { margin-top: 10px; color: var(--muted); }
+  @media (max-width: 1000px) { .me-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 620px) { .me-grid { grid-template-columns: 1fr; row-gap: 40px; } }
+</style>

@@ -1,0 +1,33 @@
+name: Lighthouse
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - name: Local D1 with seed data
+        env: { CI: "1" }
+        run: |
+          npx wrangler d1 migrations apply josefyang-db --local
+          npx wrangler d1 execute josefyang-db --local --file=seed/content.sql
+          npx wrangler d1 execute josefyang-db --local --file=seed/dev-placeholders.sql
+      - name: Serve the built Worker
+        run: |
+          nohup npx wrangler dev -c dist/server/wrangler.json --port 8787 --persist-to .wrangler/state --var CACHE_PAGES:0 > wrangler.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8787/ >/dev/null && break; sleep 2; done
+      - name: Lighthouse budgets (architecture §8.5)
+        run: |
+          npx -y @lhci/cli@0.14 autorun \
+            --collect.url=http://localhost:8787/ --collect.url=http://localhost:8787/projects --collect.url=http://localhost:8787/builds/chronos \
+            --collect.numberOfRuns=1 \
+            --assert.assertions.categories:performance="error;minScore=0.9" \
+            --assert.assertions.categories:accessibility="error;minScore=0.95" \
+            --assert.assertions.cumulative-layout-shift="error;maxNumericValue=0.05" \
+            --upload.target=temporary-public-storage

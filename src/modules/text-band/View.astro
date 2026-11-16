@@ -1,0 +1,23 @@
+---
+import T from "../../components/T.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields> }
+const { content: c } = Astro.props;
+const F = mod.fields;
+---
+<section class="tb">
+  <div class="wrap tb-grid">
+    <T v={c.heading} f={F.heading} as="h2" class="tb-title" />
+    <div class="tb-text">{c.paragraphs.map((p, i) => <T v={p.text} f={F.paragraphs.of.text} class={i === c.paragraphs.length - 1 ? "tb-last" : ""} />)}</div>
+  </div>
+</section>
+<style>
+  .tb { background: var(--black); color: var(--white); padding: var(--section-y) 0; }
+  .tb-grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 64px; align-items: center; }
+  .tb :global(.tb-title) { font-size: var(--size-xxl); line-height: 0.9; }
+  .tb-text { display: grid; gap: 20px; }
+  .tb-text :global(.r-body) { color: var(--muted-dark); }
+  .tb-text :global(.tb-last) { color: var(--white); }
+  @media (max-width: 860px) { .tb-grid { grid-template-columns: 1fr; gap: 32px; } }
+</style>

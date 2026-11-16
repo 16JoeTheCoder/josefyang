@@ -1,0 +1,53 @@
+---
+import "../styles/base.css";
+import { ClientRouter } from "astro:transitions";
+import { env } from "cloudflare:workers";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import type { SiteSettings } from "../core/settings";
+import { fallbackSrc, mediaBase } from "../core/media";
+interface Props { settings: SiteSettings; title?: string; description?: string; active?: string; ogImage?: string }
+const { settings, title, description, active } = Astro.props;
+const seo = settings.seo;
+const fullTitle = title ? `${title}, ${seo.title.value}` : seo.title.value;
+const desc = description || seo.description.value;
+const og = settings.seo.ogImage.mediaId ? new URL(fallbackSrc(mediaBase(env.MEDIA_BASE_URL), settings.seo.ogImage), Astro.url).href : undefined;
+const beacon = Astro.locals.mode === "published" && env.CF_ANALYTICS_TOKEN
+  ? JSON.stringify({ token: env.CF_ANALYTICS_TOKEN, spa: true }) : null;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={desc} />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site).href} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={desc} />
+    <meta property="og:type" content="website" />
+    {og && <meta property="og:image" content={og} />}
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin />
+    {Astro.locals.mode === "draft" && <meta name="robots" content="noindex" />}
+    <script is:inline>document.documentElement.classList.add("js");document.addEventListener("astro:after-swap",()=>document.documentElement.classList.add("js"));</script>
+    <ClientRouter fallback="swap" />
+    {beacon && <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={beacon}></script>}
+  </head>
+  <body>
+    <a class="skip-link" href="#main">{settings.site.skipLink.value}</a>
+    <Nav site={settings.site} active={active} />
+    <main id="main" tabindex="-1">
+      <slot />
+    </main>
+    <Footer settings={settings} />
+    <script>
+      // Move focus to the new page's main heading after a router navigation (architecture §16).
+      document.addEventListener("astro:after-swap", () => {
+        const h = document.querySelector<HTMLElement>("main h1");
+        if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+---
+import { env } from "cloudflare:workers";
+import Base from "../layouts/Base.astro";
+import { loadPageData } from "../core/db";
+import { settingsDefaults } from "../core/settings";
+// A 404 must stay a 404 even if the database is unreachable.
+const data = await loadPageData(env.DB, "published").then((r) => r.data).catch(() => ({ settings: settingsDefaults }));
+Astro.response.status = 404;
+---
+<Base settings={data.settings} title="Not found">
+  <section class="nf ground-granite">
+    <div class="wrap">
+      <h1 class="r-giant">{data.settings.site.notFoundTitle.value}</h1>
+      <p class="r-body">{data.settings.site.notFoundText.value}</p>
+      <a class="btn btn-primary" href="/projects">{data.settings.site.footerProjectsButton.value}</a>
+    </div>
+  </section>
+</Base>
+<style>
+  .nf { padding: calc(var(--nav-h) + 120px) 0 var(--section-y); min-height: 70svh; }
+  .nf p { margin: 24px 0 32px; }
+</style>
