@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Failures — desktop</title>
+</head>
+<body>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&amp;family=Zen+Kaku+Gothic+New:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F1F1EF}
+a{color:inherit;text-underline-offset:5px;text-decoration-thickness:1px}
+a:focus-visible,button:focus-visible{outline:2px solid #F26B1D;outline-offset:4px}
+::selection{background:#F26B1D;color:#000}
+.wrap{max-width:1360px;margin:0 auto;padding:0 40px}
+.disp{margin:0;font-family:'Archivo',sans-serif;font-weight:900;font-stretch:72%;letter-spacing:-.03em;line-height:.88}
+.body{margin:0;font-family:'Zen Kaku Gothic New',sans-serif;font-size:18px;line-height:1.75}
+.tile{position:absolute;width:210px;background:#FFFFFF;padding:12px;box-shadow:0 18px 30px -16px rgba(0,0,0,.45);font-family:'Archivo',sans-serif}
+.tile img{width:100%;display:block;mix-blend-mode:multiply;filter:grayscale(1)}
+.tile p{margin:10px 0 0;font-weight:700;font-size:15px}
+.lr{display:grid;grid-template-columns:minmax(0,1fr) 160px 200px;gap:24px;padding:22px 0;border-top:1px solid #000;align-items:baseline}
+</style>
+<div style="font-family: 'Archivo', sans-serif; color: #000; background: #F1F1EF; position: relative">
+<svg aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none"><filter id="gf"><feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="2" seed="3"></feTurbulence><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0"></feColorMatrix></filter><rect width="100%" height="100%" filter="url(#gf)"></rect></svg>
+
+<header class="wrap" style="padding-top: 28px; padding-bottom: 28px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap">
+<a href="#t" style="text-decoration: none; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px"><span style="width: 22px; height: 22px; background: #F26B1D" aria-hidden="true"></span>Josef Yang</a>
+<nav aria-label="Main" style="display: flex; gap: 36px; font-size: 15px"><a href="#t" style="text-decoration: none">Projects</a><a href="#t" style="text-decoration: underline; text-decoration-color: #F26B1D" aria-current="page">Failures</a><a href="#t" style="text-decoration: none">About</a></nav>
+</header>
+
+<section id="t" class="wrap" style="padding-top: 72px; padding-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end; gap: 40px; flex-wrap: wrap">
+<h1 class="disp" style="font-stretch: 62%; font-size: clamp(110px, 15vw, 220px); line-height: 0.82">Things<br>that broke</h1>
+<p class="body" style="max-width: 400px; font-size: 20px">Feed a failed build into the hopper. It prints what went wrong and what I took from it.</p>
+</section>
+
+<section style="position: relative; height: 900px; max-width: 1440px; margin: 0 auto">
+<div class="tile" style="left: 80px; top: 120px; transform: rotate(-7deg)"><img src="assets/gearbox.jpg" alt="Gearbox, placeholder drawing"><p>[Failed build A]</p></div>
+<div class="tile" style="left: 150px; top: 470px; transform: rotate(5deg)"><img src="assets/solar.jpg" alt="Solar bench kit, placeholder drawing"><p>[Failed build B]</p></div>
+<div class="tile" style="right: 90px; top: 380px; transform: rotate(-4deg)"><img src="assets/turbine.jpg" alt="Turbine rig, placeholder drawing"><p>[Failed build C]</p></div>
+<div class="tile" style="left: calc(50% - 40px); top: 10px; transform: rotate(14deg); outline: 3px solid #F26B1D; z-index: 2"><img src="assets/conveyor.jpg" alt="Conveyor, placeholder drawing, being dragged into the hopper"><p>[Failed build D]</p></div>
+<svg viewBox="0 0 440 560" role="img" aria-label="A hopper with a printout coming out of the bottom" style="position: absolute; left: calc(50% - 220px); top: 230px; width: 440px">
+<path d="M10 20 H430 L290 240 V300 H150 V240 Z" fill="#000"></path>
+<path d="M10 20 H430" stroke="#F26B1D" stroke-width="8"></path>
+<rect x="170" y="300" width="100" height="16" fill="#2b2a27"></rect>
+<rect x="160" y="316" width="120" height="244" fill="#FFFFFF"></rect>
+<g fill="#000"><rect x="176" y="336" width="70" height="6"></rect><rect x="176" y="352" width="88" height="4"></rect><rect x="176" y="362" width="80" height="4"></rect><rect x="176" y="372" width="84" height="4"></rect><rect x="176" y="394" width="60" height="6"></rect><rect x="176" y="410" width="88" height="4"></rect><rect x="176" y="420" width="72" height="4"></rect></g>
+</svg>
+<button type="button" style="position: absolute; left: calc(50% + 250px); top: 300px; height: 52px; padding: 0 26px; border: 2px solid #000; background: transparent; font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 16px; cursor: pointer">Feed it in</button>
+</section>
+
+<section style="background: #FFFFFF">
+<div class="wrap" style="padding-top: 100px; padding-bottom: 100px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 72px">
+<div>
+<p style="margin: 0; font-size: 15px">Printout for</p>
+<h2 class="disp" style="font-size: 96px; margin-top: 10px">[Failed build D]</h2>
+<p style="margin: 18px 0 0; font-size: 15px">Hardware, abandoned [month year]</p>
+</div>
+<div>
+<h3 style="margin: 0; font-size: 26px; font-weight: 800">What broke</h3>
+<p class="body" style="margin-top: 10px">[The honest account: what failed, and why.]</p>
+<h3 style="margin: 36px 0 0; font-size: 26px; font-weight: 800">What it taught me</h3>
+<p class="body" style="margin-top: 10px">[The lesson, and the build it fed into.]</p>
+<a href="#t" style="display: inline-block; margin-top: 24px; font-weight: 600; font-size: 17px; text-decoration-color: #F26B1D">See where the lesson went</a>
+</div>
+</div>
+</section>
+
+<section class="wrap" style="padding-top: 100px; padding-bottom: 140px">
+<h2 class="disp" style="font-size: 72px; margin-bottom: 40px">Every failure</h2>
+<div class="lr"><span style="font-size: 26px; font-weight: 800">[Failed build A]</span><span class="body" style="font-size: 15px">Hardware</span><span class="body" style="font-size: 15px">[month year]</span></div>
+<div class="lr"><span style="font-size: 26px; font-weight: 800">[Failed build B]</span><span class="body" style="font-size: 15px">Hardware</span><span class="body" style="font-size: 15px">[month year]</span></div>
+<div class="lr"><span style="font-size: 26px; font-weight: 800">[Failed build C]</span><span class="body" style="font-size: 15px">Software</span><span class="body" style="font-size: 15px">[month year]</span></div>
+<div class="lr" style="border-bottom: 1px solid #000"><span style="font-size: 26px; font-weight: 800">[Failed build D]</span><span class="body" style="font-size: 15px">Hardware</span><span class="body" style="font-size: 15px">[month year]</span></div>
+</section>
+</div>
+</body>
+</html>
