@@ -111,7 +111,7 @@ export const noImage = (mode: ImageMode = "fill", alt = ""): ImageValue =>
 /* ---------- Zod ---------- */
 
 const urlSchema = z.string().max(500).refine(
-  (v) => v === "" || /^(https?:\/\/|mailto:|\/)/.test(v),
+  (v) => v === "" || /^(https?:\/\/|mailto:|\/(?![\/\\]))/.test(v),
   "Must start with https://, mailto: or /",
 );
 

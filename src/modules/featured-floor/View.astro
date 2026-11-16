@@ -85,7 +85,7 @@ const skipId = `${sectionId}-after`;
   .stop { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 64px; align-items: center; }
   .floor-watch, .floor-hud { display: none; }
 
-  .obj { display: block; border-radius: var(--radius-l); transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out); outline: var(--outline-object) solid transparent; }
+  .obj { display: block; text-decoration: none; border-radius: var(--radius-l); transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out); outline: var(--outline-object) solid transparent; }
   .obj :global(.img-slot) { border-radius: var(--radius-l); }
   .obj :global(.img-empty), .obj :global(.img-fill), .obj :global(.img-fit) { box-shadow: var(--shadow-object); background: color-mix(in srgb, var(--hairline) 80%, var(--granite)); }
   .obj :global(.img-object img) { filter: drop-shadow(0 3px 3px rgb(0 0 0 / 0.12)) drop-shadow(0 30px 28px rgb(0 0 0 / 0.28)); transition: filter var(--dur-fast) var(--ease-out); }

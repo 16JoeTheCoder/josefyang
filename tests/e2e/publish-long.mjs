@@ -1,0 +1,13 @@
+const B = "http://localhost:4321";
+const call = async (m, p, body) => { const r = await fetch(B + p, { method: m, headers: { Origin: B, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }); const t = await r.text(); let j; try { j = JSON.parse(t) } catch { j = t.slice(0, 200) } return [r.status, j]; };
+const show = (n, r) => console.log(n, r[0], JSON.stringify(r[1]).slice(0, 300));
+const ab = (await call("GET", "/api/admin/pages/projects"))[1];
+const a2 = JSON.parse(JSON.stringify(ab.sections));
+const c = a2[0].content; const k = Object.keys(c).find(k => c[k] && typeof c[k].value === "string");
+console.log("field", a2[0].moduleId, k, c[k].value.length);
+c[k].value = "Y".repeat(390);
+const r = await call("PATCH", "/api/admin/pages/projects", { sections: a2, updatedAt: ab.updatedAt }); show("save 390", r);
+show("publish", await call("POST", "/api/admin/pages/projects/publish"));
+const ab2 = (await call("GET", "/api/admin/pages/projects"))[1];
+show("restore", await call("PATCH", "/api/admin/pages/projects", { sections: ab.sections, updatedAt: ab2.updatedAt }));
+show("publish ok", await call("POST", "/api/admin/pages/projects/publish"));

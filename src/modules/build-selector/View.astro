@@ -69,7 +69,7 @@ const failed = data.settings.site.failedPill.value;
   .sel-track:focus-visible .card[aria-selected="true"] .card-img { outline: 2px solid var(--sun); outline-offset: 6px; }
   .card { flex: 0 0 56vw; scroll-snap-align: center; transition: opacity 500ms var(--ease-out), transform 600ms var(--ease-out); }
   .card[aria-selected="false"] { opacity: 0.35; transform: scale(0.82); }
-  .card-img { position: relative; display: block; border-radius: var(--radius-m); }
+  .card-img { position: relative; display: block; border-radius: var(--radius-m); text-decoration: none; }
   .card-img :global(.img-empty) { background: var(--granite); }
   .card[aria-selected="true"] .card-img :global(.img-slot) { box-shadow: 0 40px 80px -30px rgb(255 255 255 / 0.18); }
   .card-failed { position: absolute; top: 14px; left: 14px; background: var(--black); border-color: var(--muted-dark); }

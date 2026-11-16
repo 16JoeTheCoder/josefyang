@@ -89,7 +89,7 @@ export function mountHopper(root: HTMLElement): Unmount | void {
   };
   const onFocus = (e: FocusEvent) => {
     const t = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-tile]");
-    if (t) select(t);
+    if (t && t.matches(":focus-visible")) select(t); // keyboard focus only: a pointer press that ends in a failed drag keeps the selection
   };
   const onFeed = () => feed(selected);
 

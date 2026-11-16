@@ -23,6 +23,7 @@ export function mountSelector(root: HTMLElement): Unmount | void {
   let raf = 0;
   let locking = false;
 
+  let touched = false; // the hash only changes once the visitor moves or arrived with a valid #slug
   const set = (i: number) => {
     if (i === current) return;
     current = i;
@@ -32,7 +33,8 @@ export function mountSelector(root: HTMLElement): Unmount | void {
     if (lock) lock.href = `/builds/${slug}`;
     if (prev) prev.disabled = i === 0;
     if (next) next.disabled = i === cards.length - 1;
-    history.replaceState(history.state, "", `#${slug}`);
+    if (touched) history.replaceState(history.state, "", `#${slug}`);
+    touched = true;
   };
 
   const centre = (i: number, behavior: ScrollBehavior) => {
@@ -92,7 +94,9 @@ export function mountSelector(root: HTMLElement): Unmount | void {
   };
 
   const fromHash = decodeURIComponent(location.hash.slice(1));
-  const start = Math.max(0, cards.findIndex((c) => c.dataset.slug === fromHash));
+  const found = cards.findIndex((c) => c.dataset.slug === fromHash);
+  const start = Math.max(0, found);
+  touched = false;
   centre(start, "instant");
   set(start);
 

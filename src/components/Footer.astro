@@ -59,7 +59,7 @@ const elsewhere = [
 <style>
   .footer { background: var(--black); color: var(--white); padding: var(--section-y) 0 40px; }
   .footer-lead { font-size: var(--lead); color: var(--muted-dark); }
-  .footer-email { display: block; margin-top: 14px; font-family: var(--font-display); font-weight: 900; font-size: var(--size-email); line-height: 1; letter-spacing: var(--track-tight); text-decoration: none; overflow-wrap: anywhere; }
+  .footer-email { display: block; margin-top: 14px; font-family: var(--font-display); font-weight: 900; font-size: min(var(--size-email), calc((100vw - 2 * var(--gutter)) / 11.6)); line-height: 1; letter-spacing: var(--track-tight); text-decoration: none; overflow-wrap: anywhere; }
   .footer-email:hover { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 0.06em; text-underline-offset: 0.12em; }
   .footer-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 44px; }
   .footer-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; margin-top: var(--space-9); padding-top: 48px; border-top: 1px solid var(--rule-dark); }

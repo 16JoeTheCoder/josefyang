@@ -16,9 +16,12 @@ function rng(seed: number) {
 }
 
 /** Direction of travel from one stop to the next: right, down-left, far right, down-left, up-right… */
-const DIRS: [number, number][] = [[1, 0.42], [-0.82, 0.9], [1.12, 0.28], [-0.5, 1], [0.95, -0.55], [-1, 0.6]];
-const STEP_X = 1240;
-const STEP_Y = 820;
+// Every move has a vertical part of at least 0.85 × STEP_Y, so two stops can never overlap,
+// while the neighbour's object still peeks in at the top or bottom edge. Leftward moves stay short
+// because the object sits on the left half of each stop.
+const DIRS: [number, number][] = [[1, 0.88], [-0.55, 0.9], [1.05, 0.86], [-0.4, 0.9], [0.9, -0.88], [-0.6, 0.88]];
+const STEP_X = 980;
+const STEP_Y = 620;
 
 export function scatter(items: { slug: string; nudgeX: number; nudgeY: number }[]): Stop[] {
   const out: Stop[] = [];
@@ -29,7 +32,7 @@ export function scatter(items: { slug: string; nudgeX: number; nudgeY: number }[
       const r = rng(hash(it.slug));
       const [dx, dy] = DIRS[(i - 1) % DIRS.length]!;
       x += dx * STEP_X * (0.92 + r() * 0.16);
-      y += dy * STEP_Y * (0.92 + r() * 0.16);
+      y += dy * STEP_Y * (1 + r() * 0.08);
     }
     out.push({ x: Math.round(x + it.nudgeX), y: Math.round(y + it.nudgeY) });
   });

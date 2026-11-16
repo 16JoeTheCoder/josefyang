@@ -50,10 +50,9 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     if (path.startsWith("/api/admin") && !["GET", "HEAD"].includes(ctx.request.method)) {
       const origin = ctx.request.headers.get("Origin");
       const type = ctx.request.headers.get("Content-Type") ?? "";
-      if (origin !== url.origin) return new Response(JSON.stringify({ error: "bad origin" }), { status: 403, headers: { "Content-Type": "application/json" } });
-      if (ctx.request.method !== "DELETE" && !type.startsWith("application/json") && !type.startsWith("multipart/form-data")) {
-        return new Response(JSON.stringify({ error: "unsupported content type" }), { status: 415, headers: { "Content-Type": "application/json" } });
-      }
+      const deny = (status: number, error: string) => securityHeaders(new Response(JSON.stringify({ error }), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } }), path);
+      if (origin !== url.origin) return deny(403, "bad origin");
+      if (ctx.request.method !== "DELETE" && !type.startsWith("application/json") && !type.startsWith("multipart/form-data")) return deny(415, "unsupported content type");
     }
     if (path.startsWith("/preview")) {
       ctx.locals.mode = "draft";
