@@ -30,7 +30,8 @@ export function isLocalHost(url: URL): boolean {
 /** Returns the verified admin email, or null. */
 export async function verifyAdmin(request: Request, env: AuthEnv): Promise<string | null> {
   const url = new URL(request.url);
-  if (env.DEV_ADMIN_BYPASS === "1" && isLocalHost(url)) return env.ADMIN_EMAIL;
+  // Local development only: needs the flag, a localhost URL, and no Access config (production always has CF_ACCESS_AUD).
+  if (env.DEV_ADMIN_BYPASS === "1" && isLocalHost(url) && !env.CF_ACCESS_AUD) return env.ADMIN_EMAIL;
   const token = request.headers.get("Cf-Access-Jwt-Assertion");
   if (!token || !env.CF_ACCESS_AUD || !env.CF_ACCESS_TEAM_DOMAIN) return null;
   const parts = token.split(".");
