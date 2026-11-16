@@ -1,0 +1,85 @@
+/* Design tokens (02-design-system.md). Modules use these only, never raw values. */
+@font-face {
+  font-family: "Archivo";
+  src: url("/fonts/archivo.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+@font-face { font-family: "Zen Kaku Gothic New"; src: url("/fonts/zen-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Zen Kaku Gothic New"; src: url("/fonts/zen-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+
+:root {
+  /* colour */
+  --white: #ffffff;
+  --granite: #f1f1ef;
+  --black: #000000;
+  --sun: #f26b1d;
+  --section: #f6f6f4;
+  --tile: #f4f4f2;
+  --hairline: #e6e6e3;
+  --muted: #4a4a47;
+  --muted-dark: #b8b8b4;
+  /* derived, for specific grounds */
+  --tile-ink: #5f5f5c;          /* empty-state label on --tile: 6.0:1 */
+  --rule-dark: #2a2a28;         /* dividers on black */
+  --pill-line: #d6d6d2;
+  --sun-tile: #f59a66;          /* empty tile on sun ground */
+  --sun-ink: #2b1203;           /* secondary text on sun: 9:1 */
+  /* floor objects (illustration colours, used only by the easter-egg objects) */
+  --obj-coffee: #b08560;
+  --obj-crema: #e9d7c2;
+  --obj-espresso: #2a1a12;
+  --obj-device: #111111;
+  --obj-screen: #1d1d1b;
+  --obj-strap: #2b2a27;
+  --obj-track: #444444;
+  --granite-tex: url("/granite.webp");
+  --granite-tex-fine: url("/granite-fine.webp");
+
+  /* type */
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Zen Kaku Gothic New", "Helvetica Neue", Arial, sans-serif;
+  --size-xs: 0.8125rem;                               /* 13 */
+  --size-s: 0.9375rem;                                /* 15 */
+  --size-m: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);  /* 16–18 */
+  --size-l: clamp(1.25rem, 1.1rem + 0.6vw, 1.625rem); /* 20–26 */
+  --size-xl: clamp(2rem, 1.4rem + 2.6vw, 4.5rem);     /* 32–72 */
+  --size-xxl: clamp(2.5rem, 1.5rem + 4.4vw, 6.5rem);  /* 40–104 */
+  --size-giant: clamp(3.5rem, 1.6rem + 8.2vw, 11rem); /* 56–176 */
+  --size-email: clamp(2.25rem, 0.5rem + 7.4vw, 8rem); /* footer email, up to 128 */
+  --lead: clamp(1.0625rem, 1rem + 0.3vw, 1.3125rem);  /* 17–21 */
+  --track-tight: -0.035em;
+  --track-display: -0.025em;
+  --measure: 66ch;
+
+  /* space */
+  --container: 1280px;
+  --gutter: 40px;
+  --section-y: clamp(72px, 4rem + 6vw, 140px);
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px;
+  --space-6: 32px; --space-7: 48px; --space-8: 64px; --space-9: 96px;
+
+  /* shape + depth */
+  --radius-s: 10px;
+  --radius-m: 16px;
+  --radius-l: 18px;
+  --pill: 999px;
+  --shadow-contact: 0 3px 4px rgb(0 0 0 / 0.07);
+  --shadow-drop: 0 40px 60px -26px rgb(0 0 0 / 0.35);
+  --shadow-object: var(--shadow-contact), var(--shadow-drop);
+  --shadow-lift: 0 6px 8px rgb(0 0 0 / 0.08), 0 60px 90px -30px rgb(0 0 0 / 0.42);
+  --shadow-nav: 0 10px 30px -12px rgb(0 0 0 / 0.25);
+  --shadow-soft: 0 6px 16px -10px rgb(0 0 0 / 0.3);
+  --outline-object: 8px;
+
+  /* motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 220ms;
+  --dur-pan: 820ms;
+
+  --nav-h: 64px;
+}
+@media (max-width: 720px) {
+  :root { --gutter: 20px; }
+}

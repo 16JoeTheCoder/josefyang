@@ -1,0 +1,31 @@
+{
+  "name": "josefyang",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "wrangler dev",
+    "check": "astro check",
+    "test": "vitest run",
+    "db:migrate:local": "wrangler d1 migrations apply josefyang-db --local",
+    "db:seed:local": "wrangler d1 execute josefyang-db --local --file=seed/content.sql && wrangler d1 execute josefyang-db --local --file=seed/dev-placeholders.sql"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^14.4.8",
+    "@astrojs/preact": "^6.1.6",
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource/zen-kaku-gothic-new": "^5.3.1",
+    "astro": "^7.4.12",
+    "gsap": "^3.15.1",
+    "preact": "^11.2.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@cloudflare/workers-types": "^5.20261116.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.163.0"
+  }
+}

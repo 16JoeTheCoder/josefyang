@@ -1,0 +1,17 @@
+---
+/** Per-section error boundary (architecture §11): a section that throws renders nothing; the page carries on. */
+import { env } from "cloudflare:workers";
+import { logHealth } from "./db";
+interface Props { page: string; sectionId: string; moduleId: string }
+const { page, sectionId, moduleId } = Astro.props;
+let html = "";
+try {
+  html = await Astro.slots.render("default");
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[boundary] ${page}/${sectionId} (${moduleId}): ${message}`);
+  Astro.locals.cfContext?.waitUntil(logHealth(env.DB, page, sectionId, moduleId, `render: ${message}`));
+  html = "";
+}
+---
+<Fragment set:html={html} />

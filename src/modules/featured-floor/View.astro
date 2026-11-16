@@ -1,0 +1,136 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import type { Content } from "../../core/fields";
+import { buildFields } from "../../core/build-fields";
+import type { PageData } from "../../core/types";
+import mod from "./module";
+import { scatter } from "./scatter";
+interface Props { content: Content<typeof mod.fields>; data: PageData; sectionId: string }
+const { content: c, data, sectionId } = Astro.props;
+const F = mod.fields;
+const BF = buildFields;
+const builds = data.builds
+  .filter((b) => b.meta.featured)
+  .sort((a, b) => a.meta.homeOrder - b.meta.homeOrder)
+  .slice(0, 6);
+const stops = scatter(builds.map((b) => ({ slug: b.slug, nudgeX: b.meta.floorNudgeX, nudgeY: b.meta.floorNudgeY })));
+const n = builds.length;
+const watch = n > 1 ? { x: Math.round((stops[0]!.x + stops[1]!.x) / 2 + 380), y: Math.round((stops[0]!.y + stops[1]!.y) / 2 + 300) } : null;
+const skipId = `${sectionId}-after`;
+---
+{n === 0 ? (
+  <section class="floor-empty ground-granite"><div class="wrap"><T v={c.emptyNote} f={F.emptyNote} /></div></section>
+) : (
+  <section class="floor ground-granite" data-floor style={`--n:${n}`} aria-label={c.stageLabel.value}>
+    <div class="floor-sticky" data-floor-stage tabindex="0" aria-roledescription="carousel" aria-label={c.stageLabel.value}>
+      <div class="floor-plane" data-floor-plane style={`--cx:${stops[0]!.x}px;--cy:${stops[0]!.y}px`}>
+        {builds.map((b, i) => (
+          <article
+            class:list={["stop", i === 0 && "is-current"]}
+            data-stop={i}
+            data-x={stops[i]!.x}
+            data-y={stops[i]!.y}
+            style={`--x:${stops[i]!.x}px;--y:${stops[i]!.y}px`}
+            aria-label={`${i + 1} of ${n}: ${b.meta.title.value}`}
+          >
+            <a class="obj" href={`/builds/${b.slug}`} tabindex="-1" aria-hidden="true">
+              <Img v={b.meta.floorImage} f={BF.floorImage} sizes="(max-width: 860px) 90vw, 560px" eager={i === 0} />
+            </a>
+            <div class="stop-text">
+              <p class="stop-kind">{b.meta.kind === "software" ? c.software.value : c.hardware.value}</p>
+              <T v={b.meta.title} f={BF.title} as="h2" class="stop-title" />
+              <T v={b.meta.summary} f={BF.summary} class="stop-summary" />
+              {b.meta.skills.length > 0 && <ul class="stop-skills">{b.meta.skills.map((s) => <li class="pill">{s.name.value}</li>)}</ul>}
+              <a class="btn btn-primary" href={`/builds/${b.slug}`}>{c.viewButton.value}<span class="sr-only">: {b.meta.title.value}</span></a>
+            </div>
+          </article>
+        ))}
+        {c.showWatch && watch && (
+          <svg class="floor-watch" style={`--x:${watch.x}px;--y:${watch.y}px`} viewBox="0 0 140 90" role="img" aria-label="A wristwatch on the floor" data-watch>
+            <rect x="0" y="34" width="44" height="22" rx="6" fill="var(--obj-strap)" />
+            <rect x="96" y="34" width="44" height="22" rx="6" fill="var(--obj-strap)" />
+            <circle cx="70" cy="45" r="32" fill="var(--black)" />
+            <circle cx="70" cy="45" r="26" fill="var(--white)" />
+            <path data-h d="M70 45 V28" stroke="var(--black)" stroke-width="3.5" stroke-linecap="round" />
+            <path data-m d="M70 45 V22" stroke="var(--black)" stroke-width="2.5" stroke-linecap="round" />
+            <path data-s d="M70 50 V21" stroke="var(--sun)" stroke-width="1.2" />
+          </svg>
+        )}
+      </div>
+      <div class="floor-hud">
+        <p class="floor-count" aria-live="polite"><strong data-floor-index>1</strong><span> / {n}</span></p>
+        <p class="sr-only">{c.keysHint.value}</p>
+        <a class="floor-skip" href={`#${skipId}`} data-floor-skip>{c.skipLabel.value}</a>
+      </div>
+    </div>
+  </section>
+)}
+<div id={skipId} tabindex="-1" class="floor-after"></div>
+
+<script>
+  import { onPage } from "../../core/island";
+  import { mountFloor } from "./island";
+  onPage("[data-floor]", mountFloor);
+</script>
+
+<style>
+  .floor-empty { padding: 48px 0 96px; color: var(--muted); }
+  .floor-after { height: 0; outline: none; }
+
+  /* Default (no JS, phones, reduced motion): a vertical list of the same build cards. */
+  .floor { position: relative; padding: 24px 0 var(--section-y); }
+  .floor-sticky { outline: none; }
+  .floor-plane { display: grid; gap: 72px; width: 100%; max-width: calc(var(--container) + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter); }
+  .stop { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 64px; align-items: center; }
+  .floor-watch, .floor-hud { display: none; }
+
+  .obj { display: block; border-radius: var(--radius-l); transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out); outline: var(--outline-object) solid transparent; }
+  .obj :global(.img-slot) { border-radius: var(--radius-l); }
+  .obj :global(.img-empty), .obj :global(.img-fill), .obj :global(.img-fit) { box-shadow: var(--shadow-object); background: color-mix(in srgb, var(--hairline) 80%, var(--granite)); }
+  .obj :global(.img-object img) { filter: drop-shadow(0 3px 3px rgb(0 0 0 / 0.12)) drop-shadow(0 30px 28px rgb(0 0 0 / 0.28)); transition: filter var(--dur-fast) var(--ease-out); }
+  .stop:has(.stop-text a:hover, .stop-text a:focus-visible) .obj,
+  .obj:hover { transform: translateY(-10px); }
+  .stop:has(.stop-text a:hover, .stop-text a:focus-visible) .obj:not(:has(.img-object)),
+  .obj:not(:has(.img-object)):hover { outline-color: var(--white); box-shadow: var(--shadow-lift); }
+  .stop:has(.stop-text a:hover, .stop-text a:focus-visible) .obj :global(.img-object img),
+  .obj:hover :global(.img-object img) {
+    filter: drop-shadow(8px 0 0 var(--white)) drop-shadow(-8px 0 0 var(--white)) drop-shadow(0 8px 0 var(--white)) drop-shadow(0 -8px 0 var(--white)) drop-shadow(0 60px 40px rgb(0 0 0 / 0.32));
+  }
+  .stop-kind { font-size: var(--size-s); color: var(--muted); }
+  .stop-text :global(.stop-title) { margin-top: 10px; font-size: var(--size-xl); line-height: 0.95; }
+  .stop-text :global(.stop-title[data-fit="1"]) { font-size: calc(var(--size-xl) * 0.82); }
+  .stop-text :global(.stop-title[data-fit="2"]) { font-size: var(--size-l); }
+  .stop-text :global(.stop-summary) { margin-top: 18px; color: var(--muted); max-width: 40ch; }
+  .stop-skills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .stop-skills .pill { background: rgb(255 255 255 / 0.6); }
+  .stop-text .btn { margin-top: 28px; }
+
+  @media (max-width: 860px) {
+    .floor-plane { gap: 56px; }
+    .stop { grid-template-columns: 1fr; gap: 24px; }
+  }
+
+  /* The pan: desktop with motion allowed and JS present. */
+  @media (min-width: 861px) and (prefers-reduced-motion: no-preference) {
+    :global(.js) .floor { height: calc(var(--n) * 100svh); padding: 0; }
+    :global(.js) .floor-sticky { position: sticky; top: 0; height: 100svh; overflow: hidden; }
+    :global(.js) .floor-plane {
+      position: absolute; left: 50%; top: 50%; width: 0; height: 0; padding: 0; display: block; max-width: none;
+      transform: translate3d(calc(var(--cx) * -1), calc(var(--cy) * -1), 0) scale(var(--s, 1));
+      will-change: transform;
+    }
+    :global(.js) .stop { position: absolute; left: var(--x); top: var(--y); width: min(1200px, 88vw); translate: -50% -50%; }
+    :global(.js) .stop-text { transition: opacity 500ms var(--ease-out), translate 700ms var(--ease-out); }
+    :global(.js) .stop:not(.is-current) .stop-text { opacity: 0; translate: 0 12px; pointer-events: none; }
+    :global(.js) .stop:not(.is-current) .obj { opacity: 0.92; }
+    :global(.js) .floor-watch { display: block; position: absolute; left: var(--x); top: var(--y); width: 140px; rotate: -20deg; filter: drop-shadow(0 3px 2px rgb(0 0 0 / 0.15)) drop-shadow(0 12px 12px rgb(0 0 0 / 0.2)); }
+    :global(.js) .floor-hud { display: flex; position: absolute; inset: auto var(--gutter) 28px var(--gutter); justify-content: space-between; align-items: end; pointer-events: none; }
+    :global(.js) .floor-hud a { pointer-events: auto; }
+    .floor-count { font-family: var(--font-display); font-size: var(--size-l); line-height: 1; font-variant-numeric: tabular-nums; }
+    .floor-count strong { font-weight: 900; font-size: 1.6em; }
+    .floor-count span { color: var(--muted); }
+    .floor-skip { font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 6px; min-height: 44px; display: inline-flex; align-items: center; }
+    .floor-sticky:focus-visible { outline: 2px solid var(--sun); outline-offset: -6px; }
+  }
+</style>

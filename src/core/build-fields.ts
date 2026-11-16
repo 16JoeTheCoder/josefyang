@@ -1,0 +1,57 @@
+/** Editable fields of a build (shared by Home floor, Projects selector, Failures and the build page). */
+import { f, t, noImage, type Content } from "./fields";
+
+export const buildFields = {
+  title: f.giant("Build name", { max: 40, maxLines: 2, fit: 22 }),
+  kind: f.select("Type", [{ value: "hardware", label: "Hardware" }, { value: "software", label: "Software" }]),
+  status: f.select("Status", [
+    { value: "in_progress", label: "In progress" },
+    { value: "bench", label: "On the bench now" },
+    { value: "finished", label: "Finished" },
+    { value: "failed", label: "Failed" },
+  ]),
+  featured: f.toggle("Featured on the Home floor"),
+  homeOrder: f.number("Home order (1 = first stop)", 1, 20),
+  summary: f.body("Summary (two sentences)", { max: 170, maxLines: 3, fit: 130 }),
+  year: f.label("Year shown in the selector", { max: 12, maxLines: 1 }),
+  built: f.label("Built (e.g. Oct to Nov 2026)", { max: 40, maxLines: 1 }),
+  madeWith: f.label("Made with", { max: 60, maxLines: 2 }),
+  startedOn: f.date("Started on (sorts the selector)"),
+  skills: f.list("Skills learnt or used", "Skill", { name: f.pill("Skill") }, 0, 5),
+  links: f.list("Links", "Link", { label: f.label("Link text", { max: 30, maxLines: 1 }), url: f.url("Link URL") }, 0, 4),
+  floorImage: f.image("Floor object (Home)", "4 / 3", ["object", "fill"], "Cut-out of the build, added in admin"),
+  selectorImage: f.image("Selector image (Projects)", "16 / 9", ["fill", "fit"], "Build image, added later"),
+  tileImage: f.image("Failure tile (Failures)", "1 / 1", ["object", "fill"], "Build photo, added later"),
+  floorNudgeX: f.number("Floor nudge sideways (px)", -400, 400, 10),
+  floorNudgeY: f.number("Floor nudge up/down (px)", -400, 400, 10),
+  whatBroke: f.body("What broke", { max: 700, maxLines: 12, multiline: true }),
+  whatLearned: f.body("What it taught me", { max: 700, maxLines: 12, multiline: true }),
+  failedOn: f.label("Abandoned (e.g. November 2026)", { max: 30, maxLines: 1 }),
+  lessonUrl: f.url("Where the lesson went (link)"),
+};
+
+export type BuildMeta = Content<typeof buildFields>;
+
+export const buildMetaDefaults = (title = "[Build name]"): BuildMeta => ({
+  title: t(title),
+  kind: "hardware",
+  status: "in_progress",
+  featured: false,
+  homeOrder: 1,
+  summary: t("[Two sentences: what it is and the question that started it.]"),
+  year: t("[year]"),
+  built: t("[start] to [end]"),
+  madeWith: t("[stack]"),
+  startedOn: "",
+  skills: [],
+  links: [],
+  floorImage: noImage("object"),
+  selectorImage: noImage("fill"),
+  tileImage: noImage("object"),
+  floorNudgeX: 0,
+  floorNudgeY: 0,
+  whatBroke: t("[The honest account: what failed, and why.]"),
+  whatLearned: t("[What it taught me.]"),
+  failedOn: t("[month year]"),
+  lessonUrl: "",
+});

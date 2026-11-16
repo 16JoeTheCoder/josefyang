@@ -1,0 +1,71 @@
+---
+/** Footer on every page (architecture §0.6). All copy and links come from Settings. */
+import type { SiteSettings } from "../core/settings";
+interface Props { settings: SiteSettings }
+const { site, contacts, cv } = Astro.props.settings;
+const email = contacts.email.value;
+const ext = (url: string) => url.startsWith("http") ? { target: "_blank", rel: "noopener" } : {};
+const elsewhere = [
+  { url: contacts.instagram, label: contacts.instagramLabel.value },
+  { url: contacts.github, label: contacts.githubLabel.value },
+  { url: contacts.youtube, label: contacts.youtubeLabel.value },
+  { url: contacts.linkedin, label: contacts.linkedinLabel.value },
+].filter((l) => l.url);
+---
+<footer class="footer" id="contact">
+  <div class="wrap">
+    <p class="footer-lead">{site.footerLead.value}</p>
+    <a class="footer-email" href={`mailto:${email}`}>{email}</a>
+    <div class="footer-ctas">
+      <a class="btn btn-light" href="/projects">{site.footerProjectsButton.value}</a>
+      <a class="btn btn-light-outline" href="/about">{site.footerAboutButton.value}</a>
+    </div>
+    <div class="footer-cols">
+      <div>
+        <h2>{site.colPages.value}</h2>
+        <ul>
+          <li><a href="/">{site.colHome.value}</a></li>
+          <li><a href="/projects">{site.navProjects.value}</a></li>
+          <li><a href="/failures">{site.navFailures.value}</a></li>
+          <li><a href="/devlog">{site.navDevlog.value}</a></li>
+          <li><a href="/about">{site.navAbout.value}</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>{site.colTools.value}</h2>
+        <ul>
+          {contacts.fuseUrl && <li><a href={contacts.fuseUrl} {...ext(contacts.fuseUrl)}>{contacts.fuseLabel.value}</a></li>}
+          {contacts.chronosUrl && <li><a href={contacts.chronosUrl} {...ext(contacts.chronosUrl)}>{contacts.chronosLabel.value}</a></li>}
+        </ul>
+      </div>
+      <div>
+        <h2>{site.colElsewhere.value}</h2>
+        <ul>{elsewhere.map((l) => <li><a href={l.url} target="_blank" rel="noopener me">{l.label}</a></li>)}</ul>
+      </div>
+      <div>
+        <h2>{site.colMore.value}</h2>
+        <ul>
+          {cv.fileKey && <li><a href="/cv" download>{site.cvLink.value}</a></li>}
+          {site.howBuiltUrl && <li><a href={site.howBuiltUrl} {...ext(site.howBuiltUrl)}>{site.howBuiltLink.value}</a></li>}
+        </ul>
+      </div>
+    </div>
+    <div class="footer-base">
+      <p>{site.copyright.value}</p>
+      <p>{site.signoff.value}</p>
+    </div>
+  </div>
+</footer>
+<style>
+  .footer { background: var(--black); color: var(--white); padding: var(--section-y) 0 40px; }
+  .footer-lead { font-size: var(--lead); color: var(--muted-dark); }
+  .footer-email { display: block; margin-top: 14px; font-family: var(--font-display); font-weight: 900; font-size: var(--size-email); line-height: 1; letter-spacing: var(--track-tight); text-decoration: none; overflow-wrap: anywhere; }
+  .footer-email:hover { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 0.06em; text-underline-offset: 0.12em; }
+  .footer-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 44px; }
+  .footer-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; margin-top: var(--space-9); padding-top: 48px; border-top: 1px solid var(--rule-dark); }
+  .footer-cols h2 { font-family: var(--font-display); font-size: 0.875rem; font-weight: 600; color: var(--muted-dark); margin-bottom: 14px; }
+  .footer-cols a { display: inline-block; padding: 6px 0; text-decoration: none; font-size: 1rem; }
+  .footer-cols a:hover { text-decoration: underline; text-decoration-color: var(--sun); }
+  .footer-base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: var(--space-8); font-size: var(--size-s); color: var(--muted-dark); }
+  @media (max-width: 720px) { .footer-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>

@@ -1,0 +1,37 @@
+---
+/** Renders a page's section list: migrate, validate, then render each module inside its boundary. */
+import { env } from "cloudflare:workers";
+import Boundary from "./Boundary.astro";
+import { logHealth } from "./db";
+import { withDefaults } from "./fields";
+import type { Section } from "./module";
+import { getModule, schemas } from "./registry";
+import type { PageData } from "./types";
+
+interface Props { page: string; sections: Section[]; data: PageData }
+const { page, sections, data } = Astro.props;
+const views = import.meta.glob<{ default: (props: Record<string, unknown>) => unknown }>("../modules/*/View.astro", { eager: true });
+
+const prepared = sections.filter((s) => !s.hidden).map((s) => {
+  const m = getModule(s.moduleId);
+  const View = views[`../modules/${s.moduleId}/View.astro`]?.default;
+  if (!m || !View) return { s, error: `unknown module "${s.moduleId}"` };
+  let content: unknown = s.content;
+  if (s.moduleVersion < m.version && m.migrate) content = m.migrate(content, s.moduleVersion);
+  content = withDefaults(m.defaults, content);
+  const res = schemas[m.id]!.safeParse(content);
+  if (!res.success) return { s, error: `invalid content: ${res.error.issues[0]?.path.join(".")} ${res.error.issues[0]?.message}` };
+  return { s, View, content: res.data };
+});
+for (const p of prepared) {
+  if ("error" in p && p.error) {
+    console.error(`[render] ${page}/${p.s.sectionId}: ${p.error}`);
+    Astro.locals.cfContext?.waitUntil(logHealth(env.DB, page, p.s.sectionId, p.s.moduleId, p.error));
+  }
+}
+---
+{prepared.map((p) => "View" in p && p.View ? (
+  <Boundary page={page} sectionId={p.s.sectionId} moduleId={p.s.moduleId}>
+    <p.View content={p.content} data={data} sectionId={p.s.sectionId} />
+  </Boundary>
+) : null)}

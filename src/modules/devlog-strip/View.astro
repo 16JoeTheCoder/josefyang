@@ -1,0 +1,55 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import type { Content } from "../../core/fields";
+import type { PageData } from "../../core/types";
+import { shortDate } from "../../lib/dates";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; data: PageData; sectionId: string }
+const { content: c, data, sectionId } = Astro.props;
+const F = mod.fields;
+const entries = data.devlog.filter((e) => e.status === "published" || data.mode === "draft").slice(0, 5);
+const slot = { ratio: "4 / 5", empty: c.photoEmpty.value };
+---
+<section class="strip">
+  <div class="wrap strip-head">
+    <div>
+      <T v={c.heading} f={F.heading} as="h2" id={`${sectionId}-h`} />
+      <T v={c.line} f={F.line} class="strip-line" />
+    </div>
+    <a class="btn btn-secondary" href="/devlog">{c.button.value}</a>
+  </div>
+  {entries.length === 0 ? (
+    <div class="wrap"><T v={c.emptyNote} f={F.emptyNote} class="strip-empty" /></div>
+  ) : (
+    <div class="strip-track" tabindex="0" role="region" aria-labelledby={`${sectionId}-h`}>
+      <ul class="strip-row">
+        {entries.map((e) => (
+          <li>
+            <a class="dl" href={`/devlog/${e.slug}`}>
+              <Img v={e.hero} f={slot} sizes="300px" />
+              <p class="dl-meta">{shortDate(e.date)}{e.build && <> {c.inLabel.value} {e.build.title}</>}</p>
+              <h3 class="dl-title">{e.title}</h3>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+</section>
+<style>
+  .strip { background: var(--white); padding: var(--section-y) 0; }
+  .strip-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; }
+  .strip :global(.strip-line) { margin-top: 14px; color: var(--muted); }
+  .strip :global(.strip-empty) { margin-top: 40px; color: var(--muted); }
+  .strip-track { margin-top: var(--space-7); overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: max(var(--gutter), calc((100vw - var(--container)) / 2)); overscroll-behavior-x: contain; scrollbar-width: thin; padding-bottom: 16px; }
+  .strip-track:focus-visible { outline-offset: -2px; }
+  .strip-row { display: flex; gap: 20px; width: max-content; padding-inline: max(var(--gutter), calc((100vw - var(--container)) / 2)); }
+  .strip-row li { scroll-snap-align: start; width: clamp(240px, 22vw, 300px); }
+  .dl { display: block; text-decoration: none; }
+  .dl :global(.img-slot) { transition: transform var(--dur-fast) var(--ease-out); }
+  .dl:hover :global(.img-slot) { transform: translateY(-4px); }
+  .dl-meta { margin-top: 14px; font-size: var(--size-xs); color: var(--muted); }
+  .dl-title { margin-top: 4px; font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; line-height: 1.15; letter-spacing: -0.01em; }
+  .dl:hover .dl-title { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; }
+</style>
