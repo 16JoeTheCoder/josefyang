@@ -21,15 +21,22 @@ export const pageLayouts: Record<string, string[]> = {
   projects: ["build-selector"],
   failures: ["failures-intro", "hopper", "failure-list"],
   devlog: ["devlog-intro", "devlog-feed"],
+  entry: ["devlog-entry"],
   about: ["about-hero", "text-band", "print-rig", "off-the-bench", "short-version", "find-me"],
 };
 export const PAGE_IDS = Object.keys(pageLayouts);
+/** Fallback build-page layout when a build has no sections yet (mirrors template build-default v1). */
+export const BUILD_LAYOUT = ["build-header", "build-hero-image", "build-rows", "build-end"];
 
-export function defaultSections(pageId: string): Section[] {
-  return (pageLayouts[pageId] ?? []).map((moduleId) => {
+export function sectionsFromModules(ids: string[]): Section[] {
+  return ids.map((moduleId) => {
     const m = getModule(moduleId);
     return { sectionId: moduleId, moduleId, moduleVersion: m?.version ?? 1, content: structuredClone(m?.defaults ?? {}) };
   });
+}
+
+export function defaultSections(pageId: string): Section[] {
+  return sectionsFromModules(pageLayouts[pageId] ?? []);
 }
 
 /* ---------- row mappers ---------- */

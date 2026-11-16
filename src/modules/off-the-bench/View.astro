@@ -1,0 +1,32 @@
+---
+import T from "../../components/T.astro";
+import Icon from "../../components/Icon.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields> }
+const { content: c } = Astro.props;
+const F = mod.fields;
+---
+<section class="otb">
+  <div class="wrap">
+    <T v={c.heading} f={F.heading} as="h2" />
+    <ul class="otb-grid">
+      {c.items.map((it) => (
+        <li>
+          <span class="otb-icon"><Icon name={it.icon} size={30} /></span>
+          <T v={it.subheading} f={F.items.of.subheading} as="h3" />
+          <T v={it.text} f={F.items.of.text} class="otb-text" />
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+<style>
+  .otb { background: var(--white); padding: var(--section-y) 0; }
+  .otb-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px; margin-top: var(--space-7); }
+  .otb-icon { display: grid; place-items: center; width: 64px; height: 64px; border: 2px solid var(--black); border-radius: 50%; }
+  .otb-grid :global(h3) { margin-top: 18px; }
+  .otb-grid :global(.otb-text) { margin-top: 6px; color: var(--muted); }
+  @media (max-width: 900px) { .otb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .otb-grid { grid-template-columns: 1fr; } }
+</style>

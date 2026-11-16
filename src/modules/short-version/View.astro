@@ -1,0 +1,27 @@
+---
+import T from "../../components/T.astro";
+import type { Content } from "../../core/fields";
+import type { PageData } from "../../core/types";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; data: PageData }
+const { content: c, data } = Astro.props;
+const email = data.settings.contacts.email.value;
+const hasCv = !!data.settings.cv.fileKey;
+---
+<section class="sv on-sun">
+  <div class="wrap sv-row">
+    <T v={c.heading} f={mod.fields.heading} as="h2" />
+    <div class="sv-actions">
+      {hasCv ? <a class="btn btn-primary" href="/cv" download>{c.cvButton.value}</a> : <p class="sv-note">{c.noCvNote.value}</p>}
+      <a class="sv-mail" href={`mailto:${email}`}>{email}</a>
+    </div>
+  </div>
+</section>
+<style>
+  .sv { background: var(--sun); padding: var(--section-y) 0 48px; }
+  .sv-row { display: flex; justify-content: space-between; align-items: center; gap: 32px; flex-wrap: wrap; }
+  .sv-row :global(h2) { font-size: var(--size-xxl); }
+  .sv-actions { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+  .sv-mail { font-family: var(--font-display); font-weight: 700; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+  .sv-note { font-size: var(--size-s); color: var(--sun-ink); }
+</style>

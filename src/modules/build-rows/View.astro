@@ -1,0 +1,51 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import type { Content } from "../../core/fields";
+import { buildFields } from "../../core/build-fields";
+import type { PageData } from "../../core/types";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; data: PageData }
+const { content: c, data } = Astro.props;
+const F = mod.fields;
+const failed = data.build?.meta.status === "failed";
+---
+<section class="rows">
+  <div class="wrap">
+    <div class="row"><T v={c.questionHeading} f={F.questionHeading} as="h2" /><T v={c.question} f={F.question} /></div>
+    <div class="row"><T v={c.buildHeading} f={F.buildHeading} as="h2" /><T v={c.build} f={F.build} /></div>
+    <div class="row">
+      <T v={c.proofHeading} f={F.proofHeading} as="h2" />
+      <div>
+        {c.proof.length > 0 && (
+          <ul class="proof">
+            {c.proof.map((p) => (
+              <li><figure><Img v={p.image} f={F.proof.of.image} sizes="(max-width: 900px) 92vw, 460px" />{p.caption.value && <figcaption>{p.caption.value}</figcaption>}</figure></li>
+            ))}
+          </ul>
+        )}
+        {c.proofLinks.length > 0 && <ul class="proof-links">{c.proofLinks.map((l) => <li><a class="link-u" href={l.url} target="_blank" rel="noopener">{l.label.value}</a></li>)}</ul>}
+      </div>
+    </div>
+    {failed && data.build && (
+      <>
+        <div class="row"><T v={c.brokeHeading} f={F.brokeHeading} as="h2" /><T v={data.build.meta.whatBroke} f={buildFields.whatBroke} /></div>
+        <div class="row"><T v={c.learnedHeading} f={F.learnedHeading} as="h2" /><T v={data.build.meta.whatLearned} f={buildFields.whatLearned} /></div>
+      </>
+    )}
+    <div class="row"><T v={c.changedHeading} f={F.changedHeading} as="h2" /><T v={c.changed} f={F.changed} /></div>
+  </div>
+</section>
+<style>
+  .rows { background: var(--white); padding: 24px 0 var(--section-y); }
+  .row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 9fr); gap: 40px; padding: 40px 0 56px; border-top: 1px solid var(--black); }
+  .row :global(h2) { font-size: var(--size-xl); font-weight: 900; line-height: 0.95; }
+  .row :global(.r-body p + p) { margin-top: 1em; }
+  .proof { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  figcaption { margin-top: 8px; font-size: var(--size-xs); color: var(--muted); }
+  .proof-links { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 24px; font-family: var(--font-display); font-weight: 700; }
+  @media (max-width: 800px) {
+    .row { grid-template-columns: 1fr; gap: 20px; padding: 28px 0 40px; }
+    .proof { grid-template-columns: 1fr; }
+  }
+</style>

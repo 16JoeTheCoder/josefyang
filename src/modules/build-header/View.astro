@@ -1,0 +1,33 @@
+---
+import T from "../../components/T.astro";
+import type { Content } from "../../core/fields";
+import { buildFields } from "../../core/build-fields";
+import type { PageData } from "../../core/types";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; data: PageData }
+const { content: c, data } = Astro.props;
+const b = data.build;
+---
+{b && (
+  <section class="bh">
+    <div class="wrap">
+      {b.meta.status === "failed" && <span class="pill pill-failed">{data.settings.site.failedPill.value}</span>}
+      <T v={b.meta.title} f={buildFields.title} as="h1" class="bh-title" />
+      <dl class="facts">
+        <div><dt>{c.typeLabel.value}</dt><dd>{b.meta.kind === "software" ? c.software.value : c.hardware.value}</dd></div>
+        <div><dt>{c.builtLabel.value}</dt><dd>{b.meta.built.value}</dd></div>
+        <div><dt>{c.madeWithLabel.value}</dt><dd>{b.meta.madeWith.value}</dd></div>
+        <div><dt>{c.linksLabel.value}</dt><dd>{b.meta.links.length ? b.meta.links.map((l) => <a class="link-u" href={l.url} target={l.url.startsWith("http") ? "_blank" : undefined} rel="noopener">{l.label.value}</a>) : "–"}</dd></div>
+      </dl>
+    </div>
+  </section>
+)}
+<style>
+  .bh { background: var(--white); padding: calc(var(--nav-h) + 80px) 0 40px; }
+  .bh .pill { margin-bottom: 20px; }
+  .bh :global(.bh-title) { font-stretch: 90%; overflow-wrap: anywhere; }
+  .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; margin: 48px 0 0; padding-top: 20px; border-top: 2px solid var(--black); }
+  .facts dt { font-size: var(--size-s); color: var(--muted); }
+  .facts dd { margin: 4px 0 0; font-family: var(--font-display); font-weight: 700; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  @media (max-width: 720px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>

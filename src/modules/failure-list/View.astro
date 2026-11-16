@@ -1,0 +1,37 @@
+---
+import T from "../../components/T.astro";
+import type { Content } from "../../core/fields";
+import type { PageData } from "../../core/types";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; data: PageData }
+const { content: c, data } = Astro.props;
+const failed = data.builds.filter((b) => b.meta.status === "failed");
+---
+{failed.length > 0 && (
+  <section class="fl">
+    <div class="wrap">
+      <T v={c.heading} f={mod.fields.heading} as="h2" />
+      <ul class="fl-list">
+        {failed.map((b) => (
+          <li>
+            <a href={`/builds/${b.slug}`}>
+              <span class="fl-name">{b.meta.title.value}</span>
+              <span class="fl-kind">{b.meta.kind === "software" ? c.software.value : c.hardware.value}</span>
+              <span class="fl-date">{b.meta.failedOn.value}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+)}
+<style>
+  .fl { background: var(--white); padding: var(--section-y) 0; }
+  .fl-list { margin-top: 40px; border-top: 2px solid var(--black); }
+  .fl-list a { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 2fr) minmax(0, 3fr); gap: 16px; align-items: baseline; padding: 22px 0; border-bottom: 1px solid var(--hairline); text-decoration: none; }
+  .fl-name { font-family: var(--font-display); font-weight: 900; font-size: var(--size-l); letter-spacing: -0.015em; }
+  .fl-kind, .fl-date { font-size: var(--size-s); color: var(--muted); }
+  .fl-date { text-align: right; font-variant-numeric: tabular-nums; }
+  .fl-list a:hover .fl-name { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 3px; text-underline-offset: 6px; }
+  @media (max-width: 620px) { .fl-list a { grid-template-columns: 1fr auto; } .fl-kind { display: none; } }
+</style>

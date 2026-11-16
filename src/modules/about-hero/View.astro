@@ -1,0 +1,27 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields> }
+const { content: c } = Astro.props;
+const F = mod.fields;
+---
+<section class="ah on-sun">
+  <div class="wrap ah-grid">
+    <div>
+      <T v={c.heading} f={F.heading} as="h1" class="ah-title" />
+      <T v={c.bio} f={F.bio} class="ah-bio" />
+    </div>
+    <div class="ah-portrait"><Img v={c.portrait} f={F.portrait} eager sizes="(max-width: 860px) 90vw, 400px" /></div>
+  </div>
+</section>
+<style>
+  .ah { background: var(--sun); padding: calc(var(--nav-h) + 72px) 0 var(--section-y); }
+  .ah-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 64px; align-items: center; }
+  .ah :global(.ah-title) { font-size: clamp(5rem, 2rem + 12vw, 13rem); line-height: 0.82; }
+  .ah :global(.ah-bio) { margin-top: 36px; font-size: var(--lead); max-width: 38ch; }
+  .ah-portrait :global(.img-slot) { box-shadow: 0 40px 60px -30px rgb(0 0 0 / 0.35); }
+  .ah-portrait :global(.img-empty) { background: var(--sun-tile); color: var(--sun-ink); }
+  @media (max-width: 860px) { .ah-grid { grid-template-columns: 1fr; gap: 40px; } .ah-portrait { max-width: 420px; } }
+</style>

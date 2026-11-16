@@ -1,0 +1,113 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import type { Content } from "../../core/fields";
+import type { DevlogEntry, PageData } from "../../core/types";
+import { monthName, monthNumber, shortDate } from "../../lib/dates";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; data: PageData }
+const { content: c, data } = Astro.props;
+const F = mod.fields;
+const entries = data.devlog;
+const groups = new Map<string, DevlogEntry[]>();
+for (const e of entries) {
+  const m = e.date.slice(0, 7);
+  groups.set(m, [...(groups.get(m) ?? []), e]);
+}
+const notes = new Map(data.settings.devlog.monthNotes.map((n) => [n.month.slice(0, 7), n.note.value]));
+const buildChips = [...new Map(entries.filter((e) => e.build && !e.build.failed).map((e) => [e.build!.slug, e.build!.title])).entries()];
+const hasFailures = entries.some((e) => e.build?.failed);
+const failedLabel = data.settings.site.failedPill.value;
+const slot = { ratio: "4 / 5", empty: c.photoEmpty.value };
+---
+<section class="feed" data-feed-root>
+  <div class="wrap">
+    {entries.length === 0 ? <T v={c.emptyNote} f={F.emptyNote} class="feed-empty" /> : (
+      <>
+        <div class="chips" role="group" aria-label={c.filterLabel.value}>
+          <button type="button" class="chip" aria-pressed="true" data-filter="all">{c.allChip.value}</button>
+          {buildChips.map(([slug, title]) => <button type="button" class="chip" aria-pressed="false" data-filter={slug}>{title}</button>)}
+          {hasFailures && <button type="button" class="chip" aria-pressed="false" data-filter="failed">{c.failuresChip.value}</button>}
+        </div>
+        {[...groups.entries()].map(([month, list]) => (
+          <div class="month" data-month>
+            <div class="month-head">
+              <p class="month-num" aria-hidden="true">{monthNumber(month)}</p>
+              <h2 class="month-name">{monthName(month)}</h2>
+              {notes.get(month) && <p class="month-note">{notes.get(month)}</p>}
+            </div>
+            <ul class="cards">
+              {list.map((e) => (
+                <li data-entry data-build={e.build?.slug ?? ""} data-failed={e.build?.failed ? "1" : "0"}>
+                  <a class="card-link" href={`/devlog/${e.slug}`}>
+                    <Img v={e.hero} f={slot} sizes="(max-width: 700px) 92vw, 300px" />
+                    <p class="card-meta">
+                      {e.build && <span class:list={["pill", e.build.failed ? "pill-failed" : "pill-tag"]}>{e.build.failed ? failedLabel : e.build.title}</span>}
+                      <span>{shortDate(e.date)}</span>
+                    </p>
+                    <h3 class="card-title">{e.title}</h3>
+                    <p class="card-sum">{e.excerpt}</p>
+                  </a>
+                  {e.fuseUrl && <a class="rough" href={e.fuseUrl} target="_blank" rel="noopener">{c.roughNotes.value}</a>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </>
+    )}
+  </div>
+</section>
+<script>
+  import { onPage } from "../../core/island";
+  onPage("[data-feed-root]", (root) => {
+    const chips = [...root.querySelectorAll<HTMLButtonElement>("[data-filter]")];
+    const onClick = (e: Event) => {
+      const chip = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-filter]");
+      if (!chip) return;
+      const f = chip.dataset.filter!;
+      chips.forEach((c) => c.setAttribute("aria-pressed", c === chip ? "true" : "false"));
+      root.querySelectorAll<HTMLElement>("[data-entry]").forEach((el) => {
+        el.hidden = !(f === "all" || (f === "failed" ? el.dataset.failed === "1" : el.dataset.build === f));
+      });
+      root.querySelectorAll<HTMLElement>("[data-month]").forEach((m) => {
+        m.hidden = !m.querySelector("[data-entry]:not([hidden])");
+      });
+    };
+    root.addEventListener("click", onClick);
+    return () => root.removeEventListener("click", onClick);
+  });
+</script>
+<style>
+  .feed { background: var(--white); padding: 56px 0 var(--section-y); }
+  .feed :global(.feed-empty) { color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; padding-bottom: 40px; border-bottom: 1px solid var(--hairline); }
+  .chip { min-height: 44px; padding: 0 18px; border: 1px solid var(--pill-line); border-radius: var(--pill); background: var(--white); font-family: var(--font-display); font-weight: 700; font-size: 0.875rem; cursor: pointer; white-space: nowrap; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+  .chip:hover { border-color: var(--black); }
+  .chip[aria-pressed="true"] { background: var(--black); color: var(--white); border-color: var(--black); }
+  .month { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 9fr); gap: 40px; padding: 56px 0; border-bottom: 1px solid var(--hairline); }
+  .month[hidden] { display: none; }
+  .month-head { align-self: start; position: sticky; top: 32px; }
+  .month-num { font-family: var(--font-display); font-weight: 900; font-stretch: 70%; font-size: clamp(5rem, 3rem + 6vw, 9rem); line-height: 0.8; letter-spacing: var(--track-tight); font-variant-numeric: tabular-nums; }
+  .month-name { margin-top: 14px; font-family: var(--font-display); font-weight: 800; font-size: 1.0625rem; }
+  .month-note { margin-top: 6px; font-size: var(--size-s); color: var(--muted); }
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 20px; }
+  .cards li[hidden] { display: none; }
+  .card-link { display: block; text-decoration: none; }
+  .card-meta { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: var(--size-xs); font-weight: 500; }
+  .card-meta .pill { padding: 5px 9px; font-size: 0.75rem; }
+  .card-title { margin-top: 10px; font-family: var(--font-display); font-weight: 800; font-size: 1.375rem; line-height: 1.1; letter-spacing: -0.01em; text-wrap: balance; }
+  .card-link:hover .card-title { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; }
+  .card-sum { margin-top: 8px; font-size: var(--size-s); color: var(--muted); }
+  .rough { display: inline-flex; align-items: center; min-height: 44px; font-family: var(--font-display); font-weight: 700; font-size: 0.8125rem; color: var(--muted); text-decoration: underline; text-decoration-color: var(--hairline); }
+  .rough:hover { color: var(--black); text-decoration-color: var(--sun); }
+  @media (max-width: 1000px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 700px) {
+    .month { grid-template-columns: 1fr; gap: 24px; padding: 40px 0; }
+    .month-head { position: static; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+    .month-num { font-size: 4.5rem; }
+    .month-name { margin: 0; }
+    .month-note { width: 100%; margin: 0; }
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>

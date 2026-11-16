@@ -24,6 +24,8 @@ const site = {
   signoff: f.label("Sign-off line", { max: 80, maxLines: 1 }),
   emptyImage: f.label("Generic empty image label", { max: 40, maxLines: 1 }),
   failedPill: f.pill("Failed pill"),
+  notFoundTitle: f.giant("404 page title", { max: 20, maxLines: 1 }),
+  notFoundText: f.body("404 page text", { max: 140, maxLines: 2 }),
 };
 
 const contacts = {
@@ -87,6 +89,8 @@ export const settingsDefaults: SiteSettings = {
     signoff: t("Built after dark, with jazz on and too much kopi."),
     emptyImage: t("Image, added later"),
     failedPill: t("Failed"),
+    notFoundTitle: t("Not here"),
+    notFoundText: t("This page doesn't exist, or it moved. The builds are all on one page."),
   },
   contacts: {
     email: t("josef@josefyang.com"),

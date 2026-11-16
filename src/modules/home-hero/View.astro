@@ -50,10 +50,10 @@ const socials = [
 <style>
   .hero { position: relative; overflow: hidden; padding-top: calc(var(--nav-h) + 72px); }
   .hero-inner { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; }
-  .hero-title { max-width: 14ch; font-size: var(--size-xxl); line-height: 0.92; }
-  .hero-title[data-fit="1"] { font-size: calc(var(--size-xxl) * 0.85); }
-  .hero-title[data-fit="2"] { font-size: var(--size-xl); }
-  .hero-line { margin-top: 26px; font-size: var(--lead); color: var(--black); max-width: none; }
+  .hero-inner :global(.hero-title) { max-width: 12em; font-size: clamp(3rem, 1.2rem + 5.6vw, 6.5rem); line-height: 0.92; }
+  .hero-inner :global(.hero-title[data-fit="1"]) { font-size: clamp(2.6rem, 1rem + 4.8vw, 5.5rem); }
+  .hero-inner :global(.hero-title[data-fit="2"]) { font-size: var(--size-xl); }
+  .hero-inner :global(.hero-line) { margin-top: 26px; font-size: var(--lead); color: var(--black); max-width: none; }
   .hero-socials { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
   .soc { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: var(--pill); background: var(--white); font-family: var(--font-display); font-size: 0.9375rem; font-weight: 600; text-decoration: none; box-shadow: var(--shadow-soft); transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
   .soc:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -10px rgb(0 0 0 / 0.35); }
