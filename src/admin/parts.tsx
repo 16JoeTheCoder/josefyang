@@ -61,11 +61,12 @@ export function Preview({ route, reloadKey }: { route: string; reloadKey: number
 export function StatusBar({ status, savedAt, error, problems, onPublish, publishing, dirty, extra }: {
   status: SaveStatus; savedAt: number; error: string; problems: Problem[]; onPublish: () => void; publishing: boolean; dirty: boolean; extra?: preact.ComponentChildren;
 }) {
+  const quiet = status === "idle" || (status === "saved" && !dirty);
   const [, tick] = useState(0);
   useEffect(() => { const id = setInterval(() => tick((x) => x + 1), 5000); return () => clearInterval(id); }, []);
   return (
     <div class="statusbar">
-      <span class={`status status-${status}`} role="status">{status === "idle" ? (dirty ? "Draft has unpublished changes" : "Published, no changes") : statusText(status, savedAt, error)}</span>
+      <span class={`status status-${status}`} role="status">{quiet ? (dirty ? "Draft has unpublished changes" : "Published, no changes") : statusText(status, savedAt, error)}</span>
       {status === "conflict" && <button type="button" onClick={() => location.reload()}>Reload</button>}
       {extra}
       <button type="button" class="primary" disabled={publishing || problems.length > 0 || status === "saving"} onClick={onPublish} title={problems.length ? "Fix the problems listed first" : ""}>

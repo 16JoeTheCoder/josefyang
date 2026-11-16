@@ -87,6 +87,7 @@ export function PageEditor({ page, onPublished }: { page: PageRec; onPublished: 
   const reload = async () => {
     const p = await api<PageRec>("GET", `pages/${page.id}`);
     a.reset(p.sections, p.updatedAt);
+    setDirty(true);
     setReloadKey((k) => k + 1);
   };
   const problems = a.problems.length ? a.problems : serverProblems;

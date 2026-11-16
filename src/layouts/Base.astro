@@ -36,7 +36,7 @@ const beacon = Astro.locals.mode === "published" && env.CF_ANALYTICS_TOKEN
     {beacon && <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={beacon}></script>}
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to content</a>
+    <a class="skip-link" href="#main">{settings.site.skipLink.value}</a>
     <Nav site={settings.site} active={active} />
     <main id="main" tabindex="-1">
       <slot />

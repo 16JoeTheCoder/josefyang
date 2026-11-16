@@ -28,7 +28,7 @@ const socials = [
     </div>
   </div>
   {c.showCoffee && (
-    <svg class="decor coffee" viewBox="0 0 150 150" role="img" aria-label="A cappuccino on the floor">
+    <svg class="decor coffee" viewBox="0 0 150 150" role="img" aria-label={c.coffeeLabel.value}>
       <circle cx="70" cy="75" r="62" fill="var(--white)" />
       <circle cx="70" cy="75" r="44" fill="var(--obj-coffee)" />
       <circle cx="70" cy="75" r="34" fill="var(--obj-crema)" />
@@ -37,7 +37,7 @@ const socials = [
     </svg>
   )}
   {c.showPhone && (
-    <div class="decor phone" role="img" aria-label={`A phone on the floor: ${c.phoneTitle.value}, ${c.phoneTrack.value}`}>
+    <div class="decor phone" role="img" aria-label={`${c.phoneLabel.value}: ${c.phoneTitle.value}, ${c.phoneTrack.value}`}>
       <div class="phone-screen">
         <div class="phone-art"></div>
         <span class="phone-title">{c.phoneTitle.value}</span>
@@ -56,14 +56,14 @@ const socials = [
   .hero-inner :global(.hero-line) { margin-top: 26px; font-size: var(--lead); color: var(--black); max-width: none; }
   .hero-socials { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
   .soc { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: var(--pill); background: var(--white); font-family: var(--font-display); font-size: 0.9375rem; font-weight: 600; text-decoration: none; box-shadow: var(--shadow-soft); transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
-  .soc:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -10px rgb(0 0 0 / 0.35); }
+  .soc:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -10px var(--shade-35); }
   .hero-portrait { width: min(460px, 78vw); margin-top: 56px; }
   .hero-portrait :global(.portrait) { border-radius: 999px 999px 0 0; }
   .hero-portrait :global(.img-empty) { background: color-mix(in srgb, var(--hairline) 70%, var(--granite)); justify-content: center; }
-  .hero-portrait :global(.img-object img) { object-position: 50% 100%; filter: grayscale(1) contrast(1.05) drop-shadow(0 30px 30px rgb(0 0 0 / 0.18)); }
+  .hero-portrait :global(.img-object img) { object-position: 50% 100%; filter: grayscale(1) contrast(1.05) drop-shadow(0 30px 30px var(--shade-18)); }
   .decor { position: absolute; z-index: 0; }
-  .coffee { width: clamp(96px, 10vw, 150px); left: 9%; top: 56%; filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.08)) drop-shadow(0 18px 18px rgb(0 0 0 / 0.18)); }
-  .phone { right: 9%; top: 50%; width: clamp(110px, 10.5vw, 150px); aspect-ratio: 1 / 2; padding: 10px; background: var(--obj-device); border-radius: 26px; transform: rotate(12deg); box-shadow: var(--shadow-contact), 0 30px 40px -18px rgb(0 0 0 / 0.45); }
+  .coffee { width: clamp(96px, 10vw, 150px); left: 9%; top: 56%; filter: drop-shadow(0 4px 3px var(--shade-08)) drop-shadow(0 18px 18px var(--shade-18)); }
+  .phone { right: 9%; top: 50%; width: clamp(110px, 10.5vw, 150px); aspect-ratio: 1 / 2; padding: 10px; background: var(--obj-device); border-radius: 26px; transform: rotate(12deg); box-shadow: var(--shadow-contact), 0 30px 40px -18px var(--shade-45); }
   .phone-screen { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: 18px 12px; border-radius: 18px; background: var(--obj-screen); color: var(--white); font-family: var(--font-display); font-size: 11px; line-height: 1.2; text-align: left; }
   .phone-art { aspect-ratio: 1; border-radius: 8px; background: var(--sun); }
   .phone-title { font-weight: 700; font-size: 12px; }

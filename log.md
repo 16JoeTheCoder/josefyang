@@ -11,3 +11,8 @@ Newest at the bottom. Read this first every session.
 - Local DB: `.wrangler/state` with migrations 0001–0004 + seed (content + dev placeholders). Dev server: `npx astro dev --port 4321` (runs detached in Astro 7: `npx astro dev stop`).
 - Tests: 78 unit tests pass; astro check 0 errors; build passes.
 - Next: Sonnet subagents for island Playwright tests, security pass, admin E2E; fix findings; mobile screenshots at 390/768/1024; final /impeccable audit.
+- 22:50 WIB: QA round 1 (islands + security, Sonnet subagents): no high bugs; fixed url schema (//evil.com), hopper drag selection, selector hash on load, floor neighbour peeks (scatter spacing), footer email fit, link underlines on empty images, 404 without DB, headers on early 403/415.
+- 23:00 WIB: QA round 2 (admin E2E + rules review): fixed autosave timer (saver in a ref), milestone inputs losing focus, publish/restore status text, friendly media usage + health labels, 44px targets on phone, hard-coded aria labels → editable, rgb() literals → tokens (new test enforces it).
+- Added weekly D1→R2 backup cron (src/worker.ts), font subset, Lighthouse check (home 99/100/100/100).
+- Where to resume: Lighthouse CI in GitHub Actions; click-to-edit from preview (data-field-path); Library "Replace everywhere" should refresh open editors; AVIF variants; real content entry by Josef.
+- Known: admin state can be stale after Replace everywhere until reload. Media upload writes the original to R2 before validating variants (orphan object possible on a bad variant).

@@ -16,6 +16,7 @@ export default defineModule({
     next: f.label("Next entry label", { max: 20, maxLines: 1 }),
     minRead: f.label("Read-time suffix", { max: 12, maxLines: 1 }),
     photoEmpty: f.label("Empty photo label", { max: 30, maxLines: 1 }),
+    navLabel: f.label("Previous/next navigation name (screen readers)", { max: 30, maxLines: 1 }),
   },
   defaults: {
     back: t("All devlog entries"),
@@ -25,5 +26,6 @@ export default defineModule({
     next: t("Next entry"),
     minRead: t("min read"),
     photoEmpty: t("Entry photo"),
+    navLabel: t("More entries"),
   },
 });

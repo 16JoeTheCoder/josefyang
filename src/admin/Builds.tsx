@@ -91,7 +91,7 @@ export function BuildEditor({ build, onBack, onChanged }: { build: BuildRec; onB
   const del = async () => { if (!confirm(`Delete "${doc.meta.title.value}"? It disappears from the site. Versions are kept.`)) return; await run(() => api("DELETE", `builds/${build.id}`), "Build deleted."); onBack(); };
   const checkUpgrade = async () => setUpgrade(await api("POST", `builds/${build.id}/upgrade`, { apply: false }));
   const applyUpgrade = async () => { await api("POST", `builds/${build.id}/upgrade`, { apply: true }); location.reload(); };
-  const reload = async () => { const b = await api<BuildRec>("GET", `builds/${build.id}`); a.reset({ slug: b.slug, meta: b.meta, sections: b.sections }, b.updatedAt); setReloadKey((k) => k + 1); };
+  const reload = async () => { const b = await api<BuildRec>("GET", `builds/${build.id}`); a.reset({ slug: b.slug, meta: b.meta, sections: b.sections }, b.updatedAt); setDirty(true); setReloadKey((k) => k + 1); };
   const setMeta = (m: Record<string, unknown>) => a.setValue({ ...doc, meta: m as BuildMeta });
   const problems = a.problems.length ? a.problems : serverProblems;
   return (

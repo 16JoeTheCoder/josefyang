@@ -46,6 +46,14 @@ export function Uploader({ onDone }: { onDone: (m: MediaItem) => void }) {
   );
 }
 
+const OWNER: Record<string, string> = { page: "Page", build: "Build", devlog: "Devlog entry", settings: "Settings" };
+const PAGE: Record<string, string> = { home: "Home", projects: "Projects", failures: "Failures", devlog: "Devlog", entry: "Devlog entry layout", about: "About" };
+function usageLabel(u: { owner_type: string; owner_id: string; field_path: string }) {
+  const field = u.field_path.replace(/sections\[\d+\]\.content\./, "").replace(/^meta\./, "").replace(/([A-Z])/g, " $1").replace(/\[(\d+)\]/g, (_m, n) => ` ${Number(n) + 1}`).toLowerCase();
+  const owner = u.owner_type === "page" ? `${PAGE[u.owner_id] ?? u.owner_id} page` : `${OWNER[u.owner_type] ?? u.owner_type}${u.owner_type === "settings" ? `: ${u.owner_id}` : ""}`;
+  return `${owner}, ${field}`;
+}
+
 export function Picker({ onClose }: { onClose: (m: MediaItem | null) => void }) {
   const { media } = useAdmin();
   return (
@@ -114,7 +122,7 @@ export function Library() {
             <>
               <p>Used in:</p>
               <ul>{uses.map((u, i) => (
-                <li><label class="switch"><input type="checkbox" checked={u.on} onChange={() => setUses(uses.map((x, k) => (k === i ? { ...x, on: !x.on } : x)))} /><span>{u.owner_type} {u.owner_id}, {u.field_path}</span></label></li>
+                <li><label class="switch"><input type="checkbox" checked={u.on} onChange={() => setUses(uses.map((x, k) => (k === i ? { ...x, on: !x.on } : x)))} /><span>{usageLabel(u)}</span></label></li>
               ))}</ul>
               <button type="button" class="primary" onClick={replace}>Replace everywhere ticked</button>
             </>

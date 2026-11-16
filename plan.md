@@ -93,6 +93,8 @@ Left sidebar: Home, Projects, Failures, Devlog page, About (page editors) · Bui
 
 ## 8. Phases and what "done" means
 
+Status 16 Nov 2026 (end of the unattended run): phases 1–9 done; 10 done except Lighthouse CI. See log.md.
+
 1. Skeleton: Astro + adapter + wrangler.jsonc + migrations + middleware auth + CI workflow; `npm run build` and `astro check` pass; empty site serves locally.
 2. Core: fields, registry (build-time checks), boundary, render pipeline, cache, media helpers, tokens.css, fonts, granite tile.
 3. Admin shell: sidebar, editor, preview, forms, Text/Images panels, autosave, publish, versions.

@@ -15,6 +15,10 @@ export function useAutosave<T>(initial: T, initialUpdatedAt: number, save: Saver
   const [savedAt, setSavedAt] = useState<number>(0);
   const [error, setError] = useState<string>("");
   const [problems, setProblems] = useState<Problem[]>([]);
+  // The saver is held in a ref so `run` stays stable across renders; otherwise each render would
+  // re-run the effect below and its cleanup would clear the 2 s debounce timer.
+  const saveRef = useRef(save);
+  saveRef.current = save;
   const r = useRef({ value: initial, updatedAt: initialUpdatedAt, dirty: false, timer: 0, retry: 0, inflight: false, version: 0 });
 
   const run = useCallback(async (keepalive = false) => {
@@ -25,7 +29,7 @@ export function useAutosave<T>(initial: T, initialUpdatedAt: number, save: Saver
     const sentVersion = s.version;
     setStatus("saving");
     try {
-      const res = await save(s.value, s.updatedAt, keepalive);
+      const res = await saveRef.current(s.value, s.updatedAt, keepalive);
       s.updatedAt = res.updatedAt;
       s.retry = 0;
       setProblems(res.problems ?? []);
@@ -44,8 +48,8 @@ export function useAutosave<T>(initial: T, initialUpdatedAt: number, save: Saver
     } finally {
       s.inflight = false;
     }
-    if (s.dirty && s.retry === 0 && status !== "conflict") { window.clearTimeout(s.timer); s.timer = window.setTimeout(() => void run(), 2000); }
-  }, [save]);
+    if (s.dirty && s.retry === 0) { window.clearTimeout(s.timer); s.timer = window.setTimeout(() => void run(), 2000); }
+  }, []);
 
   const setValue = useCallback((v: T) => {
     const s = r.current;
@@ -64,8 +68,9 @@ export function useAutosave<T>(initial: T, initialUpdatedAt: number, save: Saver
     const onUnload = (e: BeforeUnloadEvent) => { if (r.current.dirty || r.current.inflight) { e.preventDefault(); } };
     document.addEventListener("visibilitychange", onHide);
     window.addEventListener("beforeunload", onUnload);
-    return () => { document.removeEventListener("visibilitychange", onHide); window.removeEventListener("beforeunload", onUnload); window.clearTimeout(r.current.timer); };
+    return () => { document.removeEventListener("visibilitychange", onHide); window.removeEventListener("beforeunload", onUnload); };
   }, [run]);
+  useEffect(() => () => window.clearTimeout(r.current.timer), []);
 
   /** Replace local state from the server (after restore or reload) without saving. */
   const reset = useCallback((v: T, updatedAt: number) => {

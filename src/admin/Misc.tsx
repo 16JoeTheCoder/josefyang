@@ -1,5 +1,5 @@
 /** Milestones, templates, settings, health. */
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import type { Fields } from "../core/fields";
 import { settingsFields, type SettingsKey } from "../core/settings";
 import { api, isApiError } from "./api";
@@ -13,42 +13,42 @@ import { useAdmin } from "./state";
 
 export interface MilestoneRow { id: string; date: string; label: string; title: string; body: string | null; status: string }
 
+/** One editable milestone row. Lives outside Milestones so typing never remounts it. */
+function MilestoneForm({ m, onSave, onDelete }: { m: MilestoneRow; onSave: (v: MilestoneRow) => void; onDelete: (id: string) => void }) {
+  const [v, setV] = useState<MilestoneRow>(m);
+  const set = (p: Partial<MilestoneRow>) => setV({ ...v, ...p });
+  return (
+    <form class="ms-row" onSubmit={(e) => { e.preventDefault(); onSave(v); if (!m.id) setV(m); }}>
+      <label>Date (sorts)<input value={v.date} placeholder="YYYY-MM" required onInput={(e) => set({ date: (e.target as HTMLInputElement).value })} /></label>
+      <label>Label<input value={v.label} maxLength={20} placeholder="IGCSE" onInput={(e) => set({ label: (e.target as HTMLInputElement).value })} /></label>
+      <label>Title<input value={v.title} maxLength={60} required onInput={(e) => set({ title: (e.target as HTMLInputElement).value })} /></label>
+      <label>Line<input value={v.body ?? ""} maxLength={160} onInput={(e) => set({ body: (e.target as HTMLInputElement).value })} /></label>
+      <label class="switch"><input type="checkbox" checked={v.status === "published"} onChange={(e) => set({ status: (e.target as HTMLInputElement).checked ? "published" : "draft" })} /><span>Published</span></label>
+      <span><button type="submit" class="primary">{m.id ? "Save" : "Add"}</button>{m.id && <button type="button" class="danger" onClick={() => onDelete(m.id)}>Delete</button>}</span>
+    </form>
+  );
+}
+
 export function Milestones({ rows, onChanged }: { rows: MilestoneRow[]; onChanged: () => void }) {
   const { toast } = useAdmin();
-  const [edit, setEdit] = useState<Record<string, MilestoneRow>>({});
   const blank: MilestoneRow = { id: "", date: "", label: "", title: "", body: "", status: "published" };
   const save = async (m: MilestoneRow) => {
     const payload = { date: m.date, label: m.label, title: m.title, body: m.body ?? "", status: m.status };
     try {
       if (m.id) await api("PATCH", `milestones/${m.id}`, payload); else await api("POST", "milestones", payload);
       toast("Saved. The print rig sorts by date and prints one layer per published milestone.");
-      setEdit({});
       onChanged();
     } catch (x) { toast(isApiError(x) ? x.error : "Save failed"); }
   };
   const del = async (id: string) => { if (confirm("Delete this milestone?")) { await api("DELETE", `milestones/${id}`); onChanged(); } };
-  const Row = ({ m }: { m: MilestoneRow }) => {
-    const v = edit[m.id || "new"] ?? m;
-    const set = (p: Partial<MilestoneRow>) => setEdit({ ...edit, [m.id || "new"]: { ...v, ...p } });
-    return (
-      <form class="ms-row" onSubmit={(e) => { e.preventDefault(); void save(v); }}>
-        <label>Date (sorts)<input value={v.date} placeholder="YYYY-MM" required onInput={(e) => set({ date: (e.target as HTMLInputElement).value })} /></label>
-        <label>Label<input value={v.label} maxLength={20} placeholder="IGCSE" onInput={(e) => set({ label: (e.target as HTMLInputElement).value })} /></label>
-        <label>Title<input value={v.title} maxLength={60} required onInput={(e) => set({ title: (e.target as HTMLInputElement).value })} /></label>
-        <label>Line<input value={v.body ?? ""} maxLength={160} onInput={(e) => set({ body: (e.target as HTMLInputElement).value })} /></label>
-        <label class="switch"><input type="checkbox" checked={v.status === "published"} onChange={(e) => set({ status: (e.target as HTMLInputElement).checked ? "published" : "draft" })} /><span>Published</span></label>
-        <span><button type="submit" class="primary">{m.id ? "Save" : "Add"}</button>{m.id && <button type="button" class="danger" onClick={() => del(m.id)}>Delete</button>}</span>
-      </form>
-    );
-  };
   return (
     <div class="split">
       <div class="editor">
         <h1>About timeline</h1>
         <p class="muted">Milestones, auto-sorted by date. Each published one is one printed layer on About.</p>
-        {rows.map((m) => <Row m={m} />)}
+        {rows.map((m) => <MilestoneForm key={m.id} m={m} onSave={save} onDelete={del} />)}
         <h2 class="ed-sub">Add a milestone</h2>
-        <Row m={blank} />
+        <MilestoneForm key={`new-${rows.length}`} m={blank} onSave={save} onDelete={del} />
       </div>
       <Preview route="/about" reloadKey={rows.length} />
     </div>
@@ -163,17 +163,20 @@ export function Settings({ data, onChanged }: { data: SettingsData; onChanged: (
 
 /* ---------- health + analytics ---------- */
 
+const CHECK_NAMES: Record<string, string> = { d1Tables: "Database", r2: "Image storage (R2)", accessConfigured: "Admin login (Access secrets)", analytics: "Web Analytics token", cache: "Edge cache" };
+
 export function Health() {
   const [data, setData] = useState<null | { errors: { id: number; at: number; page: string; section: string; module: string; message: string }[]; checks: Record<string, unknown> }>(null);
   const [an, setAn] = useState<null | { message: string; dashboard: string }>(null);
-  if (!data) { void api<typeof data>("GET", "health").then(setData); void api<typeof an>("GET", "analytics").then(setAn); }
-  const clear = async () => { await api("DELETE", "health"); setData(null); };
+  const load = () => { void api<typeof data>("GET", "health").then(setData); void api<typeof an>("GET", "analytics").then(setAn); };
+  useEffect(load, []);
+  const clear = async () => { await api("DELETE", "health"); load(); };
   return (
     <div class="page-pad">
       <h1>Analytics and health</h1>
       {an && <div class="notice"><p>{an.message}</p><a href={an.dashboard} target="_blank" rel="noopener">Open Cloudflare Web Analytics</a></div>}
       <h2 class="ed-sub">System checks</h2>
-      {data && <ul class="checks">{Object.entries(data.checks).map(([k, v]) => <li><span>{k}</span><strong class={v ? "ok" : "bad"}>{String(v)}</strong></li>)}</ul>}
+      {data && <ul class="checks">{Object.entries(data.checks).map(([k, v]) => <li><span>{CHECK_NAMES[k] ?? k}</span><strong class={v ? "ok" : "bad"}>{typeof v === "number" ? `${v} tables` : v ? "OK" : "Not set up"}</strong></li>)}</ul>}
       <h2 class="ed-sub">Broken sections <button type="button" class="mini" onClick={clear}>Clear</button></h2>
       {data && (data.errors.length === 0 ? <p class="muted">Nothing broken. Every section rendered.</p> : (
         <table class="table"><thead><tr><th>When</th><th>Page</th><th>Section</th><th>Problem</th></tr></thead>

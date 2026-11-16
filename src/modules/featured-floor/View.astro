@@ -47,7 +47,7 @@ const skipId = `${sectionId}-after`;
           </article>
         ))}
         {c.showWatch && watch && (
-          <svg class="floor-watch" style={`--x:${watch.x}px;--y:${watch.y}px`} viewBox="0 0 140 90" role="img" aria-label="A wristwatch on the floor" data-watch>
+          <svg class="floor-watch" style={`--x:${watch.x}px;--y:${watch.y}px`} viewBox="0 0 140 90" role="img" aria-label={c.watchLabel.value} data-watch>
             <rect x="0" y="34" width="44" height="22" rx="6" fill="var(--obj-strap)" />
             <rect x="96" y="34" width="44" height="22" rx="6" fill="var(--obj-strap)" />
             <circle cx="70" cy="45" r="32" fill="var(--black)" />
@@ -88,14 +88,14 @@ const skipId = `${sectionId}-after`;
   .obj { display: block; text-decoration: none; border-radius: var(--radius-l); transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out); outline: var(--outline-object) solid transparent; }
   .obj :global(.img-slot) { border-radius: var(--radius-l); }
   .obj :global(.img-empty), .obj :global(.img-fill), .obj :global(.img-fit) { box-shadow: var(--shadow-object); background: color-mix(in srgb, var(--hairline) 80%, var(--granite)); }
-  .obj :global(.img-object img) { filter: drop-shadow(0 3px 3px rgb(0 0 0 / 0.12)) drop-shadow(0 30px 28px rgb(0 0 0 / 0.28)); transition: filter var(--dur-fast) var(--ease-out); }
+  .obj :global(.img-object img) { filter: drop-shadow(0 3px 3px var(--shade-12)) drop-shadow(0 30px 28px var(--shade-28)); transition: filter var(--dur-fast) var(--ease-out); }
   .stop:has(.stop-text a:hover, .stop-text a:focus-visible) .obj,
   .obj:hover { transform: translateY(-10px); }
   .stop:has(.stop-text a:hover, .stop-text a:focus-visible) .obj:not(:has(.img-object)),
   .obj:not(:has(.img-object)):hover { outline-color: var(--white); box-shadow: var(--shadow-lift); }
   .stop:has(.stop-text a:hover, .stop-text a:focus-visible) .obj :global(.img-object img),
   .obj:hover :global(.img-object img) {
-    filter: drop-shadow(8px 0 0 var(--white)) drop-shadow(-8px 0 0 var(--white)) drop-shadow(0 8px 0 var(--white)) drop-shadow(0 -8px 0 var(--white)) drop-shadow(0 60px 40px rgb(0 0 0 / 0.32));
+    filter: drop-shadow(8px 0 0 var(--white)) drop-shadow(-8px 0 0 var(--white)) drop-shadow(0 8px 0 var(--white)) drop-shadow(0 -8px 0 var(--white)) drop-shadow(0 60px 40px var(--shade-32));
   }
   .stop-kind { font-size: var(--size-s); color: var(--muted); }
   .stop-text :global(.stop-title) { margin-top: 10px; font-size: var(--size-xl); line-height: 0.95; }
@@ -103,7 +103,7 @@ const skipId = `${sectionId}-after`;
   .stop-text :global(.stop-title[data-fit="2"]) { font-size: var(--size-l); }
   .stop-text :global(.stop-summary) { margin-top: 18px; color: var(--muted); max-width: 40ch; }
   .stop-skills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
-  .stop-skills .pill { background: rgb(255 255 255 / 0.6); }
+  .stop-skills .pill { background: var(--light-60); }
   .stop-text .btn { margin-top: 28px; }
 
   @media (max-width: 860px) {
@@ -124,7 +124,7 @@ const skipId = `${sectionId}-after`;
     :global(.js) .stop-text { transition: opacity 500ms var(--ease-out), translate 700ms var(--ease-out); }
     :global(.js) .stop:not(.is-current) .stop-text { opacity: 0; translate: 0 12px; pointer-events: none; }
     :global(.js) .stop:not(.is-current) .obj { opacity: 0.92; }
-    :global(.js) .floor-watch { display: block; position: absolute; left: var(--x); top: var(--y); width: 140px; rotate: -20deg; filter: drop-shadow(0 3px 2px rgb(0 0 0 / 0.15)) drop-shadow(0 12px 12px rgb(0 0 0 / 0.2)); }
+    :global(.js) .floor-watch { display: block; position: absolute; left: var(--x); top: var(--y); width: 140px; rotate: -20deg; filter: drop-shadow(0 3px 2px var(--shade-15)) drop-shadow(0 12px 12px var(--shade-20)); }
     :global(.js) .floor-hud { display: flex; position: absolute; inset: auto var(--gutter) 28px var(--gutter); justify-content: space-between; align-items: end; pointer-events: none; }
     :global(.js) .floor-hud a { pointer-events: auto; }
     .floor-count { font-family: var(--font-display); font-size: var(--size-l); line-height: 1; font-variant-numeric: tabular-nums; }

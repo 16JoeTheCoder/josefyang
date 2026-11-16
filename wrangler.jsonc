@@ -3,7 +3,9 @@
   "name": "josefyang-site",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@astrojs/cloudflare/entrypoints/server",
+  "main": "./src/worker.ts",
+  // Weekly D1 backup to R2 (Sunday 02:00 Jakarta time). Restore: see README.
+  "triggers": { "crons": ["0 19 * * 6"] },
   "assets": { "binding": "ASSETS", "directory": "./dist" },
   "observability": { "enabled": true },
   "d1_databases": [

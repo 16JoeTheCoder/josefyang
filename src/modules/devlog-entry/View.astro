@@ -36,7 +36,7 @@ const failed = data.settings.site.failedPill.value;
         {e.build && <a class="link-u" href={`/builds/${e.build.slug}`}>{c.buildLink.value}</a>}
       </p>
     </div>
-    <nav class="wrap de-nav" aria-label="Entries">
+    <nav class="wrap de-nav" aria-label={c.navLabel.value}>
       {older ? <a href={`/devlog/${older.slug}`}><span>{c.previous.value}</span>{older.title}</a> : <span></span>}
       {newer && <a class="de-next" href={`/devlog/${newer.slug}`}><span>{c.next.value}</span>{newer.title}</a>}
     </nav>

@@ -55,3 +55,11 @@ What: Everything was built and tested locally (miniflare D1 + R2 through the Clo
 
 ### D13. Local dev admin bypass
 What: `DEV_ADMIN_BYPASS=1` in `.dev.vars` lets you open /admin locally without Access. It only works on localhost and only when `CF_ACCESS_AUD` isn't set, so production (which has the secret) can never use it. `.dev.vars` is gitignored.
+
+### D14. Weekly D1 backup (architecture §17.3)
+What: `src/worker.ts` wraps Astro's handler and adds a cron (Sunday 02:00 Jakarta) that writes `backups/db-YYYY-MM-DD.sql` to the R2 bucket and keeps the last 8. Tested locally. Restore one: download it from R2 in the dashboard, then in the VS Code terminal at the repo root `npx wrangler d1 execute josefyang-db --remote --file=db-YYYY-MM-DD.sql`.
+
+### D15. Accessibility text and fonts
+- Every screen-reader-only label (menu, close, skip link, floor objects) is editable too, in Settings or the module.
+- Archivo is subset to Latin (90 KB to 74 KB). Lighthouse on the local production build: Home 99/100/100/100, About 100/100/100/100 after a contrast fix (perf/a11y/best practices/SEO); LCP ~1.9 s, CLS 0.
+- Not done: Lighthouse CI in GitHub Actions (CI runs type-check, tests and build only).

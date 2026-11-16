@@ -22,3 +22,11 @@ describe("module views", () => {
     });
   }
 });
+
+describe("module views use colour tokens only", () => {
+  for (const v of views) {
+    it(`${v.split("/").at(-2)}: no rgb()/hsl() literals`, () => {
+      expect(readFileSync(v, "utf8").match(/\b(rgba?|hsla?)\(/g) ?? []).toEqual([]);
+    });
+  }
+});

@@ -17,6 +17,7 @@ export default defineModule({
     keysHint: f.label("Keyboard hint", { max: 60, maxLines: 1 }),
     emptyNote: f.body("Shown when no build is featured yet", { max: 120, maxLines: 2 }),
     showWatch: f.toggle("Show the watch on the floor"),
+    watchLabel: f.label("Watch description (screen readers)", { max: 60, maxLines: 1 }),
   },
   defaults: {
     stageLabel: t("Featured builds on the floor"),
@@ -27,5 +28,6 @@ export default defineModule({
     keysHint: t("Scroll or use the arrow keys to move between builds."),
     emptyNote: t("Featured builds land here once they are published."),
     showWatch: true,
+    watchLabel: t("A wristwatch on the floor, showing the time"),
   },
 });

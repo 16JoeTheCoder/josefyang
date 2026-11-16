@@ -13,7 +13,7 @@ const links = [
 ];
 ---
 <header class="nav">
-  <nav aria-label="Main" class="nav-pill">
+  <nav aria-label={site.navLabel.value} class="nav-pill">
     <a href="/" class="nav-logo" aria-current={active === "home" ? "page" : undefined}><span class="nav-mark" aria-hidden="true"></span>{site.logo.value}</a>
     <ul class="nav-links">
       {links.map((l) => <li><a href={l.href} aria-current={active === l.id ? "page" : undefined}>{l.label}</a></li>)}
@@ -21,7 +21,7 @@ const links = [
     <button class="nav-menu-btn" popovertarget="nav-sheet" aria-label={site.menuLabel.value}><Icon name="menu" /><span>{site.menuLabel.value}</span></button>
   </nav>
   <div id="nav-sheet" popover class="nav-sheet">
-    <button class="nav-close" popovertarget="nav-sheet" popovertargetaction="hide" aria-label="Close menu"><Icon name="close" size={28} /></button>
+    <button class="nav-close" popovertarget="nav-sheet" popovertargetaction="hide" aria-label={site.closeMenuLabel.value}><Icon name="close" size={28} /></button>
     <ul>
       <li><a href="/">{site.colHome.value}</a></li>
       {links.map((l) => <li><a href={l.href} aria-current={active === l.id ? "page" : undefined}>{l.label}</a></li>)}

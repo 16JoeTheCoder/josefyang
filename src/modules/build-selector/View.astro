@@ -55,7 +55,7 @@ const failed = data.settings.site.failedPill.value;
 </script>
 <style>
   .sel { position: relative; overflow: hidden; background: var(--black); color: var(--white); padding: calc(var(--nav-h) + 72px) 0 var(--section-y); min-height: 100svh; }
-  .lamp { position: absolute; left: 50%; top: 38%; width: 1400px; height: 1000px; translate: -50% -50%; background: radial-gradient(closest-side, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.05) 55%, transparent); pointer-events: none; }
+  .lamp { position: absolute; left: 50%; top: 38%; width: 1400px; height: 1000px; translate: -50% -50%; background: radial-gradient(closest-side, var(--light-16), var(--light-05) 55%, transparent); pointer-events: none; }
   .sel-head { position: relative; display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; }
   .sel-head :global(h1) { font-size: var(--size-xxl); }
   .sel-bench { color: var(--muted-dark); font-size: var(--size-s); }
@@ -71,7 +71,7 @@ const failed = data.settings.site.failedPill.value;
   .card[aria-selected="false"] { opacity: 0.35; transform: scale(0.82); }
   .card-img { position: relative; display: block; border-radius: var(--radius-m); text-decoration: none; }
   .card-img :global(.img-empty) { background: var(--granite); }
-  .card[aria-selected="true"] .card-img :global(.img-slot) { box-shadow: 0 40px 80px -30px rgb(255 255 255 / 0.18); }
+  .card[aria-selected="true"] .card-img :global(.img-slot) { box-shadow: 0 40px 80px -30px var(--light-18); }
   .card-failed { position: absolute; top: 14px; left: 14px; background: var(--black); border-color: var(--muted-dark); }
   .card-info { text-align: center; margin-top: 32px; transition: opacity 400ms var(--ease-out); }
   .card[aria-selected="false"] .card-info { opacity: 0; }

@@ -137,7 +137,7 @@
   .page-pad { padding: 20px 16px 80px; }
   .editor { padding: 16px 16px 80px; }
   .statusbar { margin: 0 -16px 16px; padding: 10px 16px; top: 0; }
-  .admin button, .admin input, .admin select { min-height: 44px; }
+  .admin button, .admin input, .admin select, .admin button.mini, .admin button.linkish { min-height: 44px; }
   .image-field .img-row { grid-template-columns: 1fr; }
   .ms-row { grid-template-columns: 1fr 1fr; }
   .create { grid-template-columns: 1fr; }

@@ -72,7 +72,8 @@ const printed = ms.length;
   .rig-count strong { font-weight: 900; font-size: 1.6em; }
   .ms { margin-top: 24px; border-top: 1px solid var(--black); }
   .ms li { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 5fr); gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--black); transition: opacity 400ms var(--ease-out); }
-  .ms li.is-pending { opacity: 0.35; }
+  .ms li.is-pending { opacity: 0.72; translate: 8px 0; }
+  .ms li { transition: opacity 400ms var(--ease-out), translate 500ms var(--ease-out); }
   .ms-label { font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); }
   .ms h3 { font-family: var(--font-display); font-weight: 800; font-size: var(--size-l); line-height: 1.15; letter-spacing: -0.01em; }
   .ms p:not(.ms-label) { margin-top: 4px; font-size: var(--size-s); color: var(--sun-ink); }
