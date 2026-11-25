@@ -13,13 +13,13 @@
       "binding": "DB",
       "database_name": "josefyang-db",
       // Replace with the id printed by `npx wrangler d1 create josefyang-db` (see README).
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "52db133e-d5e3-4e95-9f68-c994ab79c26b",
       "migrations_dir": "migrations"
     }
   ],
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "josefyang-media" }],
   "vars": {
-    "ADMIN_EMAIL": "josef@josefyang.com",
+    "ADMIN_EMAIL": "josefyang.official@gmail.com,josef@josefyang.com,josefdanielyang@gmail.com",
     "CACHE_PAGES": "1",
     // Empty = images are served by this Worker at /media/*. Set to "https://media.josefyang.com" once the R2 custom domain exists.
     "MEDIA_BASE_URL": ""
