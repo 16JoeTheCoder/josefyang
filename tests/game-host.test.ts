@@ -55,3 +55,11 @@ describe("cookies", () => {
     expect(hits).toEqual([]);
   });
 });
+
+import { gameHostServes } from "../src/lib/game-host";
+describe("gameHostServes", () => {
+  it("serves hub pages and shared assets only", () => {
+    for (const p of ["/", "/modulus", "/games", "/games/modulus", "/_astro/a.js", "/media/m/ab/orig.png", "/api/public/v1/posts", "/admin", "/granite.webp"]) expect(gameHostServes(p)).toBe(true);
+    for (const p of ["/builds/chronos", "/devlog/foo", "/about/me"]) expect(gameHostServes(p)).toBe(false);
+  });
+});

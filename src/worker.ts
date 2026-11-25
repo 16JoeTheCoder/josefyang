@@ -1,7 +1,7 @@
 /** Worker entry: Astro handles requests; crons back up D1 weekly and release scheduled posts hourly. */
 import { handle } from "@astrojs/cloudflare/handler";
 import { backupToR2 } from "./core/backup";
-import { purgeAndWarm } from "./core/cache";
+import { purgeEverything } from "./core/purge";
 
 const BACKUP_CRON = "0 19 * * 6";
 
@@ -12,11 +12,9 @@ async function releaseScheduled(env: Env): Promise<string[]> {
   const rows = await env.DB.prepare("SELECT slug, publish_at FROM devlog WHERE status = 'published' AND publish_at IS NOT NULL").all<{ slug: string | null; publish_at: string }>();
   const due = (rows.results ?? []).filter((r) => { const t = Date.parse(r.publish_at); return t <= now && t > now - 70 * 60_000; });
   if (!due.length) return [];
-  const paths = ["/", "/devlog", "/devlog/rss.xml", ...due.filter((r) => r.slug).map((r) => `/devlog/${r.slug}`)];
   const origin = (env.SITE_URL || "https://josefyang.com").replace(/\/$/, "");
-  await purgeAndWarm(origin, paths);
-  if (env.GAME_HOST) await purgeAndWarm(`https://${env.GAME_HOST}`, ["/"]);
-  return paths;
+  await purgeEverything(env.DB, origin, env.GAME_HOST);
+  return due.map((r) => r.slug ?? "?");
 }
 
 export default {

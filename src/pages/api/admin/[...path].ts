@@ -7,7 +7,7 @@ import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { MAX_DOC_BYTES, blockDocSchema, emptyDoc, mediaRefs as blockMediaRefs, plainText, readMinutesFor } from "../../../core/blocks";
 import { buildMetaDefaults } from "../../../core/build-fields";
-import { purgeAndWarm } from "../../../core/cache";
+import { purgeEverything } from "../../../core/purge";
 import {
   buildDocShape, buildMedia, buildMetaSchema, buildProblems, sectionMedia, sectionProblems, sectionsShape, slugSchema,
   validateSections, validateSettings,
@@ -58,20 +58,10 @@ async function setUsage(ownerType: string, ownerId: string, refs: { mediaId: str
   await db().batch(stmts);
 }
 
-async function publicPaths(): Promise<string[]> {
-  const [b, d] = await db().batch([
-    db().prepare("SELECT slug FROM builds WHERE published_json IS NOT NULL AND deleted_at IS NULL"),
-    db().prepare("SELECT slug FROM devlog WHERE status = 'published'"),
-  ]);
-  return ["/", "/projects", "/failures", "/devlog", "/about",
-    ...((b?.results ?? []) as { slug: string }[]).map((r) => `/builds/${r.slug}`),
-    ...((d?.results ?? []) as { slug: string }[]).map((r) => `/devlog/${r.slug}`)];
-}
-
-/** Publishing anything purges every public page and warms it again (few pages, so this stays cheap). */
+/** Publishing anything purges every public page on both hosts and warms it again (few pages, so this stays cheap). */
 function purge(ctx: Ctx, extra: string[] = []) {
   if (env.CACHE_PAGES !== "1") return;
-  ctx.locals.cfContext.waitUntil(publicPaths().then((p) => purgeAndWarm(ctx.url.origin, [...p, ...extra])));
+  ctx.locals.cfContext.waitUntil(purgeEverything(db(), ctx.url.origin, env.GAME_HOST, extra));
 }
 
 /* ---------- pages ---------- */
@@ -524,6 +514,12 @@ async function replaceEverywhere(ctx: Ctx, id: string) {
       const r = await db().prepare("SELECT draft_json FROM settings WHERE key = ?").bind(oid).first<{ draft_json: string }>();
       if (!r) continue;
       stmts.push(db().prepare("UPDATE settings SET draft_json = ?, updated_at = ? WHERE key = ?").bind(JSON.stringify(swap(parse(r.draft_json, {}))), t, oid));
+    } else if (type === "game") {
+      const r = await db().prepare("SELECT draft_json FROM games WHERE id = ?").bind(oid).first<{ draft_json: string }>();
+      if (!r) continue;
+      stmts.push(db().prepare("UPDATE games SET draft_json = ?, updated_at = ? WHERE id = ?").bind(JSON.stringify(swap(parse(r.draft_json, {}))), t, oid));
+    } else if (type !== "devlog") {
+      continue; // unknown owner: leave its usage rows alone so the old media stays protected
     } else if (type === "devlog") {
       const r = await db().prepare("SELECT hero_media_id, media_ids, blocks_json FROM devlog WHERE id = ?").bind(oid).first<{ hero_media_id: string | null; media_ids: string; blocks_json: string | null }>();
       if (!r) continue;

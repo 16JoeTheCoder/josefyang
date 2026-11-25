@@ -215,8 +215,10 @@ export function HomePlacement({ builds, onOpen, onChanged }: { builds: BuildRec[
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingRow[]>([]);
   const [reload, setReload] = useState(0);
+  // Edits made in a build editor do not refresh the app's copy, so fetch fresh drafts before anything here saves.
+  useEffect(() => { void onChanged(); }, []);
   const sig = builds.map((b) => `${b.id}${b.updatedAt}`).join();
-  useEffect(() => { void api<{ pending: PendingRow[] }>("GET", "placement/status").then((r) => setPending(r.pending), () => setPending([])); }, [sig]);
+  useEffect(() => { void api<{ pending: PendingRow[] }>("GET", "placement/status").then((r) => setPending(r.pending), () => setPending([])); }, [sig, reload]);
   const save = async (list: BuildRec[]) => {
     setBusy(true);
     try {

@@ -31,6 +31,9 @@ function purge(ctx: Ctx) {
   ctx.locals.cfContext.waitUntil(publicPaths().then((p) => purgeAndWarm(ctx.url.origin, p)));
 }
 
+/** Key-order-independent JSON, so "same content, different key order" does not count as a change. */
+const canon = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b))) : x));
+
 /** Published builds whose draft Home placement differs from what is live. */
 async function pending() {
   const rows = (await db().prepare("SELECT id, draft_json, published_json FROM builds WHERE deleted_at IS NULL AND published_json IS NOT NULL").all<Row>()).results;
@@ -60,7 +63,9 @@ async function publishOrder(ctx: Ctx) {
     if (!pub.meta) return [];
     pub.meta.featured = !!d.featured;
     pub.meta.homeOrder = d.homeOrder ?? 1;
-    return [db().prepare("UPDATE builds SET published_json = ?, featured = ?, home_order = ? WHERE id = ?").bind(JSON.stringify(pub), d.featured ? 1 : 0, d.homeOrder ?? 1, r.id)];
+    // If nothing else differs, store the draft text itself so the build does not show "unpublished changes" afterwards.
+    const same = canon(parse(r.draft_json, {})) === canon(pub);
+    return [db().prepare("UPDATE builds SET published_json = ?, featured = ?, home_order = ? WHERE id = ?").bind(same ? r.draft_json : JSON.stringify(pub), d.featured ? 1 : 0, d.homeOrder ?? 1, r.id)];
   });
   if (stmts.length) await db().batch(stmts);
   purge(ctx);

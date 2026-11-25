@@ -15,6 +15,11 @@ export function gameHostRewrite(pathname: string): string | null {
   return null;
 }
 
+/** On the game host, anything that is neither a hub page nor a shared asset/API path is not served (404). */
+export function gameHostServes(pathname: string): boolean {
+  return UNTOUCHED.test(pathname) || HAS_EXT.test(pathname) || pathname === "/games" || pathname.startsWith("/games/") || gameHostRewrite(pathname) !== null;
+}
+
 /** On the main host: "/games" and "/games/slug" move to the game host (301). Null = no redirect. */
 export function mainHostRedirect(pathname: string, search: string, gameHost: string | undefined): string | null {
   if (!gameHost) return null;

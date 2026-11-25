@@ -2,7 +2,7 @@ import { defineMiddleware } from "astro:middleware";
 import { env } from "cloudflare:workers";
 import { verifyAdmin } from "./core/auth";
 import { cacheGet, cachePut } from "./core/cache";
-import { gameHostRewrite, mainHostRedirect } from "./lib/game-host";
+import { gameHostRewrite, gameHostServes, mainHostRedirect } from "./lib/game-host";
 
 const PROTECTED = [/^\/admin(\/|$)/, /^\/preview(\/|$)/, /^\/api\/admin(\/|$)/];
 
@@ -72,7 +72,11 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   // Game hub (game.josefyang.com): same app, host-based routing. Locally (no GAME_HOST) /games just works.
   let rewriteTo: string | undefined;
   if (env.GAME_HOST && ctx.request.method !== "POST") {
-    if (url.hostname === env.GAME_HOST) rewriteTo = gameHostRewrite(path) ?? undefined;
+    if (url.hostname === env.GAME_HOST) {
+      // The hub host serves only hub pages and shared assets, never the portfolio (duplicate content).
+      if (!gameHostServes(path)) return securityHeaders(new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain" } }), path);
+      rewriteTo = gameHostRewrite(path) ?? undefined;
+    }
     else if (["GET", "HEAD"].includes(ctx.request.method)) {
       const to = mainHostRedirect(path, url.search, env.GAME_HOST);
       if (to) return Response.redirect(to, 301);
