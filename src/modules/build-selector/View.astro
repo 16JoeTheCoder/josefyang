@@ -12,18 +12,40 @@ const F = mod.fields;
 const builds = data.builds;
 const bench = builds.find((b) => b.meta.status === "bench");
 const n = builds.length;
+const one = n === 1 ? builds[0] : undefined;
 const failed = data.settings.site.failedPill.value;
 ---
-<section class="sel" data-selector>
+<section class="sel" data-selector data-count={n}>
   <div class="lamp" aria-hidden="true"></div>
   <div class="wrap sel-head">
-    <T v={c.heading} f={F.heading} as="h1" />
+    <T v={n >= 2 ? c.heading : c.plainHeading} f={n >= 2 ? F.heading : F.plainHeading} as="h1" />
     {bench && (
       <p class="sel-bench">{c.benchPrefix.value} {bench.meta.title.value}. <a class="link-u" href="/devlog">{c.benchLink.value}</a></p>
     )}
   </div>
-  {n === 0 ? <div class="wrap"><T v={c.emptyNote} f={F.emptyNote} class="sel-empty" /></div> : (
+  {n === 0 && (
+    <div class="wrap sel-none">
+      <T v={c.emptyNote} f={F.emptyNote} class="sel-empty" />
+      {c.emptyLink.value && <a class="btn btn-sun btn-lg" href="/about">{c.emptyLink.value}</a>}
+    </div>
+  )}
+  {n === 1 && (
+    <div class="wrap sel-one">
+      <div class="one-text">
+        <h2 class="card-name one-name">{one!.meta.title.value}</h2>
+        <T v={one!.meta.summary} f={buildFields.summary} class="one-sum" />
+        <p class="card-meta">{one!.meta.kind === "software" ? c.software.value : c.hardware.value}, {one!.meta.year.value}</p>
+        <a class="btn btn-sun btn-lg one-link" href={`/builds/${one!.slug}`}>{c.openButton.value}</a>
+      </div>
+      <a class="card-img one-img" href={`/builds/${one!.slug}`} tabindex="-1" aria-hidden="true">
+        <Img v={one!.meta.selectorImage} f={buildFields.selectorImage} sizes="(max-width: 860px) 92vw, 1100px" eager />
+        {one!.meta.status === "failed" && <span class="pill pill-failed card-failed">{failed}</span>}
+      </a>
+    </div>
+  )}
+  {n >= 2 && (
     <>
+      <div class="sel-stage">
       <div class="sel-track" data-track tabindex="0" role="listbox" aria-label={c.heading.value} aria-describedby="sel-hint">
         {builds.map((b, i) => (
           <article class="card" id={`b-${b.slug}`} data-card data-slug={b.slug} data-index={i} role="option" aria-selected={i === 0 ? "true" : "false"}>
@@ -45,6 +67,21 @@ const failed = data.settings.site.failedPill.value;
         <button class="icon-btn" type="button" data-next aria-label={c.nextLabel.value}><Icon name="arrow-right" /></button>
       </div>
       <p class="wrap sel-hint" id="sel-hint">{c.hint.value} <span aria-live="polite"><span data-pos>1</span> {c.ofWord.value} {n}</span></p>
+      </div>
+      <div class="wrap sel-listwrap"><ul class="sel-list">
+        {builds.map((b) => (
+          <li class="li">
+            <div class="li-top">
+              <h2 class="li-name"><a href={`/builds/${b.slug}`}>{b.meta.title.value}</a></h2>
+              {b.meta.status === "failed" && <span class="pill pill-failed">{failed}</span>}
+            </div>
+            <T v={b.meta.summary} f={buildFields.summary} class="li-sum" />
+            <p class="li-meta">{b.meta.kind === "software" ? c.software.value : c.hardware.value}, {b.meta.year.value}</p>
+            <a class="li-link link-u" href={`/builds/${b.slug}`}>{c.openButton.value}<span class="sr-only">: {b.meta.title.value}</span></a>
+          </li>
+        ))}
+      </ul></div>
+      <noscript><style is:global>{`.sel-stage{display:none!important}.sel-listwrap{display:block!important}`}</style></noscript>
     </>
   )}
 </section>
@@ -93,13 +130,31 @@ const failed = data.settings.site.failedPill.value;
     .card[aria-selected="false"] { transform: scale(0.92); }
     .card-name { font-size: var(--size-xxl); }
   }
-  /* Reduced motion: a plain grid, every build visible, no selector. */
+  .sel-none { display: grid; justify-items: start; gap: 28px; margin-top: 48px; }
+  .sel :global(.sel-none .sel-empty) { margin-top: 0; }
+  .sel-one { display: grid; gap: var(--space-7); margin-top: var(--space-7); position: relative; }
+  .one-text { display: grid; justify-items: start; gap: 16px; max-width: 60ch; }
+  .one-name { font-size: var(--size-xxl); }
+  .sel :global(.one-sum) { color: var(--muted-dark); }
+  .one-link { margin-top: 12px; }
+  .one-img { max-width: 1100px; }
+  .sel-listwrap { display: none; margin-top: var(--space-7); position: relative; }
+  .sel-list { list-style: none; padding: 0; border-top: 1px solid var(--rule-dark); }
+  .li { padding: var(--space-6) 0; border-bottom: 1px solid var(--rule-dark); display: grid; justify-items: start; gap: 10px; }
+  .li-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .li-name { font-family: var(--font-display); font-weight: 900; font-stretch: 72%; font-size: var(--size-xl); line-height: 0.95; letter-spacing: var(--track-display); overflow-wrap: anywhere; }
+  .li-name a { text-decoration: none; }
+  .sel :global(.li-sum) { color: var(--muted-dark); max-width: 52ch; }
+  .li-meta { font-size: var(--size-s); color: var(--muted-dark); }
+  .li-link { display: inline-flex; align-items: center; min-height: 44px; font-family: var(--font-display); font-weight: 700; }
+
+  /* Text-first list: small screens, reduced motion (and, via <noscript>, no JavaScript). */
+  @media (max-width: 860px) {
+    .sel-stage { display: none; }
+    .sel-listwrap { display: block; }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .sel-track { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 40px; padding-inline: var(--gutter); max-width: calc(var(--container) + 2 * var(--gutter)); margin-inline: auto; overflow: visible; }
-    .card, .card[aria-selected="false"] { opacity: 1; transform: none; }
-    .card[aria-selected="false"] .card-info { opacity: 1; }
-    .card-info { text-align: left; }
-    .card-name { font-size: var(--size-xl); }
-    .sel-controls, .sel-hint { display: none; }
+    .sel-stage { display: none; }
+    .sel-listwrap { display: block; }
   }
 </style>

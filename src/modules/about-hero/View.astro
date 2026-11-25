@@ -3,8 +3,10 @@ import T from "../../components/T.astro";
 import Img from "../../components/Img.astro";
 import type { Content } from "../../core/fields";
 import mod from "./module";
-interface Props { content: Content<typeof mod.fields> }
-const { content: c } = Astro.props;
+import type { PageData } from "../../core/types";
+interface Props { content: Content<typeof mod.fields>; data: PageData }
+const { content: c, data } = Astro.props;
+const hasCv = !!data.settings.cv.fileKey;
 const F = mod.fields;
 ---
 <section class="ah on-sun">
@@ -12,6 +14,7 @@ const F = mod.fields;
     <div>
       <T v={c.heading} f={F.heading} as="h1" class="ah-title" />
       <T v={c.bio} f={F.bio} class="ah-bio" />
+      {hasCv && c.cvLabel.value && <a class="btn btn-primary ah-cv" href="/cv" target="_blank" rel="noopener">{c.cvLabel.value}</a>}
     </div>
     <div class="ah-portrait"><Img v={c.portrait} f={F.portrait} eager sizes="(max-width: 860px) 90vw, 400px" /></div>
   </div>
@@ -21,6 +24,7 @@ const F = mod.fields;
   .ah-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 64px; align-items: center; }
   .ah :global(.ah-title) { font-size: clamp(5rem, 2rem + 12vw, 13rem); line-height: 0.82; }
   .ah :global(.ah-bio) { margin-top: 36px; font-size: var(--lead); max-width: 38ch; }
+  .ah-cv { margin-top: 28px; }
   .ah-portrait :global(.img-slot) { box-shadow: 0 40px 60px -30px var(--shade-35); }
   .ah-portrait :global(.img-empty) { background: var(--sun-tile); color: var(--sun-ink); }
   @media (max-width: 860px) { .ah-grid { grid-template-columns: 1fr; gap: 40px; } .ah-portrait { max-width: 420px; } }

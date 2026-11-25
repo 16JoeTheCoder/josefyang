@@ -27,7 +27,12 @@ export function isLocalHost(url: URL): boolean {
   return url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
 }
 
-/** Returns the verified admin email, or null. */
+/**
+ * Returns the verified admin email, or null.
+ * Cookies: this app sets none. Cloudflare Access issues its own host-only CF_Authorization cookie for the admin host.
+ * Never add a parent-domain cookie (a Domain attribute naming josefyang.com): every game subdomain would receive
+ * it, and a game could then read or replay the admin session.
+ */
 export async function verifyAdmin(request: Request, env: AuthEnv): Promise<string | null> {
   const url = new URL(request.url);
   // Local development only: needs the flag, a localhost URL, and no Access config (production always has CF_ACCESS_AUD).

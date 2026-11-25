@@ -34,6 +34,14 @@
   --obj-screen: #1d1d1b;
   --obj-strap: #2b2a27;
   --obj-track: #444444;
+  /* workshop desk (Home hero + floor): a warm paper a step darker than --granite */
+  --desk: #e9e7e1;
+  --obj-paper: #fbfaf6;         /* A4 sheets on the desk */
+  --obj-rule: #dcdad3;          /* faint ruling on blank sheets */
+  --obj-graphite: #55534e;      /* pencil marks */
+  --obj-pencil: #e2b13c;        /* pencil body */
+  --obj-shell: #2c2c2a;         /* laptop deck + lid */
+  --obj-shell-edge: #3d3d3a;    /* laptop edge highlight */
   --granite-tex: url("/granite.webp");
   --granite-tex-fine: url("/granite-fine.webp");
 

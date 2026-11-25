@@ -63,3 +63,22 @@ What: `src/worker.ts` wraps Astro's handler and adds a cron (Sunday 02:00 Jakart
 - Every screen-reader-only label (menu, close, skip link, floor objects) is editable too, in Settings or the module.
 - Archivo is subset to Latin (90 KB to 74 KB). Lighthouse on the local production build: Home 99/100/100/100, About 100/100/100/100 after a contrast fix (perf/a11y/best practices/SEO); LCP ~1.9 s, CLS 0.
 - Not done: Lighthouse CI in GitHub Actions (CI runs type-check, tests and build only).
+
+## 2026-11-25 (plan v2: Chronos, workshop hero, blog, game hub, admin)
+
+### D15. Projects arrive as code modules + a project pack, never as a special-case route
+What: Chronos is 6 reusable `showcase-*` modules + 2 Chronos-only modules, filled by `packs/chronos/` (project.json + media). The Chronos handoff's `slug === "chronos"` route patch and its ~40 raw colours were not used. Import in Admin → Builds; always lands as a draft. `tests/packs-valid.test.ts` fails CI if a committed pack would not import.
+Reverse: n/a (the pack is plain data; edit it in admin after import).
+
+### D16. Workshop hero replaces the granite hero on Home
+What: `home-hero` v2: name + line on a new warm `--desk` paper ground, laptop seen from above, lid opens on a scroll threshold (fixed 1.05s tween, native scroll, hysteresis), screen loops name → line → "Scroll to projects", pause button, offscreen/hidden-tab pause. Floor uses the same ground and is the `#featured` target. Portrait and phone left Home (About keeps the portrait). Cup is SVG from above (the top-down camera made a 3D cup unnecessary). A4 pages: 6 admin slots, blank ruled paper until scans arrive. v1 → v2 migrate keeps edited copy.
+Reverse: set the Home page's hero section back to v1 content from Version history; restore the old View from git.
+
+### D17. Global brand tokens vs repo tokens
+What: `~/.claude/CLAUDE.md` names ink #0D0E10 / paper #F3F2EE / fire #FF5B1F; this repo's approved tokens are #000 / #f1f1ef / #f26b1d. Kept the repo tokens (approved brief, whole site built on them); the new `--desk` sits between paper and granite. Josef to decide whether to migrate the site to the global tokens (one-file change in tokens.css + contrast check).
+
+### D18. Blog + game hub architecture
+What: Devlog upgraded in place (migration 0005; Tiptap JSON blocks, strict whitelist, server-rendered). game.josefyang.com is this same Worker with host routing (`GAME_HOST`), managed in the same admin; each game is its own app on its own subdomain and reads `/api/public/v1/posts`. Hub uses a dark ground (site tokens only) to separate games from the portfolio. See docs/GAME-CONTRACT.md.
+
+### D19. Admin editing model
+What: click anything in the preview to jump to its field (matched by section + text/image, no per-field markup in views); typing updates the preview instantly before autosave; "+ Add a section" lists modules allowed on that page; Remove is a two-click confirm (no dialogs); drag handle reorders (sections collapse while dragging; transforms only), Move up/down kept for keyboard. This reverses brief rule "no drag-and-drop" at Josef's request (25 Nov).

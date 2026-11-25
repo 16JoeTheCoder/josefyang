@@ -2,9 +2,38 @@
 import { useState } from "preact/hooks";
 import { api, isApiError } from "./api";
 import { prepareImage } from "./resize";
-import { thumb, useAdmin, type MediaItem } from "./state";
+import { isVideoItem, thumb, useAdmin, videoSrc, type MediaItem } from "./state";
+
+export const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
+export const isVideoFile = (f: File) => f.type === "video/mp4" || /\.mp4$/i.test(f.name);
+
+/** Read a clip's pixel size in the browser (no upload yet). Resolves {0,0} if the browser can't decode it. */
+export function videoSize(file: File): Promise<{ w: number; h: number }> {
+  return new Promise((ok) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement("video");
+    const done = (w: number, h: number) => { URL.revokeObjectURL(url); ok({ w, h }); };
+    v.preload = "metadata";
+    v.muted = true;
+    v.onloadedmetadata = () => done(v.videoWidth, v.videoHeight);
+    v.onerror = () => done(0, 0);
+    setTimeout(() => done(0, 0), 8000);
+    v.src = url;
+  });
+}
+
+async function uploadVideo(file: File, alt: string): Promise<{ item: MediaItem; warning?: string }> {
+  if (file.size > MAX_VIDEO_BYTES) throw new Error("Videos can be up to 25 MB. Trim or compress it first.");
+  const { w, h } = await videoSize(file);
+  const fd = new FormData();
+  fd.append("original", file);
+  if (w) { fd.append("width", String(w)); fd.append("height", String(h)); }
+  fd.append("alt", alt);
+  return { item: await api<MediaItem>("POST", "media", fd) };
+}
 
 export async function uploadFile(file: File, alt = "", minWidth = 0): Promise<{ item: MediaItem; warning?: string }> {
+  if (isVideoFile(file)) return uploadVideo(file, alt);
   const p = await prepareImage(file, minWidth);
   const fd = new FormData();
   fd.append("original", file);
@@ -17,7 +46,7 @@ export async function uploadFile(file: File, alt = "", minWidth = 0): Promise<{ 
   return { item, warning: p.warning };
 }
 
-export function Uploader({ onDone }: { onDone: (m: MediaItem) => void }) {
+export function Uploader({ onDone, kind = "all" }: { onDone: (m: MediaItem) => void; kind?: "all" | "image" | "video" }) {
   const { toast, refreshMedia } = useAdmin();
   const [busy, setBusy] = useState(false);
   const onPick = async (e: Event) => {
@@ -40,8 +69,8 @@ export function Uploader({ onDone }: { onDone: (m: MediaItem) => void }) {
   };
   return (
     <label class={`upload ${busy ? "busy" : ""}`}>
-      <input type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,.heic" multiple onChange={onPick} disabled={busy} />
-      <span>{busy ? "Resizing and uploading…" : "Upload images (up to 20 MB each)"}</span>
+      <input type="file" accept={kind === "video" ? "video/mp4,.mp4" : kind === "image" ? "image/jpeg,image/png,image/webp,image/avif,image/heic,.heic" : "image/jpeg,image/png,image/webp,image/avif,image/heic,.heic,video/mp4,.mp4"} multiple={kind !== "video"} onChange={onPick} disabled={busy} />
+      <span>{busy ? "Resizing and uploading…" : kind === "video" ? "Upload an MP4 (up to 25 MB)" : kind === "image" ? "Upload images (up to 20 MB each)" : "Upload images (up to 20 MB) or MP4 videos (up to 25 MB)"}</span>
     </label>
   );
 }
@@ -54,17 +83,24 @@ function usageLabel(u: { owner_type: string; owner_id: string; field_path: strin
   return `${owner}, ${field}`;
 }
 
-export function Picker({ onClose }: { onClose: (m: MediaItem | null) => void }) {
+function Tile({ m }: { m: MediaItem }) {
+  return isVideoItem(m)
+    ? <video src={`${videoSrc(m)}#t=0.1`} preload="metadata" muted playsInline aria-hidden="true" tabIndex={-1} />
+    : <img src={thumb(m)} alt="" loading="lazy" />;
+}
+
+export function Picker({ onClose, kind = "image" }: { onClose: (m: MediaItem | null) => void; kind?: "image" | "video" }) {
   const { media } = useAdmin();
+  const label = kind === "video" ? "Choose a video" : "Choose an image";
   return (
-    <div class="modal" role="dialog" aria-modal="true" aria-label="Choose an image">
+    <div class="modal" role="dialog" aria-modal="true" aria-label={label}>
       <div class="modal-box">
-        <div class="modal-head"><h2>Choose an image</h2><button type="button" onClick={() => onClose(null)}>Close</button></div>
-        <Uploader onDone={(m) => onClose(m)} />
+        <div class="modal-head"><h2>{label}</h2><button type="button" onClick={() => onClose(null)}>Close</button></div>
+        <Uploader kind={kind} onDone={(m) => onClose(m)} />
         <ul class="media-grid">
-          {media.map((m) => (
+          {media.filter((m) => isVideoItem(m) === (kind === "video")).map((m) => (
             <li><button type="button" class="media-tile" onClick={() => onClose(m)}>
-              <img src={thumb(m)} alt="" loading="lazy" />
+              <Tile m={m} />
               <span class="small">{m.name || m.id.slice(0, 8)}{m.w ? `, ${m.w}×${m.h}` : ""}</span>
             </button></li>
           ))}
@@ -98,7 +134,7 @@ export function Library() {
     } catch (x) { toast(isApiError(x) ? x.error : "Replace failed"); }
   };
   const del = async (m: MediaItem) => {
-    if (!confirm("Delete this image for good?")) return;
+    if (!confirm(`Delete this ${isVideoItem(m) ? "video" : "image"} for good?`)) return;
     try { await api("DELETE", `media/${m.id}`); await refreshMedia(); setSel(null); } catch (x) { toast(isApiError(x) ? x.error : "Delete failed"); }
   };
   const list = onlyUnused ? media.filter((m) => m.uses === 0) : media;
@@ -110,14 +146,15 @@ export function Library() {
       <ul class="media-grid">
         {list.map((m) => (
           <li><button type="button" class={`media-tile ${sel?.id === m.id ? "on" : ""}`} onClick={() => open(m)}>
-            <img src={thumb(m)} alt="" loading="lazy" />
-            <span class="small">{m.uses ? `Used ${m.uses}×` : "Unused"}{m.transparent ? ", cut-out" : ""}</span>
+            <Tile m={m} />
+            <span class="small">{isVideoItem(m) ? "Video, " : ""}{m.uses ? `Used ${m.uses}×` : "Unused"}{m.transparent ? ", cut-out" : ""}</span>
           </button></li>
         ))}
       </ul>
       {sel && (
         <div class="notice">
-          <h2>{sel.name || "Image"} <span class="muted small">{sel.w}×{sel.h}, {Math.round((sel.bytes ?? 0) / 1024)} KB, sizes {sel.widths.join(", ")}</span></h2>
+          <h2>{sel.name || (isVideoItem(sel) ? "Video" : "Image")} <span class="muted small">{sel.w}×{sel.h}, {Math.round((sel.bytes ?? 0) / 1024)} KB{sel.widths.length ? `, sizes ${sel.widths.join(", ")}` : ""}</span></h2>
+          {isVideoItem(sel) && <video class="lib-video" src={videoSrc(sel)} controls preload="metadata" playsInline />}
           {uses.length === 0 ? <p>Not used anywhere.</p> : (
             <>
               <p>Used in:</p>

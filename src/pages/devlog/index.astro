@@ -6,5 +6,6 @@ import { loadPageData } from "../../core/db";
 const { data, sections } = await loadPageData(env.DB, Astro.locals.mode, "devlog");
 ---
 <Base settings={data.settings} active="devlog" title="Devlog">
+  <link slot="head" rel="alternate" type="application/rss+xml" title="Devlog" href="/devlog/rss.xml" />
   <RenderSections page="devlog" sections={sections} data={data} />
 </Base>

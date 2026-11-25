@@ -1,0 +1,34 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields> }
+const { content: c } = Astro.props;
+const F = mod.fields;
+const hasImage = !!(c.image.mediaId && c.image.key);
+---
+<section class="as">
+  <div class:list={["wrap", "as-grid", hasImage && "as-with-image"]}>
+    <div class="as-text">
+      <T v={c.heading} f={F.heading} as="h2" class="as-title" />
+      <T v={c.story} f={F.story} class="as-story" />
+    </div>
+    {hasImage && (
+      <figure class="as-fig">
+        <Img v={c.image} f={F.image} sizes="(max-width: 860px) 92vw, 560px" />
+        {c.caption.value && <figcaption class="as-cap">{c.caption.value}</figcaption>}
+      </figure>
+    )}
+  </div>
+</section>
+<style>
+  .as { background: var(--white); padding: var(--section-y) 0; }
+  .as-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; }
+  .as-with-image { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 64px; align-items: center; }
+  .as :global(.as-title) { font-size: var(--size-xl); line-height: 0.98; max-width: 18ch; text-wrap: balance; }
+  .as :global(.as-story) { margin-top: 28px; font-size: var(--lead); max-width: 56ch; }
+  .as-fig { margin: 0; }
+  .as-cap { margin-top: 12px; font-size: var(--size-xs); color: var(--muted); }
+  @media (max-width: 860px) { .as-with-image { grid-template-columns: 1fr; gap: 32px; } }
+</style>

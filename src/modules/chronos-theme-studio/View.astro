@@ -1,0 +1,83 @@
+---
+import T from "../../components/T.astro";
+import Head from "../../components/showcase/Head.astro";
+import type { Content } from "../../core/fields";
+import { ACCENTS, MODES, paletteCss, themeFile, type Accent, type Mode } from "./palettes";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; sectionId: string }
+const { content: c, sectionId } = Astro.props;
+const F = mod.fields;
+const modeLabel: Record<Mode, string> = { dark: c.darkLabel.value, light: c.lightLabel.value };
+const accentLabel: Record<Accent, string> = { orange: c.orangeLabel.value, blue: c.blueLabel.value, violet: c.violetLabel.value };
+const css = paletteCss(".cts");
+const label = (m: Mode, a: Accent) => `${modeLabel[m]} · ${accentLabel[a]}`;
+const ext = !!c.linkUrl && c.linkUrl.startsWith("http");
+---
+<section class="cts" data-studio data-mode="dark" data-accent="blue">
+  <style set:html={css} is:global></style>
+  <div class="wrap">
+    <Head heading={c.heading} headingField={F.heading} body={c.body} bodyField={F.body} />
+    <div class="cts-layout">
+      <div class="cts-controls">
+        <div data-controls hidden>
+          <fieldset><legend>{c.surfaceLegend.value}</legend><div class="cts-opts">
+            {MODES.map((m) => <label><input type="radio" name={`${sectionId}-mode`} value={m} checked={m === "dark"} />{modeLabel[m]}</label>)}
+          </div></fieldset>
+          <fieldset><legend>{c.accentLegend.value}</legend><div class="cts-opts">
+            {ACCENTS.map((a) => <label><input type="radio" name={`${sectionId}-accent`} value={a} checked={a === "blue"} /><span class={`cts-dot cts-dot-${a}`} aria-hidden="true"></span>{accentLabel[a]}</label>)}
+          </div></fieldset>
+        </div>
+        <a class="btn btn-primary cts-dl" data-download href={themeFile("dark", "blue")} download>{c.download.value}</a>
+        <ul class="cts-files" data-files>
+          {MODES.flatMap((m) => ACCENTS.map((a) => <li><a class="link-u" href={themeFile(m, a)} download>{label(m, a)}</a></li>))}
+        </ul>
+        <T v={c.importNote} f={F.importNote} class="cts-note" />
+        {c.linkUrl && <a class="link-u cts-link" href={c.linkUrl} {...(ext ? { target: "_blank", rel: "noopener" } : {})}>{c.linkLabel.value}</a>}
+      </div>
+      <div class="cts-preview" role="img" aria-label={c.previewAria.value}>
+        <div class="cts-row"><span>{c.previewLabel.value}</span><span data-name data-names={JSON.stringify(Object.fromEntries(MODES.flatMap((m) => ACCENTS.map((a) => [`${m}-${a}`, label(m, a)]))))}>{label("dark", "blue")}</span></div>
+        <div class="cts-clock"><p>{c.previewTask.value}</p><strong>{c.previewTime.value}</strong><div class="cts-bar" aria-hidden="true"><span></span></div></div>
+        <div class="cts-row"><span>{c.previewFootLeft.value}</span><span>{c.previewFootRight.value}</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+  import { onPage } from "../../core/island";
+  import { mountStudio } from "./island";
+  onPage("[data-studio]", mountStudio);
+</script>
+<style>
+  .cts { background: var(--white); padding: var(--section-y) 0; }
+  .cts-layout { display: grid; grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr); gap: var(--space-6); align-items: stretch; }
+  .cts-controls { border-top: 1px solid var(--black); padding-top: var(--space-4); display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+  .cts-controls [data-controls][hidden] { display: none; }
+  fieldset { border: 0; padding: 0; margin: 0 0 var(--space-4); min-width: 0; }
+  legend { font-family: var(--font-display); font-weight: 800; font-size: var(--size-s); padding: 0; margin-bottom: var(--space-2); }
+  .cts-opts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .cts-opts label { position: relative; min-height: 44px; display: inline-flex; gap: var(--space-2); align-items: center; border: 1px solid var(--pill-line); border-radius: var(--pill); padding: 0 var(--space-4); cursor: pointer; font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); }
+  .cts-opts label:has(:checked) { background: var(--black); color: var(--white); border-color: var(--black); }
+  .cts-opts label:focus-within { outline: 2px solid var(--sun); outline-offset: 3px; }
+  .cts-opts input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .cts-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--pill-line); }
+  .cts-files { display: grid; gap: var(--space-1); font-size: var(--size-s); }
+  .cts-files a { display: inline-flex; align-items: center; min-height: 36px; }
+  .cts-controls.is-live .cts-files { display: none; }
+  .cts-controls :global(.cts-note) { color: var(--muted); font-size: var(--size-s); }
+  .cts-link { font-family: var(--font-display); font-weight: 700; display: inline-flex; align-items: center; min-height: 44px; }
+  .cts-preview {
+    display: grid; align-content: space-between; gap: var(--space-6); min-height: 305px; padding: clamp(var(--space-4), 3vw, var(--space-6));
+    border-radius: var(--radius-m); background: var(--ct-ground); color: var(--ct-text); box-shadow: var(--shadow-object);
+    transition: background-color 260ms var(--ease-out), color 260ms var(--ease-out);
+  }
+  .cts-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px var(--space-3); color: var(--ct-muted); font-size: var(--size-s); }
+  .cts-clock p { color: var(--ct-text); font-size: var(--size-m); }
+  .cts-clock strong { display: block; font-family: var(--font-display); color: var(--ct-accent); font-variant-numeric: tabular-nums; font-weight: 800; font-size: clamp(3.4rem, 8vw, 7.4rem); letter-spacing: var(--track-tight); line-height: 1.08; transition: color 220ms var(--ease-out); }
+  .cts-bar { height: 2px; border-radius: 3px; background: var(--ct-line); overflow: hidden; }
+  .cts-bar span { width: 60%; height: 100%; display: block; background: var(--ct-accent); transition: background-color 220ms var(--ease-out); }
+  @media (max-width: 860px) {
+    .cts-layout { grid-template-columns: minmax(0, 1fr); }
+    .cts-preview { min-height: 260px; }
+    .cts-controls .cts-dl { width: 100%; }
+  }
+</style>

@@ -73,6 +73,7 @@ html { scrollbar-color: var(--muted) transparent; }
 
 /* grounds */
 .ground-granite { background-color: var(--granite); background-image: var(--granite-tex); background-size: 200px 200px; }
+.ground-desk { background-color: var(--desk); background-image: var(--granite-tex-fine); background-size: 200px 200px; }
 .ground-granite-fine { background-color: var(--granite); background-image: var(--granite-tex-fine); background-size: 200px 200px; }
 
 @media (prefers-reduced-motion: reduce) {

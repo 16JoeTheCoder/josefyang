@@ -119,3 +119,36 @@ Each phase: typecheck + build + tests pass, commit, push, PR description updated
 ## 10. Questions for Josef (non-blocking, decided for now)
 
 See `decisions.md`. The one that matters most: which 4–5 builds are featured on the Home floor first.
+
+---
+
+# Plan v2 (25 Nov 2026): merged scope, approved by Josef in chat
+
+Sources: chat decisions of 25 Nov, `Chronos - josefyang.com handoff.zip`, `handoff.zip` (workshop hero + portfolio updates). Chat decisions win over both zips.
+
+## Decisions locked in chat
+- Every project gets its own interactive piece, written in code (Claude Code), with all its text and images editable in admin. Code never goes through the admin.
+- Projects arrive as **project packs** (`<slug>.zip` = `project.json` + `media/`), imported in Admin → Builds. Docs: `docs/PROJECT-PACK.md`, `docs/ADDING-A-PROJECT.md`.
+- Chronos is one build among many: modules + a pack, not a special-cased route. Not the hero's doorway.
+- Home: big **Josef Yang** + one line visible on load; scrolling pushes it up, a laptop lid opens (fixed-length tween at a scroll threshold, native scroll, never hijacked), screen shows name → line → "Scroll to projects", then the existing floor ride. Light paper ground (new slightly darker paper tone), no dark concrete. Cup = small pre-rendered image + CSS steam; laptop/papers in CSS 3D + SVG. A4 working-page slots (placeholders, admin-uploaded scans, perspective from the floor plane).
+- Hero line default: "I build software and electronics, usually with a coffee nearby. Nice to meet you." (editable)
+- Blog: Notes + Articles, block editor with images (paste/drop/upload), tags, cover, schedule, "Show on" main/games, RSS, public read-only feed `/api/public/v1/posts` (CORS for *.josefyang.com).
+- game.josefyang.com = hub served by this same app (host routing) from the same admin. Each game is its own app on its own subdomain (e.g. modulus.josefyang.com), installable PWA, pulling its devlog from the public feed. `docs/GAME-CONTRACT.md`.
+- Admin must feel like a polished product: click-to-edit in preview, live text preview, add-section library, drag reorder (Move up/down kept), plain-English labels, one-click Home order publish, site-wide "Ready to publish" checklist. Common tasks ≤ 3 clicks.
+- Handoff portfolio updates kept: View CV shortcut, Greenmech story (placeholder), Projects one/zero/mobile states, Failures + Devlog empty states, dated Now line, no cadence promises.
+
+## Work packages (board: `board.md`)
+| WP | Owner | Scope |
+|---|---|---|
+| C0 | Opus | Contracts: video field kind, pack format, posts API shape, migration numbers, board |
+| S1 | Sonnet | Chronos as reusable showcase modules + chronos-specific modules + `packs/chronos/` |
+| S2 | Sonnet | Portfolio updates (About/CV/story, Projects states, Devlog Now, empty states) |
+| S3 | Sonnet | Game hub: games table, admin, `/games` pages, host routing, GAME-CONTRACT.md |
+| S5 | Sonnet | Video upload/serving (Range), project pack export/import, pack docs |
+| S6 | Sonnet | Blog: blocks, editor, feed types, RSS, public API, posts helper |
+| H | Opus | Workshop hero (laptop, papers, cup, threshold tweens, floor entrance) |
+| A | Opus | Admin: click-to-edit, live text, section library, drag reorder |
+| S7 | Sonnet | Admin polish: labels, Ready-to-publish checklist, one-click Home order |
+| R | Sonnet | Review: code/security review + Playwright bug hunt (390/1440), then Opus fixes |
+
+Migrations: 0005 = blog (S6), 0006 = games (S3).

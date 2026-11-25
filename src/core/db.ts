@@ -1,4 +1,5 @@
 /** Typed D1 access. Public pages use one batch per request (architecture §8.3). */
+import { parseBlocksJson } from "./blocks";
 import { buildMetaDefaults } from "./build-fields";
 import { withDefaults, type ImageValue } from "./fields";
 import type { Section } from "./module";
@@ -22,7 +23,7 @@ export const pageLayouts: Record<string, string[]> = {
   failures: ["failures-intro", "hopper", "failure-list"],
   devlog: ["devlog-intro", "devlog-feed"],
   entry: ["devlog-entry"],
-  about: ["about-hero", "text-band", "print-rig", "off-the-bench", "short-version", "find-me"],
+  about: ["about-hero", "about-story", "text-band", "print-rig", "off-the-bench", "short-version", "find-me"],
 };
 export const PAGE_IDS = Object.keys(pageLayouts);
 /** Fallback build-page layout when a build has no sections yet (mirrors template build-default v1). */
@@ -59,7 +60,7 @@ export function buildFromRow(r: BuildRow, mode: Mode): BuildRecord | null {
   };
 }
 
-interface DevlogRow { id: string; slug: string | null; title: string; excerpt: string; body: string; build_id: string | null; hero_media_id: string | null; media_ids: string; fuse_url: string | null; read_minutes: number | null; entry_date: string | null; created_at: number; status: string; updated_at: number }
+interface DevlogRow { id: string; slug: string | null; title: string; excerpt: string; body: string; build_id: string | null; hero_media_id: string | null; media_ids: string; fuse_url: string | null; read_minutes: number | null; entry_date: string | null; created_at: number; status: string; updated_at: number; blocks_json?: string | null; type?: string; tags_json?: string; sites_json?: string; game_slug?: string | null; publish_at?: string | null; seo_description?: string | null }
 
 export function devlogFromRow(r: DevlogRow, builds: BuildRecord[]): DevlogEntry {
   const b = r.build_id ? builds.find((x) => x.id === r.build_id) : undefined;
@@ -78,6 +79,13 @@ export function devlogFromRow(r: DevlogRow, builds: BuildRecord[]): DevlogEntry 
     date: r.entry_date ?? new Date(r.created_at).toISOString().slice(0, 10),
     status: r.status === "published" ? "published" : "draft",
     updatedAt: r.updated_at,
+    blocks: parseBlocksJson(r.blocks_json),
+    type: r.type === "article" ? "article" : "note",
+    tags: parse<string[]>(r.tags_json, []),
+    sites: parse<("main" | "games")[]>(r.sites_json, ["main"]),
+    gameSlug: r.game_slug ?? null,
+    publishAt: r.publish_at ?? null,
+    seoDescription: r.seo_description ?? "",
   };
 }
 
@@ -100,13 +108,13 @@ export function sortBuilds(builds: BuildRecord[]): BuildRecord[] {
 }
 
 export async function loadPageData(db: D1Database, mode: Mode, pageId?: string): Promise<{ data: PageData; sections: Section[] }> {
-  const devlogWhere = mode === "draft" ? "" : "WHERE status = 'published'";
+  const devlogWhere = mode === "draft" ? "" : "WHERE status = 'published' AND (publish_at IS NULL OR publish_at <= ?) AND sites_json LIKE '%\"main\"%'";
   const msWhere = mode === "draft" ? "" : "WHERE status = 'published'";
   const [pageRes, settingsRes, buildsRes, devlogRes, msRes] = await db.batch([
     db.prepare("SELECT draft_json, published_json FROM pages WHERE id = ?").bind(pageId ?? ""),
     db.prepare("SELECT key, draft_json, published_json FROM settings"),
     db.prepare("SELECT id, slug, template_id, template_ver, draft_json, published_json, updated_at, published_at FROM builds WHERE deleted_at IS NULL"),
-    db.prepare(`SELECT * FROM devlog ${devlogWhere} ORDER BY entry_date DESC, created_at DESC LIMIT 200`),
+    db.prepare(`SELECT * FROM devlog ${devlogWhere} ORDER BY entry_date DESC, created_at DESC LIMIT 200`).bind(...(mode === "draft" ? [] : [new Date().toISOString()])),
     db.prepare(`SELECT * FROM milestones ${msWhere} ORDER BY date ASC`),
   ]);
   const pageRow = pageRes?.results[0] as { draft_json: string; published_json: string | null } | undefined;

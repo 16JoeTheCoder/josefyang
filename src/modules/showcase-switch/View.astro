@@ -1,0 +1,73 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import Head from "../../components/showcase/Head.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields> }
+const { content: c } = Astro.props;
+const F = mod.fields;
+const S = F.before.fields;
+const states = [c.before, c.after];
+---
+<section class="ss" data-switch>
+  <div class="wrap">
+    <Head dark heading={c.heading} headingField={F.heading} body={c.body} bodyField={F.body} linkLabel={c.linkLabel} linkUrl={c.linkUrl} />
+    <div class="ss-stage" data-stage>
+      {states.map((s, i) => (
+        <figure class="ss-state" data-state={i}>
+          <Img v={s.image} f={S.image} sizes="(max-width: 900px) 92vw, 1200px" class="ss-img" />
+          <figcaption>
+            <T v={s.title} f={S.title} as="p" class="ss-title" />
+            <T v={s.note} f={S.note} class="ss-note" />
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+    <div class="ss-actions" data-actions hidden>
+      <button type="button" class="btn btn-light" data-go>{c.goLabel.value}<span class="ss-arrow" aria-hidden="true"></span></button>
+      <button type="button" class="btn btn-light-outline" data-replay hidden>{c.replayLabel.value}</button>
+    </div>
+    <p class="sr-only" role="status" data-status></p>
+    {c.steps.length > 0 && (
+      <ol class="ss-steps" style={`--n:${c.steps.length}`}>
+        {c.steps.map((s) => (
+          <li><T v={s.title} f={F.steps.of.title} as="strong" class="ss-step-title" /><span>{s.body.value}</span></li>
+        ))}
+      </ol>
+    )}
+    <T v={c.footnote} f={F.footnote} class="ss-foot" />
+  </div>
+</section>
+<script>
+  import { onPage } from "../../core/island";
+  import { mountSwitch } from "./island";
+  onPage("[data-switch]", mountSwitch);
+</script>
+<style>
+  .ss { background: var(--black); color: var(--white); padding: var(--section-y) 0; }
+  .ss-stage { display: grid; gap: var(--space-7); margin-bottom: var(--space-5); }
+  .ss-img { background: var(--obj-screen); border-radius: var(--radius-m); }
+  .ss-state figcaption { padding-top: var(--space-4); }
+  .ss-state :global(.ss-title) { font-size: var(--size-l); }
+  .ss-state :global(.ss-note) { margin-top: var(--space-1); color: var(--muted-dark); }
+  /* Island mounted: states share one cell and crossfade. */
+  .ss-stage[data-ready] { gap: 0; }
+  .ss-stage[data-ready] .ss-state { grid-area: 1 / 1; }
+  .ss-stage[data-ready] .ss-state[hidden] { display: none; }
+  .ss-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); padding-bottom: var(--space-6); }
+  .ss-actions[hidden], .ss-actions [hidden] { display: none; }
+  .ss-arrow { width: 8px; height: 8px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); }
+  .ss-steps { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); border-block: 1px solid var(--rule-dark); margin-top: var(--space-2); }
+  .ss-steps li { padding: var(--space-5) var(--space-5) var(--space-5) 0; display: flex; flex-direction: column; gap: var(--space-2); }
+  .ss-steps li + li { border-left: 1px solid var(--rule-dark); padding-left: var(--space-5); }
+  .ss-steps :global(.ss-step-title) { font-size: 1.19rem; }
+  .ss-steps span { color: var(--muted-dark); font-size: var(--size-s); line-height: 1.5; }
+  .ss :global(.ss-foot) { margin-top: var(--space-4); color: var(--muted-dark); font-size: var(--size-s); }
+  @media (max-width: 760px) {
+    .ss-steps { grid-template-columns: minmax(0, 1fr); }
+    .ss-steps li { padding: var(--space-4) 0; }
+    .ss-steps li + li { border-left: 0; padding-left: 0; border-top: 1px solid var(--rule-dark); }
+    .ss-actions .btn { width: 100%; }
+  }
+</style>

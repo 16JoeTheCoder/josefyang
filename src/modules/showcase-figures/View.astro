@@ -1,0 +1,37 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import Head from "../../components/showcase/Head.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields> }
+const { content: c } = Astro.props;
+const F = mod.fields;
+const I = F.items.of;
+---
+<section class="sf">
+  <div class="wrap">
+    <Head heading={c.heading} headingField={F.heading} body={c.body} bodyField={F.body} />
+    <div class:list={["sf-grid", c.items.length === 1 && "sf-one"]}>
+      {c.items.map((it) => (
+        <figure class="sf-item">
+          <Img v={it.image} f={I.image} sizes="(max-width: 900px) 92vw, 620px" class="sf-img" />
+          <figcaption>
+            <T v={it.title} f={I.title} as="h3" />
+            <T v={it.body} f={I.body} class="sf-text" />
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  </div>
+</section>
+<style>
+  .sf { background: var(--white); padding: var(--section-y) 0; }
+  .sf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-7) clamp(var(--space-5), 4vw, var(--space-8)); }
+  .sf-one { grid-template-columns: minmax(0, 1fr); }
+  .sf-item { border-top: 1px solid var(--black); padding-top: var(--space-4); }
+  .sf-item :global(.sf-img) { background: var(--tile); border-radius: var(--radius-s); }
+  figcaption { padding-top: var(--space-4); }
+  figcaption :global(.sf-text) { margin-top: var(--space-2); color: var(--muted); max-width: 41ch; }
+  @media (max-width: 760px) { .sf-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-6); } }
+</style>

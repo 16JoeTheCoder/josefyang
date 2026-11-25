@@ -5,3 +5,4 @@ Failures gimmick: failed builds as tiles around a hopper. Drag one in, tap it, o
 - Pages: "failures"
 - Island: Yes: `island.ts` (mounted with `onPage`, reduced-motion fallback in CSS)
 - Fields and defaults: `module.ts`. Render: `View.astro` (scoped styles, tokens only).
+- Empty state: the note plus a View projects link (`emptyLink`, goes to /projects).

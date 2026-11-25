@@ -1,0 +1,135 @@
+---
+import { env } from "cloudflare:workers";
+import Hub from "../../layouts/Hub.astro";
+import Img from "../../components/Img.astro";
+import GameMeta from "../../components/GameMeta.astro";
+import DevlogList from "../../components/DevlogList.astro";
+import T from "../../components/T.astro";
+import { gameFields, hubFields } from "../../core/game-fields";
+import { hubPosts, isPlayUrl, loadHub, stepLines } from "../../core/games";
+import { mediaBase } from "../../core/media";
+const mode = Astro.locals.mode;
+const { settings, hub, games } = await loadHub(env.DB, mode);
+const rec = games.find((g) => g.slug === Astro.params.slug);
+if (!rec) return Astro.rewrite("/404");
+const g = rec.game;
+const posts = await hubPosts(env.DB, mode, { game: rec.slug, limit: 20 });
+const play = isPlayUrl(g.url);
+const base = mediaBase(env.MEDIA_BASE_URL);
+const trailerSrc = g.trailer.mediaId && g.trailer.key && g.trailer.original ? `${base}/${g.trailer.key}/${g.trailer.original}` : "";
+const shots = g.screenshots;
+const android = g.platforms.android;
+const ios = g.platforms.ios;
+---
+<Hub settings={settings} hub={hub} title={g.name.value} description={g.tagline.value} slug={rec.slug} back>
+  <article class="gp">
+    <header class="gp-head wrap">
+      <div class="gp-icon"><Img v={g.icon} f={gameFields.icon} sizes="120px" emptyLabel={false} eager /></div>
+      <div class="gp-id">
+        <h1 class="gp-name">{g.name.value}</h1>
+        <p class="gp-tag">{g.tagline.value}</p>
+        <GameMeta game={g} hub={hub} genres />
+      </div>
+      <div class="gp-play">
+        {play
+          ? <a class="btn btn-play btn-lg" href={g.url} target="_blank" rel="noopener">{g.playLabel.value}</a>
+          : <span class="btn btn-lg" aria-disabled="true">{hub.soonLabel.value}</span>}
+      </div>
+    </header>
+
+    <div class="wrap gp-cover"><Img v={g.cover} f={gameFields.cover} sizes="(max-width: 1320px) 100vw, 1280px" eager /></div>
+
+    <div class="wrap gp-cols">
+      <div class="gp-main">
+        <section aria-labelledby="about-h">
+          <T v={hub.aboutTitle} f={hubFields.aboutTitle} as="h2" id="about-h" class="gp-h" />
+          <T v={g.description} f={gameFields.description} class="gp-desc" />
+        </section>
+
+        {trailerSrc && (
+          <section aria-labelledby="trailer-h">
+            <T v={hub.trailerTitle} f={hubFields.trailerTitle} as="h2" id="trailer-h" class="gp-h" />
+            <video class="gp-video" controls preload="none" playsinline src={trailerSrc} poster={g.trailerPoster.mediaId ? `${base}/${g.trailerPoster.key}/${(g.trailerPoster.widths ?? []).filter((w) => w <= 1600).at(-1) ?? g.trailerPoster.widths?.[0] ?? 960}.webp` : undefined} aria-label={g.trailer.alt}></video>
+          </section>
+        )}
+
+        {shots.length > 0 && (
+          <section aria-labelledby="shots-h">
+            <T v={hub.screenshotsTitle} f={hubFields.screenshotsTitle} as="h2" id="shots-h" class="gp-h" />
+            <ul class="gp-shots" tabindex="0" aria-labelledby="shots-h">
+              {shots.map((s) => (
+                <li>
+                  <figure>
+                    <Img v={s.image} f={gameFields.screenshots.of.image} sizes="(max-width: 700px) 80vw, 520px" />
+                    {s.caption.value && <figcaption>{s.caption.value}</figcaption>}
+                  </figure>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
+
+      <aside class="gp-side" aria-labelledby="where-h">
+        <T v={hub.platformsTitle} f={hubFields.platformsTitle} as="h2" id="where-h" class="gp-h" />
+        {g.platforms.browser && <p class="gp-note">{hub.browserNote.value}</p>}
+        {android && (
+          <div class="gp-install">
+            <h3>{hub.androidTitle.value}</h3>
+            <ol>{stepLines(hub.androidSteps.value).map((l) => <li>{l}</li>)}</ol>
+          </div>
+        )}
+        {ios && (
+          <div class="gp-install">
+            <h3>{hub.iosTitle.value}</h3>
+            <ol>{stepLines(hub.iosSteps.value).map((l) => <li>{l}</li>)}</ol>
+          </div>
+        )}
+        {play && <a class="btn btn-play" href={g.url} target="_blank" rel="noopener">{g.playLabel.value}</a>}
+      </aside>
+    </div>
+
+    <section class="wrap gp-devlogs" aria-labelledby="gdl-h">
+      <T v={hub.gameDevlogsTitle} f={hubFields.gameDevlogsTitle} as="h2" id="gdl-h" class="gp-h" />
+      {posts.length === 0
+        ? <T v={hub.gameDevlogsEmpty} f={hubFields.gameDevlogsEmpty} class="muted" />
+        : <DevlogList posts={posts} label={hub.readLabel.value} />}
+    </section>
+  </article>
+</Hub>
+<style is:global>
+  .gp-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-5); align-items: center; padding-block: var(--space-7) var(--space-6); }
+  .gp-icon { width: 88px; }
+  .gp-icon .img-slot { border-radius: var(--radius-m); }
+  .gp-id { display: grid; gap: var(--space-3); }
+  .gp-name { font-family: var(--font-display); font-weight: 900; font-size: clamp(2.25rem, 1.2rem + 4.4vw, 5rem); line-height: 0.95; letter-spacing: var(--track-display); text-wrap: balance; overflow-wrap: anywhere; }
+  .gp-tag { color: var(--muted-dark); font-size: var(--lead); line-height: 1.45; max-width: 52ch; }
+  .gp-play { grid-column: 1 / -1; }
+  .gp-play .btn { width: 100%; }
+  .gp-cover { margin-bottom: var(--space-8); }
+  .gp-cols { display: grid; gap: var(--space-8); align-items: start; }
+  .gp-main { display: grid; gap: var(--space-8); min-width: 0; }
+  .gp-h { margin-bottom: var(--space-4); }
+  .gp-desc { color: var(--white); }
+  .gp-desc p + p { margin-top: var(--space-4); }
+  .gp-video { width: 100%; aspect-ratio: 16 / 9; background: var(--rule-dark); border-radius: var(--radius-m); }
+  .gp-shots { display: flex; gap: var(--space-4); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: var(--space-3); scrollbar-color: var(--muted) transparent; }
+  .gp-shots li { flex: 0 0 min(80vw, 520px); scroll-snap-align: start; }
+  .gp-shots figcaption { margin-top: var(--space-2); color: var(--muted-dark); font-size: var(--size-s); }
+  .gp-side { display: grid; gap: var(--space-5); border: 1px solid var(--rule-dark); border-radius: var(--radius-m); padding: var(--space-5); }
+  .gp-side .gp-h { margin: 0; }
+  .gp-note { color: var(--muted-dark); font-size: var(--size-s); }
+  .gp-install { display: grid; gap: var(--space-2); }
+  .gp-install h3 { font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); }
+  .gp-install ol { list-style: decimal; padding-left: 1.25rem; color: var(--muted-dark); font-size: var(--size-s); line-height: 1.6; display: grid; gap: var(--space-1); }
+  .gp-install li::marker { color: var(--sun); font-weight: 700; }
+  .gp-devlogs { margin-top: var(--space-9); }
+  @media (min-width: 900px) {
+    .gp-head { grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-6); }
+    .gp-icon { width: 120px; }
+    .gp-play { grid-column: auto; }
+    .gp-play .btn { width: auto; }
+    .gp-cols { grid-template-columns: minmax(0, 1fr) 340px; gap: var(--space-8); }
+    .gp-side { position: sticky; top: var(--space-5); }
+  }
+</style>

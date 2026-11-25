@@ -1,0 +1,29 @@
+---
+import T from "../../components/T.astro";
+import Video from "../../components/Video.astro";
+import Head from "../../components/showcase/Head.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields> }
+const { content: c } = Astro.props;
+const F = mod.fields;
+---
+<section class="sm" data-showcase-media>
+  <div class="wrap">
+    <Head heading={c.heading} headingField={F.heading} body={c.body} bodyField={F.body} linkLabel={c.linkLabel} linkUrl={c.linkUrl} />
+    <figure class="sm-fig">
+      <Video v={c.video} poster={c.poster} posterField={F.poster} playLabel={c.playLabel.value} failLabel={c.failLabel.value} />
+      <T v={c.caption} f={F.caption} as="figcaption" class="sm-cap" />
+    </figure>
+  </div>
+</section>
+<script>
+  import { onPage } from "../../core/island";
+  import { mountVideo } from "./island";
+  onPage("[data-showcase-media] [data-video-root]", mountVideo);
+</script>
+<style>
+  .sm { background: var(--white); padding: var(--section-y) 0; }
+  .sm-fig :global(.video-stage) { box-shadow: var(--shadow-object); }
+  .sm :global(.sm-cap) { margin-top: var(--space-3); color: var(--muted); font-size: var(--size-xs); }
+</style>

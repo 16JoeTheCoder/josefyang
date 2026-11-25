@@ -1,0 +1,457 @@
+{
+  "format": "josefyang-project/1",
+  "slug": "chronos",
+  "meta": {
+    "title": {
+      "value": "Chronos"
+    },
+    "kind": "software",
+    "status": "in_progress",
+    "summary": {
+      "value": "A Windows desktop app for planning the day, with tasks and a focus timer. I use it every day; a phone version is next."
+    },
+    "year": {
+      "value": "[year]"
+    },
+    "built": {
+      "value": "[start] to [end]"
+    },
+    "madeWith": {
+      "value": "[stack]"
+    },
+    "startedOn": "",
+    "links": [
+      {
+        "label": {
+          "value": "Code on GitHub"
+        },
+        "url": "https://github.com/16JoeTheCoder/chronos"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "moduleId": "showcase-intro",
+      "content": {
+        "parentLabel": {
+          "value": "Projects"
+        },
+        "parentUrl": "/projects",
+        "currentLabel": {
+          "value": "Chronos"
+        },
+        "headline": {
+          "value": "A day has a budget."
+        },
+        "body": {
+          "value": "Chronos is the Windows app I built to work out how much of my day I can use and make a plan around it."
+        },
+        "cta": {
+          "value": "Try the day runway"
+        },
+        "ctaUrl": "/builds/chronos#day-runway"
+      }
+    },
+    {
+      "moduleId": "chronos-runway",
+      "content": {
+        "anchor": {
+          "value": "day-runway"
+        },
+        "readingLabel": {
+          "value": "Usable time at {time}"
+        },
+        "readingSum": {
+          "value": "{left} left in the day − {fixed} fixed − {buffer} buffer"
+        },
+        "heading": {
+          "value": "Day runway"
+        },
+        "subtitle": {
+          "value": "Studio North · Interactive example"
+        },
+        "presetOriginal": {
+          "value": "Original plan"
+        },
+        "presetAfter": {
+          "value": "After launch sync"
+        },
+        "gridLabel": {
+          "value": "Time blocks from {from} to {to}"
+        },
+        "laneFixed": {
+          "value": "Fixed"
+        },
+        "lanePlan": {
+          "value": "Plan"
+        },
+        "laneOpen": {
+          "value": "Open"
+        },
+        "bufferLabel": {
+          "value": "Buffer"
+        },
+        "draftLabel": {
+          "value": "Draft email"
+        },
+        "draftAria": {
+          "value": "Draft launch email, {time}"
+        },
+        "longestLabel": {
+          "value": "Longest open stretch"
+        },
+        "totalLabel": {
+          "value": "Total unassigned time"
+        },
+        "noteOriginal": {
+          "value": "The draft is planned for {time}."
+        },
+        "noteAfter": {
+          "value": "The draft fits at {time}. The remaining time is split into shorter stretches."
+        },
+        "noteMoved": {
+          "value": "The draft is planned for {time}."
+        },
+        "noteBusy": {
+          "value": "That slot is occupied. The draft stays in its last open slot."
+        },
+        "noteEnd": {
+          "value": "There is no further open slot in that direction."
+        },
+        "help": {
+          "value": "Drag the orange draft block, use its arrow keys, or choose a preset."
+        },
+        "detailsLabel": {
+          "value": "View block times"
+        },
+        "fixedList": {
+          "value": "Fixed commitments"
+        },
+        "plannedList": {
+          "value": "Planned tasks"
+        },
+        "bufferList": {
+          "value": "End-of-day buffer"
+        }
+      }
+    },
+    {
+      "moduleId": "showcase-media",
+      "content": {
+        "heading": {
+          "value": "Move the work. Keep the meeting."
+        },
+        "body": {
+          "value": "There are 2h 59m of unassigned time either way. After moving the draft, I lose the two-hour stretch at the end of the day. That matters if the next task needs an uninterrupted hour and a half."
+        },
+        "linkLabel": {
+          "value": "See how Chronos calculates free time"
+        },
+        "linkUrl": "https://github.com/16JoeTheCoder/chronos/blob/2d2b076fa346bda33fe69b6a09a56ffa82f2ce35/src/core/time/timeLeft.ts#L40",
+        "poster": {
+          "file": "media/runway.webp",
+          "alt": "The Chronos desktop app with fixed commitments, planned work, and an end-of-day buffer in the Flight Plan theme",
+          "mode": "fit"
+        },
+        "video": {
+          "file": "media/runway-demo.mp4",
+          "alt": "Chronos runway recording showing the draft move around the launch sync"
+        },
+        "playLabel": {
+          "value": "Play the 8-second demo"
+        },
+        "failLabel": {
+          "value": "The recording could not play here."
+        },
+        "caption": {
+          "value": "Chronos for Windows · Flight Plan theme · Fictional studio launch"
+        }
+      }
+    },
+    {
+      "moduleId": "showcase-switch",
+      "content": {
+        "heading": {
+          "value": "One timer. One active task."
+        },
+        "body": {
+          "value": "Starting the footage review pauses the launch page, saves its work session, and hands the timer to the review."
+        },
+        "linkLabel": {
+          "value": "Read the back-to-back starts test"
+        },
+        "linkUrl": "https://github.com/16JoeTheCoder/chronos/blob/2d2b076fa346bda33fe69b6a09a56ffa82f2ce35/tests/core/transition.test.ts#L144",
+        "before": {
+          "image": {
+            "file": "media/switch-before.webp",
+            "alt": "Before the switch, Write the launch page owns the timer and footage review is queued",
+            "mode": "fit"
+          },
+          "title": {
+            "value": "Write the launch page"
+          },
+          "note": {
+            "value": "The launch page owns the timer."
+          }
+        },
+        "after": {
+          "image": {
+            "file": "media/switch-after.webp",
+            "alt": "After the switch, Review the product footage owns the timer and the launch page card shows Paused and Resume",
+            "mode": "fit"
+          },
+          "title": {
+            "value": "Review the product footage"
+          },
+          "note": {
+            "value": "Review is active. The launch page is paused and its session is saved."
+          }
+        },
+        "goLabel": {
+          "value": "Start the review"
+        },
+        "replayLabel": {
+          "value": "Replay the switch"
+        },
+        "steps": [
+          {
+            "title": {
+              "value": "Start the task"
+            },
+            "body": {
+              "value": "Home sends the same command as the other app windows."
+            }
+          },
+          {
+            "title": {
+              "value": "Keep the work"
+            },
+            "body": {
+              "value": "Chronos closes the previous session and retains the time."
+            }
+          },
+          {
+            "title": {
+              "value": "Update the timer"
+            },
+            "body": {
+              "value": "Every window receives the same new state."
+            }
+          }
+        ],
+        "footnote": {
+          "value": "Space pauses a session. Holding Enter for two seconds finishes it. Starting the next task is a separate choice."
+        }
+      }
+    },
+    {
+      "moduleId": "showcase-figures",
+      "content": {
+        "heading": {
+          "value": "From thought to something I can do."
+        },
+        "body": {
+          "value": "A task can come straight out of a sentence or a note I wrote while working."
+        },
+        "items": [
+          {
+            "image": {
+              "file": "media/quick-add.webp",
+              "alt": "Send launch recap tomorrow at 3pm, with the date, time, priority, and label parsed below",
+              "mode": "fit"
+            },
+            "title": {
+              "value": "See what gets saved."
+            },
+            "body": {
+              "value": "Quick Add parses the date, priority, and label offline and shows the result before I save."
+            }
+          },
+          {
+            "image": {
+              "file": "media/log-task.webp",
+              "alt": "A named project Log note contains a linked task checkbox",
+              "mode": "fit"
+            },
+            "title": {
+              "value": "Turn a note into a task."
+            },
+            "body": {
+              "value": "A task made from a Log entry stays linked to the line that started it."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "moduleId": "showcase-tabs",
+      "content": {
+        "heading": {
+          "value": "Same task. Six ways to see it."
+        },
+        "body": {
+          "value": "Each capture uses the same task, countdown, and schedule. The themes change the visual language, including how the timer displays progress."
+        },
+        "tabsLabel": {
+          "value": "Chronos built-in themes"
+        },
+        "tabs": [
+          {
+            "name": {
+              "value": "Flight Plan"
+            },
+            "note": {
+              "value": "Printed flight-planning typography with an orange time marker."
+            },
+            "image": {
+              "file": "media/theme-flight-plan.webp",
+              "alt": "Chronos Home in Flight Plan with the launch page task in focus",
+              "mode": "fit"
+            }
+          },
+          {
+            "name": {
+              "value": "Tactile Instrument"
+            },
+            "note": {
+              "value": "Raised controls and bold ticking digits on a matte surface."
+            },
+            "image": {
+              "file": "media/theme-tactile-instrument.webp",
+              "alt": "Chronos Home in Tactile Instrument with the launch page task in focus",
+              "mode": "fit"
+            }
+          },
+          {
+            "name": {
+              "value": "Stark Workshop"
+            },
+            "note": {
+              "value": "A cyan reactor ring tracks the active session."
+            },
+            "image": {
+              "file": "media/theme-stark-workshop.webp",
+              "alt": "Chronos Home in Stark Workshop with the launch page task in focus",
+              "mode": "fit"
+            }
+          },
+          {
+            "name": {
+              "value": "Pit Wall"
+            },
+            "note": {
+              "value": "High-contrast timing and motorsport-inspired status colors."
+            },
+            "image": {
+              "file": "media/theme-pit-wall.webp",
+              "alt": "Chronos Home in Pit Wall with the launch page task in focus",
+              "mode": "fit"
+            }
+          },
+          {
+            "name": {
+              "value": "TARS Day"
+            },
+            "note": {
+              "value": "A light instrument panel inspired by TARS."
+            },
+            "image": {
+              "file": "media/theme-tars-day.webp",
+              "alt": "Chronos Home in TARS Day with the launch page task in focus",
+              "mode": "fit"
+            }
+          },
+          {
+            "name": {
+              "value": "Gargantua Night"
+            },
+            "note": {
+              "value": "The night variant trades the light panel for an accretion-ring timer."
+            },
+            "image": {
+              "file": "media/theme-gargantua-night.webp",
+              "alt": "Chronos Home in Gargantua Night with the launch page task in focus",
+              "mode": "fit"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "moduleId": "chronos-theme-studio",
+      "content": {
+        "heading": {
+          "value": "Make Chronos look like yours."
+        },
+        "body": {
+          "value": "A Chronos theme defines its colors, type, geometry and timer treatment in a JSON file. Try a palette here, then download a theme that Chronos can import."
+        },
+        "surfaceLegend": {
+          "value": "Surface"
+        },
+        "darkLabel": {
+          "value": "Dark"
+        },
+        "lightLabel": {
+          "value": "Light"
+        },
+        "accentLegend": {
+          "value": "Accent"
+        },
+        "orangeLabel": {
+          "value": "Orange"
+        },
+        "blueLabel": {
+          "value": "Blue"
+        },
+        "violetLabel": {
+          "value": "Violet"
+        },
+        "download": {
+          "value": "Download theme JSON"
+        },
+        "importNote": {
+          "value": "In Chronos, open Settings → Look → Import theme file."
+        },
+        "linkLabel": {
+          "value": "Read the theme format"
+        },
+        "linkUrl": "https://github.com/16JoeTheCoder/chronos/blob/2d2b076fa346bda33fe69b6a09a56ffa82f2ce35/docs/THEMES.md#schema",
+        "previewLabel": {
+          "value": "Palette preview"
+        },
+        "previewAria": {
+          "value": "Live color preview for an importable custom theme"
+        },
+        "previewTask": {
+          "value": "Write the launch page"
+        },
+        "previewTime": {
+          "value": "24:56"
+        },
+        "previewFootLeft": {
+          "value": "Active task"
+        },
+        "previewFootRight": {
+          "value": "Creative review at 11:30"
+        }
+      }
+    },
+    {
+      "moduleId": "showcase-end",
+      "content": {
+        "heading": {
+          "value": "Explore the build."
+        },
+        "primaryLabel": {
+          "value": "Chronos on GitHub"
+        },
+        "primaryUrl": "https://github.com/16JoeTheCoder/chronos",
+        "secondaryLabel": {
+          "value": "Back to projects"
+        },
+        "secondaryUrl": "/projects"
+      }
+    }
+  ]
+}

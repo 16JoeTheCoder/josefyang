@@ -30,6 +30,8 @@ export interface ImageField {
   /** Short label shown in the empty state. */
   empty: string;
 }
+/** A short MP4 clip stored in R2 (no variants). Always paired with a poster image field in the module. */
+export interface VideoField { kind: "video"; label: string; empty: string }
 export interface UrlField { kind: "url"; label: string; optional?: boolean }
 export interface NumberField { kind: "number"; label: string; min: number; max: number; step?: number; optional?: boolean }
 export interface ToggleField { kind: "toggle"; label: string }
@@ -40,7 +42,7 @@ export interface GroupField { kind: "group"; label: string; fields: Fields }
 
 export type Field =
   | TextField | ImageField | UrlField | NumberField | ToggleField
-  | SelectField | DateField | ListField | GroupField;
+  | SelectField | DateField | ListField | GroupField | VideoField;
 export type Fields = Record<string, Field>;
 
 /* ---------- stored value shapes ---------- */
@@ -64,9 +66,21 @@ export interface ImageValue {
   alt: string;
 }
 
+export interface VideoValue {
+  mediaId: string | null;
+  /** R2 key prefix, e.g. "m/ab12cd34"; the file is `${key}/${original}`. */
+  key?: string;
+  original?: string;
+  w?: number;
+  h?: number;
+  /** What the clip shows (screen readers, captions). Required before publishing when a clip is set. */
+  alt: string;
+}
+
 type ValueOf<F extends Field> =
   F extends TextField ? TextValue :
   F extends ImageField ? ImageValue :
+  F extends VideoField ? VideoValue :
   F extends UrlField ? string :
   F extends NumberField ? number :
   F extends ToggleField ? boolean :
@@ -92,6 +106,7 @@ export const f = {
   pill: (label: string, max = 22): TextField => ({ kind: "text", role: "pill", label, max, maxLines: 1 }),
   image: (label: string, ratio: string, modes: ImageMode[], empty: string): ImageField =>
     ({ kind: "image", label, ratio, modes, empty }),
+  video: (label: string, empty: string): VideoField => ({ kind: "video", label, empty }),
   url: (label: string, optional = true): UrlField => ({ kind: "url", label, optional }),
   number: (label: string, min: number, max: number, step = 1): NumberField => ({ kind: "number", label, min, max, step }),
   toggle: (label: string): ToggleField => ({ kind: "toggle", label }),
@@ -105,12 +120,13 @@ export const f = {
 /* ---------- value constructors for defaults ---------- */
 
 export const t = (value: string): TextValue => ({ value });
+export const noVideo = (alt = ""): VideoValue => ({ mediaId: null, alt });
 export const noImage = (mode: ImageMode = "fill", alt = ""): ImageValue =>
   ({ mediaId: null, focal: { x: 0.5, y: 0.5 }, zoom: 1, mode, alt });
 
 /* ---------- Zod ---------- */
 
-const urlSchema = z.string().max(500).refine(
+export const urlSchema = z.string().max(500).refine(
   (v) => v === "" || /^(https?:\/\/|mailto:|\/(?![\/\\]))/.test(v),
   "Must start with https://, mailto: or /",
 );
@@ -133,6 +149,15 @@ export function fieldToZod(fd: Field): z.ZodType {
         focal: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }),
         zoom: z.number().min(1).max(3),
         mode: z.enum(["fill", "fit", "object"]),
+        alt: z.string().max(200),
+      });
+    case "video":
+      return z.object({
+        mediaId: z.string().max(64).nullable(),
+        key: z.string().max(80).optional(),
+        original: z.string().max(40).optional(),
+        w: z.number().optional(),
+        h: z.number().optional(),
         alt: z.string().max(200),
       });
     case "url": return urlSchema;
@@ -202,8 +227,8 @@ export function publishProblems(fs: Fields, content: unknown, base = ""): Proble
         const over = Math.max(1, [...v].length - Math.floor((s.field.fit ?? s.field.max) * (s.field.role === "pill" || s.field.role === "button" ? 1 : STEP_GAIN * STEP_GAIN)));
         problems.push({ path: s.path, label: s.field.label, message: `Too long for this spot: ${Math.min(over, [...v].length)} characters over. Shorten it.` });
       }
-    } else if (s.field.kind === "image") {
-      const v = s.value as ImageValue | undefined;
+    } else if (s.field.kind === "image" || s.field.kind === "video") {
+      const v = s.value as ImageValue | VideoValue | undefined;
       if (v?.mediaId && !v.alt.trim()) problems.push({ path: s.path, label: s.field.label, message: "Add alt text before publishing." });
     }
   }
@@ -213,7 +238,7 @@ export function publishProblems(fs: Fields, content: unknown, base = ""): Proble
 /** Media ids referenced by content, with their field paths (for media_usage). */
 export function mediaRefs(fs: Fields, content: unknown, base = ""): { mediaId: string; path: string }[] {
   return walk(fs, content, base)
-    .filter((s) => s.field.kind === "image" && (s.value as ImageValue | undefined)?.mediaId)
+    .filter((s) => (s.field.kind === "image" || s.field.kind === "video") && (s.value as ImageValue | undefined)?.mediaId)
     .map((s) => ({ mediaId: (s.value as ImageValue).mediaId as string, path: s.path }));
 }
 

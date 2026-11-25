@@ -1,0 +1,60 @@
+---
+/** One game on the hub grid. The title link stretches over the card; Play sits above it. */
+import { env } from "cloudflare:workers";
+import Img from "./Img.astro";
+import GameMeta from "./GameMeta.astro";
+import type { GameRecord } from "../core/games";
+import { hubPath, isPlayUrl } from "../core/games";
+import type { HubCopy } from "../core/game-fields";
+import { gameFields } from "../core/game-fields";
+interface Props { rec: GameRecord; hub: HubCopy; wide?: boolean }
+const { rec, hub, wide = false } = Astro.props;
+const g = rec.game;
+const href = hubPath(env.GAME_HOST, Astro.url.hostname, rec.slug);
+const play = isPlayUrl(g.url);
+---
+<article class:list={["gcard", wide && "gcard-wide"]}>
+  <div class="gcard-cover"><Img v={g.cover} f={gameFields.cover} sizes={wide ? "(max-width: 900px) 100vw, 60vw" : "(max-width: 700px) 100vw, 420px"} /></div>
+  <div class="gcard-body">
+    <div class="gcard-head">
+      <div class="gcard-icon"><Img v={g.icon} f={gameFields.icon} sizes="72px" emptyLabel={false} /></div>
+      <div>
+        {g.featured && <p class="pill pill-featured gcard-flag">{hub.featuredLabel.value}</p>}
+        <h3 class="gcard-name"><a href={href} class="gcard-link">{g.name.value}</a></h3>
+        <p class="gcard-tag">{g.tagline.value}</p>
+      </div>
+    </div>
+    <GameMeta game={g} hub={hub} />
+    <div class="gcard-actions">
+      {play
+        ? <a class="btn btn-play" href={g.url} target="_blank" rel="noopener">{g.playLabel.value}</a>
+        : <span class="btn" aria-disabled="true">{hub.soonLabel.value}</span>}
+      <a class="btn btn-ghost" href={href}>{hub.detailsLabel.value}</a>
+    </div>
+  </div>
+</article>
+<style is:global>
+  .gcard { position: relative; display: flex; flex-direction: column; gap: var(--space-4); }
+  .gcard-cover .img-slot { transition: transform var(--dur-pan) var(--ease-out); }
+  .gcard:hover .gcard-cover .img-slot { transform: translateY(-3px); }
+  .gcard-body { display: flex; flex-direction: column; gap: var(--space-4); flex: 1; }
+  .gcard-head { display: flex; gap: var(--space-4); align-items: flex-start; }
+  .gcard-icon { width: 64px; flex: none; }
+  .gcard-icon .img-slot { border-radius: var(--radius-s); }
+  .gcard-flag { margin-bottom: var(--space-2); font-size: 0.75rem; padding: 6px 10px; }
+  .gcard-name { font-family: var(--font-display); font-weight: 900; font-size: var(--size-l); line-height: 1.05; letter-spacing: var(--track-display); overflow-wrap: anywhere; }
+  .gcard-link { text-decoration: none; }
+  .gcard-link::after { content: ""; position: absolute; inset: 0; }
+  .gcard-link:hover { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; }
+  .gcard-tag { color: var(--muted-dark); font-size: var(--size-s); line-height: 1.5; margin-top: var(--space-1); }
+  .gcard-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: auto; padding-top: var(--space-2); position: relative; z-index: 1; }
+  .gcard-actions .btn { min-height: 48px; }
+  .gcard-wide { display: grid; gap: var(--space-5); }
+  @media (min-width: 900px) {
+    .gcard-wide { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items: center; gap: var(--space-7); }
+    .gcard-wide .gcard-body { gap: var(--space-5); }
+    .gcard-wide .gcard-icon { width: 88px; }
+    .gcard-wide .gcard-name { font-size: var(--size-xl); }
+    .gcard-wide .gcard-tag { font-size: var(--lead); }
+  }
+</style>

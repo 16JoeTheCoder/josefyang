@@ -1,0 +1,65 @@
+---
+import Img from "../../components/Img.astro";
+import Head from "../../components/showcase/Head.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; sectionId: string }
+const { content: c, sectionId } = Astro.props;
+const F = mod.fields;
+const TF = F.tabs.of;
+const id = (i: number, part: string) => `${sectionId}-${part}-${i}`;
+---
+<section class="st" data-tabs>
+  <div class="wrap">
+    <Head heading={c.heading} headingField={F.heading} body={c.body} bodyField={F.body} />
+    <div class="st-bar" role="tablist" aria-label={c.tabsLabel.value} data-bar hidden>
+      {c.tabs.map((tb, i) => (
+        <button type="button" role="tab" class="st-tab" id={id(i, "tab")} aria-controls={id(i, "panel")} aria-selected={i === 0 ? "true" : "false"} tabindex={i === 0 ? 0 : -1} data-tab>{tb.name.value}</button>
+      ))}
+    </div>
+    <div class="st-stage" data-stage>
+      {c.tabs.map((tb, i) => (
+        <figure class="st-panel" role="tabpanel" id={id(i, "panel")} aria-labelledby={id(i, "tab")} data-panel hidden={i !== 0}>
+          <Img v={tb.image} f={TF.image} sizes="(max-width: 900px) 92vw, 1200px" class="st-img" />
+          <figcaption><strong class="st-name">{tb.name.value}</strong><span class="st-note">{tb.note.value}</span></figcaption>
+        </figure>
+      ))}
+    </div>
+    <ul class="st-list" data-list>
+      {c.tabs.map((tb) => <li><strong>{tb.name.value}</strong> <span>{tb.note.value}</span></li>)}
+    </ul>
+  </div>
+</section>
+<script>
+  import { onPage } from "../../core/island";
+  import { mountTabs } from "./island";
+  onPage("[data-tabs]", mountTabs);
+</script>
+<style>
+  .st { background: var(--section); padding: var(--section-y) 0; }
+  .st-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); padding-bottom: var(--space-4); }
+  .st-bar[hidden] { display: none; }
+  .st-tab {
+    min-height: 44px; padding: 0 var(--space-4); border: 1px solid var(--pill-line); border-radius: var(--pill); background: transparent; cursor: pointer;
+    font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); white-space: nowrap;
+    transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+  }
+  .st-tab:hover { border-color: var(--black); }
+  .st-tab[aria-selected="true"] { background: var(--black); color: var(--white); border-color: var(--black); }
+  .st-stage { display: grid; }
+  .st-panel { grid-area: 1 / 1; }
+  .st-panel[hidden] { display: none; }
+  .st-panel :global(.st-img) { background: var(--tile); border-radius: var(--radius-m); box-shadow: var(--shadow-object); }
+  figcaption { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin-top: var(--space-4); }
+  .st-name { font-family: var(--font-display); font-weight: 800; }
+  .st-note { color: var(--muted); }
+  /* No JS: the first image plus every note as a list. */
+  .st-list { display: grid; gap: var(--space-2); margin-top: var(--space-5); color: var(--muted); }
+  .st-list strong { font-family: var(--font-display); color: var(--black); }
+  .st-stage[data-ready] ~ .st-list { display: none; }
+  .st-stage:not([data-ready]) figcaption { display: none; }
+  @media (max-width: 560px) {
+    .st-bar { flex-wrap: nowrap; overflow-x: auto; margin-inline: calc(-1 * var(--gutter)); padding-inline: var(--gutter); scrollbar-width: none; }
+    .st-bar::-webkit-scrollbar { display: none; }
+  }
+</style>

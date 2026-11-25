@@ -1,0 +1,29 @@
+---
+import T from "../../components/T.astro";
+import type { Content } from "../../core/fields";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields> }
+const { content: c } = Astro.props;
+const F = mod.fields;
+const ext = (u: string) => (u.startsWith("http") ? { target: "_blank", rel: "noopener" } : {});
+---
+<section class="se">
+  <div class="wrap se-row">
+    <T v={c.heading} f={F.heading} as="h2" class="se-title" />
+    <div class="se-actions">
+      {c.primaryUrl && <a class="btn btn-light" href={c.primaryUrl} {...ext(c.primaryUrl)}>{c.primaryLabel.value}</a>}
+      {c.secondaryUrl && <a class="btn btn-light-outline" href={c.secondaryUrl} {...ext(c.secondaryUrl)}>{c.secondaryLabel.value}</a>}
+    </div>
+  </div>
+</section>
+<style>
+  .se { background: var(--black); color: var(--white); padding: var(--space-8) 0; border-top: 1px solid var(--rule-dark); }
+  .se-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-5); }
+  .se-row :global(.se-title) { font-size: clamp(2rem, 1.2rem + 3.2vw, 3.9rem); overflow-wrap: anywhere; }
+  .se-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+  @media (max-width: 560px) {
+    .se { padding: var(--space-7) 0; }
+    .se-actions { width: 100%; flex-direction: column; }
+    .se-actions .btn { width: 100%; }
+  }
+</style>

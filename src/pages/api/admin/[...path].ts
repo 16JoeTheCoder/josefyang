@@ -5,6 +5,7 @@
 import type { APIContext, APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
+import { MAX_DOC_BYTES, blockDocSchema, emptyDoc, mediaRefs as blockMediaRefs, plainText, readMinutesFor } from "../../../core/blocks";
 import { buildMetaDefaults } from "../../../core/build-fields";
 import { purgeAndWarm } from "../../../core/cache";
 import {
@@ -331,10 +332,17 @@ const devlogShape = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   status: z.enum(["draft", "published"]),
   updatedAt: z.number(),
+  blocks: blockDocSchema.nullable().optional(),
+  type: z.enum(["note", "article"]).default("note"),
+  tags: z.array(z.string().trim().min(1).max(30)).max(8).default([]),
+  sites: z.array(z.enum(["main", "games"])).min(1, "Show the post on at least one site").default(["main"]),
+  gameSlug: z.string().trim().max(60).regex(/^[a-z0-9-]*$/, "Game slug: lowercase letters, numbers and dashes").nullable().default(null),
+  publishAt: z.string().max(40).nullable().default(null).refine((v) => v === null || !Number.isNaN(Date.parse(v)), "Bad schedule date"),
+  seoDescription: z.string().max(200).default(""),
 });
 
 function devlogRefs(d: z.infer<typeof devlogShape>) {
-  return [...(d.hero?.mediaId ? [{ mediaId: d.hero.mediaId, path: "hero" }] : []), ...d.images.flatMap((im, i) => (im.mediaId ? [{ mediaId: im.mediaId, path: `images[${i}]` }] : []))];
+  return [...blockMediaRefs(d.blocks ?? null).map((m) => ({ mediaId: m.mediaId, path: m.path })),...(d.hero?.mediaId ? [{ mediaId: d.hero.mediaId, path: "hero" }] : []), ...d.images.flatMap((im, i) => (im.mediaId ? [{ mediaId: im.mediaId, path: `images[${i}]` }] : []))];
 }
 
 async function listDevlog() {
@@ -343,18 +351,20 @@ async function listDevlog() {
     id: x.id, slug: x.slug, title: x.title, excerpt: x.excerpt, body: x.body, buildId: x.build_id,
     hero: parse(x.hero_media_id as string, null), images: parse(x.media_ids as string, []), fuseUrl: x.fuse_url ?? "",
     readMinutes: x.read_minutes, date: x.entry_date, status: x.status, updatedAt: x.updated_at,
+    blocks: parse(x.blocks_json as string, null), type: x.type === "article" ? "article" : "note", tags: parse(x.tags_json as string, []),
+    sites: parse(x.sites_json as string, ["main"]), gameSlug: x.game_slug ?? null, publishAt: x.publish_at ?? null, seoDescription: x.seo_description ?? "",
   }));
 }
 
 async function createDevlog(ctx: Ctx) {
-  const b = await body(ctx, z.object({ title: z.string().min(1).max(90), buildId: z.string().nullable().optional() }));
+  const b = await body(ctx, z.object({ title: z.string().min(1).max(90), buildId: z.string().nullable().optional(), type: z.enum(["note", "article"]).optional() }));
   if (isResp(b)) return b;
   const id = uid();
   let slug = slugify(b.title) || "entry";
   if (await db().prepare("SELECT 1 FROM devlog WHERE slug = ?").bind(slug).first()) slug = `${slug}-${id.slice(0, 4)}`;
   const t = now();
-  await db().prepare("INSERT INTO devlog (id, slug, title, excerpt, body, build_id, status, created_at, entry_date, updated_at) VALUES (?, ?, ?, '', '', ?, 'draft', ?, ?, ?)")
-    .bind(id, slug, b.title, b.buildId ?? null, t, new Date(t).toISOString().slice(0, 10), t).run();
+  await db().prepare("INSERT INTO devlog (id, slug, title, excerpt, body, build_id, status, created_at, entry_date, updated_at, type, blocks_json) VALUES (?, ?, ?, '', '', ?, 'draft', ?, ?, ?, ?, ?)")
+    .bind(id, slug, b.title, b.buildId ?? null, t, new Date(t).toISOString().slice(0, 10), t, b.type ?? "note", JSON.stringify(emptyDoc())).run();
   return json({ id, slug }, 201);
 }
 
@@ -365,16 +375,23 @@ async function saveDevlog(ctx: Ctx, id: string) {
   if (!row) return fail(404, "Entry not found");
   if (row.updated_at > b.updatedAt) return fail(409, "Changed in another tab. Reload?");
   if (b.status === "published") {
-    const missingAlt = [b.hero, ...b.images].some((im) => im?.mediaId && !im.alt.trim());
+    const missingAlt = [b.hero, ...b.images].some((im) => im?.mediaId && !im.alt.trim()) || blockMediaRefs(b.blocks ?? null).some((m) => !m.alt.trim());
     if (missingAlt) return fail(422, "Add alt text to every photo before publishing");
   }
+  if (b.blocks && JSON.stringify(b.blocks).length > MAX_DOC_BYTES) return fail(413, "This post is too long");
+  // With a block document the plain-text body and the read time are derived from it.
+  const text = b.blocks ? plainText(b.blocks) : b.body;
+  const readMinutes = b.blocks ? readMinutesFor(text) : b.readMinutes;
+  const publishAt = b.publishAt ? new Date(b.publishAt).toISOString() : null;
   const clash = await db().prepare("SELECT 1 FROM devlog WHERE slug = ? AND id != ?").bind(b.slug, id).first();
   if (clash) return fail(422, "Another entry already uses this slug");
   const t = Math.max(now(), row.updated_at + 1);
   await db().prepare(`UPDATE devlog SET slug = ?, title = ?, excerpt = ?, body = ?, build_id = ?, hero_media_id = ?, media_ids = ?, fuse_url = ?,
-      read_minutes = ?, entry_date = ?, status = ?, updated_at = ?, published_at = CASE WHEN ? = 'published' THEN COALESCE(published_at, ?) ELSE NULL END WHERE id = ?`)
-    .bind(b.slug, b.title, b.excerpt, b.body, b.buildId, b.hero ? JSON.stringify(b.hero) : null, JSON.stringify(b.images), b.fuseUrl || null,
-      b.readMinutes, b.date, b.status, t, b.status, t, id).run();
+      read_minutes = ?, entry_date = ?, status = ?, updated_at = ?, published_at = CASE WHEN ? = 'published' THEN COALESCE(published_at, ?) ELSE NULL END,
+      blocks_json = ?, type = ?, tags_json = ?, sites_json = ?, game_slug = ?, publish_at = ?, seo_description = ? WHERE id = ?`)
+    .bind(b.slug, b.title, b.excerpt, text, b.buildId, b.hero ? JSON.stringify(b.hero) : null, JSON.stringify(b.images), b.fuseUrl || null,
+      readMinutes, b.date, b.status, t, b.status, t,
+      b.blocks ? JSON.stringify(b.blocks) : null, b.type, JSON.stringify(b.tags), JSON.stringify([...new Set(b.sites)]), b.gameSlug || null, publishAt, b.seoDescription || null, id).run();
   await setUsage("devlog", id, devlogRefs(b));
   if (b.status === "published" || row.status === "published") purge(ctx);
   return json({ updatedAt: t });
@@ -393,7 +410,8 @@ const milestoneShape = z.object({
 /* ---------- media ---------- */
 
 const MAX_UPLOAD = 20 * 1024 * 1024;
-const OK_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif", "image/heic": "heic", "image/heif": "heic", "application/pdf": "pdf" };
+const MAX_VIDEO = 25 * 1024 * 1024;
+const OK_TYPES: Record<string, string> = { "video/mp4": "mp4", "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif", "image/heic": "heic", "image/heif": "heic", "application/pdf": "pdf" };
 
 async function sniff(file: File): Promise<string | null> {
   const b = new Uint8Array(await file.slice(0, 16).arrayBuffer());
@@ -401,7 +419,11 @@ async function sniff(file: File): Promise<string | null> {
   if (b[0] === 0xff && b[1] === 0xd8) return "image/jpeg";
   if (b[0] === 0x89 && s(1, "PNG")) return "image/png";
   if (s(0, "RIFF") && s(8, "WEBP")) return "image/webp";
-  if (s(4, "ftyp")) return s(8, "avif") || s(8, "avis") ? "image/avif" : "image/heic";
+  if (s(4, "ftyp")) {
+    if (s(8, "avif") || s(8, "avis")) return "image/avif";
+    if (["isom", "iso2", "iso5", "iso6", "mp41", "mp42", "avc1", "M4V "].some((br) => s(8, br))) return "video/mp4";
+    return "image/heic";
+  }
   if (s(0, "%PDF")) return "application/pdf";
   return null;
 }
@@ -417,15 +439,16 @@ async function uploadMedia(ctx: Ctx) {
   if (!form) return fail(400, "Expected multipart form data");
   const original = form.get("original");
   if (!(original instanceof File)) return fail(400, "Missing original file");
-  if (original.size > MAX_UPLOAD) return fail(413, "Files can be up to 20 MB");
   const type = await sniff(original);
-  if (!type || type === "application/pdf") return fail(415, "Upload a JPEG, PNG, WebP, AVIF or HEIC image");
+  if (!type || type === "application/pdf") return fail(415, "Upload a JPEG, PNG, WebP, AVIF or HEIC image, or an MP4 video");
+  const isVideo = type === "video/mp4";
+  if (original.size > (isVideo ? MAX_VIDEO : MAX_UPLOAD)) return fail(413, isVideo ? "Videos can be up to 25 MB" : "Files can be up to 20 MB");
   const buf = await original.arrayBuffer();
   const key = `m/${await sha(buf)}`;
   const ext = OK_TYPES[type]!;
   const widths: number[] = [];
   const puts: Promise<unknown>[] = [env.MEDIA.put(`${key}/orig.${ext}`, buf, { httpMetadata: { contentType: type } })];
-  for (const [name, v] of form.entries()) {
+  for (const [name, v] of isVideo ? [] : form.entries()) {
     const m = /^w(\d{3,4})$/.exec(name);
     if (!m || !(v instanceof File)) continue;
     if (v.size > MAX_UPLOAD || (await sniff(v)) !== "image/webp") return fail(415, "Variants must be WebP");
@@ -502,10 +525,11 @@ async function replaceEverywhere(ctx: Ctx, id: string) {
       if (!r) continue;
       stmts.push(db().prepare("UPDATE settings SET draft_json = ?, updated_at = ? WHERE key = ?").bind(JSON.stringify(swap(parse(r.draft_json, {}))), t, oid));
     } else if (type === "devlog") {
-      const r = await db().prepare("SELECT hero_media_id, media_ids FROM devlog WHERE id = ?").bind(oid).first<{ hero_media_id: string | null; media_ids: string }>();
+      const r = await db().prepare("SELECT hero_media_id, media_ids, blocks_json FROM devlog WHERE id = ?").bind(oid).first<{ hero_media_id: string | null; media_ids: string; blocks_json: string | null }>();
       if (!r) continue;
-      stmts.push(db().prepare("UPDATE devlog SET hero_media_id = ?, media_ids = ?, updated_at = ? WHERE id = ?")
-        .bind(r.hero_media_id ? JSON.stringify(swap(parse(r.hero_media_id, null))) : null, JSON.stringify(swap(parse(r.media_ids, []))), t, oid));
+      // Images inside the post body (image/gallery/video nodes keep mediaId in attrs) are swapped too.
+      stmts.push(db().prepare("UPDATE devlog SET hero_media_id = ?, media_ids = ?, blocks_json = ?, updated_at = ? WHERE id = ?")
+        .bind(r.hero_media_id ? JSON.stringify(swap(parse(r.hero_media_id, null))) : null, JSON.stringify(swap(parse(r.media_ids, []))), r.blocks_json ? JSON.stringify(swap(parse(r.blocks_json, null))) : null, t, oid));
     }
     for (const p of paths) {
       stmts.push(db().prepare("DELETE FROM media_usage WHERE media_id = ? AND owner_type = ? AND owner_id = ? AND field_path = ?").bind(id, type, oid, p));
