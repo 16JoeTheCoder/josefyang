@@ -134,6 +134,7 @@ export async function listPosts(db: D1Database, o: ListPostsOpts): Promise<Publi
       const pick = ws.filter((w) => w <= 1600).at(-1) ?? ws[0];
       cover = { src: pick ? `${base(mb)}/${hero.key}/${pick}.webp` : `${base(mb)}/${hero.key}/${hero.original ?? "orig"}`, w: hero.w ?? 0, h: hero.h ?? 0, alt: hero.alt ?? "" };
     }
+    if (!cover && doc) cover = firstBodyImage(doc, mb);
     let buildTitle = "";
     try { buildTitle = r.build_meta ? (JSON.parse(r.build_meta) as { meta?: { title?: { value?: string } } }).meta?.title?.value ?? "" : ""; } catch { /* keep empty */ }
     const slug = r.slug ?? r.id;
@@ -146,4 +147,23 @@ export async function listPosts(db: D1Database, o: ListPostsOpts): Promise<Publi
       game: r.game_slug, html, readMinutes: doc ? readMinutesFor(text) : r.read_minutes,
     };
   });
+}
+
+
+/** Articles without a cover use the first image in the body (cards, og:image, the public feed). */
+function firstBodyImage(doc: unknown, mb: string): PublicPost["cover"] {
+  const seen: Record<string, unknown>[] = [];
+  const visit = (n: unknown) => {
+    if (seen.length || !n || typeof n !== "object") return;
+    const o = n as { type?: string; attrs?: Record<string, unknown>; content?: unknown[] };
+    if (o.type === "image" && o.attrs?.key) seen.push(o.attrs);
+    else if (o.type === "gallery" && Array.isArray(o.attrs?.images) && (o.attrs!.images as Record<string, unknown>[])[0]?.key) seen.push((o.attrs!.images as Record<string, unknown>[])[0]!);
+    else o.content?.forEach(visit);
+  };
+  visit(doc);
+  const im = seen[0] as { key: string; widths?: number[]; original?: string; w?: number; h?: number; alt?: string } | undefined;
+  if (!im || !/^m\/[a-z0-9]+$/.test(im.key)) return null;
+  const ws = (im.widths ?? []).slice().sort((a, b) => a - b);
+  const pick = ws.filter((w) => w <= 1600).at(-1) ?? ws[0];
+  return { src: pick ? `${base(mb)}/${im.key}/${pick}.webp` : `${base(mb)}/${im.key}/${im.original ?? "orig"}`, w: im.w ?? 0, h: im.h ?? 0, alt: im.alt ?? "" };
 }

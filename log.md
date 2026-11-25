@@ -22,3 +22,4 @@ Newest at the bottom. Read this first every session.
 - Read both handoff zips; merged with chat decisions into plan.md "Plan v2". Board for workers: board.md.
 - Lead: video field contract, workshop hero (home-hero v2 + floor target), admin click-to-edit/live text/section library/drag. Sonnet workers: S1 Chronos modules + pack, S2 portfolio updates, S3 game hub, S5 packs + video, S6 blog, S7 admin polish. Reviewers after.
 - Verified: Chronos pack → admin import → draft build with all media from R2 (preview /builds/chronos).
+- Reviews done (R1 code/security, R2 public QA); all high/med findings fixed. Production build passes. Open items for Josef: see PR description.

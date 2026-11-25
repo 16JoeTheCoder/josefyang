@@ -193,6 +193,12 @@ const sheets = Array.from({ length: 6 }, (_, i) => c.pages[i]?.scan ?? null);
     .desk-pause[aria-pressed="true"] .desk-pause-icon { border: 0; border-left: 10px solid currentColor; border-block: 5.5px solid transparent; width: 0; height: 0; }
   }
 
+  /* wide screens without the motion (reduced motion or no JS): fit the still desk in one viewport */
+  @media (min-width: 861px) {
+    .desk { --lw: min(380px, 26svh); }
+    .scene { max-width: min(720px, 47svh); }
+    .desk-stage { padding-bottom: 32px; }
+  }
   @media (max-width: 860px) {
     .desk-title :global(.desk-line) { margin-top: 16px; }
   }

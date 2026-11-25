@@ -13,6 +13,11 @@ function cors(request: Request): Record<string, string> {
   return h;
 }
 
+const notAllowed: APIRoute = ({ request }) => new Response(JSON.stringify({ error: "method not allowed" }), { status: 405, headers: { ...cors(request), Allow: "GET, OPTIONS", "Content-Type": "application/json" } });
+export const POST = notAllowed;
+export const PUT = notAllowed;
+export const PATCH = notAllowed;
+export const DELETE = notAllowed;
 export const OPTIONS: APIRoute = ({ request }) => new Response(null, { status: 204, headers: cors(request) });
 
 export const GET: APIRoute = async ({ request, url }) => {

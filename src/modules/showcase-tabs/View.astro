@@ -59,7 +59,7 @@ const id = (i: number, part: string) => `${sectionId}-${part}-${i}`;
   .st-stage[data-ready] ~ .st-list { display: none; }
   .st-stage:not([data-ready]) figcaption { display: none; }
   @media (max-width: 560px) {
-    .st-bar { flex-wrap: nowrap; overflow-x: auto; margin-inline: calc(-1 * var(--gutter)); padding-inline: var(--gutter); scrollbar-width: none; }
+    .st-bar { flex-wrap: nowrap; overflow-x: auto; margin-inline: calc(-1 * var(--gutter)); padding-inline: var(--gutter); scrollbar-width: none; mask-image: linear-gradient(to right, black calc(100% - 48px), transparent); }
     .st-bar::-webkit-scrollbar { display: none; }
   }
 </style>

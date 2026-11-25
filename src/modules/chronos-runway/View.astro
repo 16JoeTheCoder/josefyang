@@ -106,6 +106,7 @@ const msgs = {
   .rw-buffer { color: var(--sun-tile); border-color: var(--sun-tile); }
   .rw-draft { z-index: 1; background: var(--sun); color: var(--sun-ink); border-color: transparent; cursor: grab; touch-action: pan-y; font-family: var(--font-display); font-weight: 800; transition: left 420ms var(--ease-out), background-color 140ms; }
   .rw-draft:disabled { cursor: default; }
+  @media (max-width: 720px) { .rw-draft { min-width: 44px; min-height: 44px; } }
   .rw-draft:focus-visible { outline-color: var(--white); outline-offset: 2px; }
   .rw-draft[data-dragging] { cursor: grabbing; transition: none; z-index: 2; }
   .rw-draft[data-invalid="true"] { background: var(--sun-tile); }

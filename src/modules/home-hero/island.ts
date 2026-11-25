@@ -74,9 +74,11 @@ function start(root: HTMLElement): Unmount {
     if (next === open && animate) return;
     open = next;
     const d = animate ? 1 : 0;
-    gsap.to(root, { "--open": next ? 158 : 0, duration: next ? 1.05 * d : 0.7 * d, ease: next ? "power3.inOut" : "power2.inOut", overwrite: "auto" });
-    gsap.to(title, { autoAlpha: next ? 0 : 1, y: next ? -48 : 0, duration: 0.6 * d, ease: "expo.out", overwrite: "auto" });
-    if (glow) gsap.to(glow, { opacity: next ? 1 : 0, duration: 0.9 * d, delay: next ? 0.45 * d : 0, ease: "power1.out", overwrite: "auto" });
+    // overwrite: true kills the opposite tween outright ("auto" can miss CSS-variable tweens, leaving
+    // a longer open tween to finish last). onComplete re-checks the scroll in case it moved meanwhile.
+    gsap.to(root, { "--open": next ? 158 : 0, duration: next ? 1.05 * d : 0.7 * d, ease: next ? "power3.inOut" : "power2.inOut", overwrite: true, onComplete: () => { if (animate) onScroll(); } });
+    gsap.to(title, { autoAlpha: next ? 0 : 1, y: next ? -48 : 0, duration: 0.6 * d, ease: "expo.out", overwrite: true });
+    if (glow) gsap.to(glow, { opacity: next ? 1 : 0, duration: 0.9 * d, delay: next ? 0.45 * d : 0, ease: "power1.out", overwrite: true });
     if (!next) { loop.pause(0); }
     else gsap.delayedCall(0.7 * d, syncLoop);
     syncLoop();
