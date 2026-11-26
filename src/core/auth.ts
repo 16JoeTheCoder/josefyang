@@ -27,6 +27,11 @@ export function isLocalHost(url: URL): boolean {
   return url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
 }
 
+/** ADMIN_EMAIL may hold several comma-separated addresses. */
+function allowedEmails(env: AuthEnv): string[] {
+  return env.ADMIN_EMAIL.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+}
+
 /**
  * Returns the verified admin email, or null.
  * Cookies: this app sets none. Cloudflare Access issues its own host-only CF_Authorization cookie for the admin host.
@@ -36,7 +41,7 @@ export function isLocalHost(url: URL): boolean {
 export async function verifyAdmin(request: Request, env: AuthEnv): Promise<string | null> {
   const url = new URL(request.url);
   // Local development only: needs the flag, a localhost URL, and no Access config (production always has CF_ACCESS_AUD).
-  if (env.DEV_ADMIN_BYPASS === "1" && isLocalHost(url) && !env.CF_ACCESS_AUD) return env.ADMIN_EMAIL;
+  if (env.DEV_ADMIN_BYPASS === "1" && isLocalHost(url) && !env.CF_ACCESS_AUD) return allowedEmails(env)[0] ?? null;
   const token = request.headers.get("Cf-Access-Jwt-Assertion");
   if (!token || !env.CF_ACCESS_AUD || !env.CF_ACCESS_TEAM_DOMAIN) return null;
   const parts = token.split(".");
@@ -58,7 +63,7 @@ export async function verifyAdmin(request: Request, env: AuthEnv): Promise<strin
     if (!payload.exp || payload.exp < now) return null;
     if (payload.nbf && payload.nbf > now + 60) return null;
     if (payload.iss && payload.iss !== `https://${team}`) return null;
-    if (!payload.email || payload.email.toLowerCase() !== env.ADMIN_EMAIL.toLowerCase()) return null;
+    if (!payload.email || !allowedEmails(env).includes(payload.email.toLowerCase())) return null;
     return payload.email;
   } catch {
     return null;

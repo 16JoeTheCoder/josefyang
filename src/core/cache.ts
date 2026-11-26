@@ -1,10 +1,12 @@
 /** Edge cache read/write/purge/warm (architecture §8.1–8.3). */
 const edge = (): Cache => (caches as unknown as { default: Cache }).default;
 const TTL = 60 * 60 * 24 * 7;
+// Each build gets its own cache entries: cached HTML links to hashed CSS/JS files that the next deploy removes.
+declare const __BUILD_ID__: string;
 
 function key(url: string): Request {
   const u = new URL(url);
-  u.search = "";
+  u.search = `?build=${typeof __BUILD_ID__ === "string" ? __BUILD_ID__ : "dev"}`;
   u.hash = "";
   return new Request(u.toString(), { method: "GET" });
 }
