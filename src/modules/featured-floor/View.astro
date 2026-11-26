@@ -20,15 +20,16 @@ const watch = n > 1 ? { x: Math.round((stops[0]!.x + stops[1]!.x) / 2 + 380), y:
 const skipId = `${sectionId}-after`;
 ---
 {n === 0 ? (
-  <section class="floor-empty ground-granite"><div class="wrap"><T v={c.emptyNote} f={F.emptyNote} /></div></section>
+  <section class="floor-empty ground-desk"><div class="wrap"><T v={c.emptyNote} f={F.emptyNote} /></div></section>
 ) : (
-  <section class="floor ground-granite" data-floor style={`--n:${n}`} aria-label={c.stageLabel.value}>
+  <section id="featured" class="floor ground-desk" data-floor style={`--n:${n}`} aria-label={c.stageLabel.value}>
     <div class="floor-sticky" data-floor-stage tabindex="0" aria-roledescription="carousel" aria-label={c.stageLabel.value}>
       <div class="floor-plane" data-floor-plane style={`--cx:${stops[0]!.x}px;--cy:${stops[0]!.y}px`}>
         {builds.map((b, i) => (
           <article
             class:list={["stop", i === 0 && "is-current"]}
             data-stop={i}
+            tabindex="-1"
             data-x={stops[i]!.x}
             data-y={stops[i]!.y}
             style={`--x:${stops[i]!.x}px;--y:${stops[i]!.y}px`}
@@ -77,6 +78,8 @@ const skipId = `${sectionId}-after`;
 <style>
   .floor-empty { padding: 48px 0 96px; color: var(--muted); }
   .floor-after { height: 0; outline: none; }
+  .stop:focus { outline: none; }
+  .stop:focus-visible .stop-text { outline: 2px solid var(--sun); outline-offset: 12px; border-radius: 4px; }
 
   /* Default (no JS, phones, reduced motion): a vertical list of the same build cards. */
   .floor { position: relative; padding: 24px 0 var(--section-y); }
@@ -130,7 +133,7 @@ const skipId = `${sectionId}-after`;
     .floor-count { font-family: var(--font-display); font-size: var(--size-l); line-height: 1; font-variant-numeric: tabular-nums; }
     .floor-count strong { font-weight: 900; font-size: 1.6em; }
     .floor-count span { color: var(--muted); }
-    .floor-skip { font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 6px; min-height: 44px; display: inline-flex; align-items: center; }
+    .floor-skip { font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 6px; min-height: 44px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: var(--pill); background: var(--light-60); box-shadow: var(--shadow-soft); }
     .floor-sticky:focus-visible { outline: 2px solid var(--sun); outline-offset: -6px; }
   }
 </style>

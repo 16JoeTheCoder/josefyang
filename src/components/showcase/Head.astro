@@ -1,0 +1,38 @@
+---
+/** Shared section head for the showcase modules: heading on the left, body and one link on the right. */
+import T from "../T.astro";
+import type { TextField, TextValue } from "../../core/fields";
+interface Props {
+  heading: TextValue;
+  headingField: TextField;
+  body?: TextValue;
+  bodyField?: TextField;
+  linkLabel?: TextValue;
+  linkUrl?: string;
+  /** Section sits on black: link underline stays visible. */
+  dark?: boolean;
+  headingId?: string;
+}
+const { heading, headingField, body, bodyField, linkLabel, linkUrl, dark = false, headingId } = Astro.props;
+const external = !!linkUrl && linkUrl.startsWith("http");
+---
+<div class:list={["sc-head", dark && "sc-head-dark"]}>
+  <T v={heading} f={headingField} as="h2" id={headingId} class="sc-title" />
+  <div class="sc-copy">
+    {body && bodyField && <T v={body} f={bodyField} class="sc-body" />}
+    {linkUrl && linkLabel?.value && (
+      <a class="link-u sc-link" href={linkUrl} {...(external ? { target: "_blank", rel: "noopener" } : {})}>{linkLabel.value}</a>
+    )}
+  </div>
+</div>
+<style>
+  .sc-head { display: grid; grid-template-columns: minmax(0, 1.23fr) minmax(0, 1fr); gap: var(--space-6); align-items: end; margin-bottom: var(--space-7); }
+  .sc-head :global(.sc-title) { overflow-wrap: anywhere; font-stretch: 90%; }
+  .sc-copy { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+  .sc-head :global(.sc-body) { font-size: var(--lead); line-height: 1.5; max-width: 48ch; }
+  .sc-head-dark :global(.sc-body) { color: var(--muted-dark); }
+  .sc-link { font-family: var(--font-display); font-weight: 700; display: inline-flex; align-items: center; min-height: 44px; }
+  @media (max-width: 760px) {
+    .sc-head { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); margin-bottom: var(--space-6); }
+  }
+</style>

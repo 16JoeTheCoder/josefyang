@@ -10,17 +10,21 @@ const { content: c, data } = Astro.props;
 const F = mod.fields;
 const latest = data.devlog[0];
 const fuse = data.settings.contacts.fuseUrl;
+const showNow = !!(c.nowDate && c.nowText.value.trim());
 ---
 <section class="di">
   <div class="wrap di-top">
     <div>
       <T v={c.heading} f={F.heading} as="h1" />
       <T v={c.line} f={F.line} class="di-line" />
+      {showNow && (
+        <p class="di-now"><span class="di-now-tag">{c.nowLabel.value}</span><time datetime={c.nowDate}>{shortDate(c.nowDate)}</time><span class="di-now-text">{c.nowText.value}</span></p>
+      )}
     </div>
     {fuse && (
-      <aside class="raw">
+      <aside class:list={["raw", !latest && "raw-next"]}>
         <T v={c.rawTitle} f={F.rawTitle} as="h2" />
-        <T v={c.rawText} f={F.rawText} class="raw-text" />
+        <T v={latest ? c.rawText : c.rawEmptyText} f={latest ? F.rawText : F.rawEmptyText} class="raw-text" />
         <a class="link-u raw-link" href={fuse} target="_blank" rel="noopener">{c.rawLink.value}</a>
       </aside>
     )}
@@ -46,6 +50,12 @@ const fuse = data.settings.contacts.fuseUrl;
   .di { background: var(--white); padding: calc(var(--nav-h) + 72px) 0 40px; }
   .di-top { display: flex; justify-content: space-between; align-items: end; gap: 40px; flex-wrap: wrap; }
   .di :global(.di-line) { margin-top: 20px; max-width: 34ch; font-size: var(--lead); }
+  .di-now { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-top: 28px; font-size: var(--size-s); }
+  .di-now-tag { font-family: var(--font-display); font-weight: 700; padding: 4px 10px; border-radius: var(--pill); background: var(--black); color: var(--white); font-size: var(--size-xs); }
+  .di-now time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .di-now-text { flex-basis: 100%; max-width: 52ch; font-size: var(--size-m); }
+  @media (min-width: 620px) { .di-now-text { flex-basis: auto; } }
+  .raw-next { border-color: var(--black); border-width: 2px; }
   .raw { max-width: 380px; padding: 24px; border: 1px solid var(--hairline); border-radius: var(--radius-m); }
   .raw :global(h2) { font-size: 1.125rem; }
   .raw :global(.raw-text) { margin-top: 8px; font-size: var(--size-s); color: var(--muted); }

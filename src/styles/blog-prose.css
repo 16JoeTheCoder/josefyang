@@ -1,0 +1,32 @@
+/* Rendered post bodies (renderBlocksToHtml). Tokens only. Shared by josefyang.com and the game hub. */
+.bp { font-size: 1.125rem; line-height: 1.75; }
+.bp > * + * { margin-top: 1.2em; }
+.bp h2, .bp h3 { font-family: var(--font-display); font-weight: 800; line-height: 1.1; letter-spacing: -0.01em; text-wrap: balance; }
+.bp h2 { margin-top: 2.2em; font-size: var(--size-l); }
+.bp h3 { margin-top: 1.8em; font-size: 1.25rem; }
+.bp a { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.bp a:hover { text-decoration-thickness: 3px; }
+.bp strong { font-weight: 700; }
+.bp ul, .bp ol { padding-left: 1.4em; }
+.bp ul { list-style: disc; }
+.bp ol { list-style: decimal; }
+.bp li + li { margin-top: 0.4em; }
+.bp li > * + * { margin-top: 0.6em; }
+.bp blockquote { padding-left: 1.2em; border-left: 3px solid var(--sun); font-family: var(--font-display); font-weight: 500; font-size: 1.25rem; line-height: 1.45; }
+.bp code { padding: 0.1em 0.35em; border-radius: 6px; background: var(--tile); font-size: 0.9em; }
+.bp pre { padding: 18px 20px; border-radius: var(--radius-s); background: var(--black); color: var(--white); overflow-x: auto; font-size: 0.9375rem; line-height: 1.6; }
+.bp pre code { padding: 0; background: none; color: inherit; }
+.bp hr { border: 0; height: 1px; margin-block: 2.4em; background: var(--hairline); }
+.bp figure { margin: 0; }
+.bp .bp-fig { margin-top: 2em; }
+.bp .bp-fig img, .bp .bp-fig video { display: block; width: 100%; height: auto; border-radius: var(--radius-m); background: var(--tile); }
+.bp figcaption { margin-top: 10px; font-size: var(--size-s); line-height: 1.45; color: var(--muted); }
+.bp .bp-gallery { display: grid; gap: 14px; margin-top: 2em; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bp .bp-gallery .bp-fig { margin-top: 0; }
+.bp .bp-gallery .bp-fig img { aspect-ratio: 4 / 5; object-fit: cover; }
+.bp .bp-gallery.bp-n3, .bp .bp-gallery.bp-n6, .bp .bp-gallery.bp-n9 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (min-width: 1100px) {
+  /* "wide" blocks break out of the reading column on large screens. */
+  .bp .bp-wide { width: min(1080px, 92vw); margin-left: 50%; transform: translateX(-50%); }
+}
+@media (max-width: 600px) { .bp .bp-gallery { grid-template-columns: 1fr 1fr; gap: 10px; } }

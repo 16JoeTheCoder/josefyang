@@ -3,11 +3,13 @@ import { env } from "cloudflare:workers";
 import Base from "../../layouts/Base.astro";
 import RenderSections from "../../core/RenderSections.astro";
 import { loadPageData } from "../../core/db";
+import { SITE_URL } from "../../core/posts";
 const { data, sections } = await loadPageData(env.DB, Astro.locals.mode, "entry");
 const entry = data.devlog.find((e) => e.slug === Astro.params.slug);
 if (!entry) return Astro.rewrite("/404");
 data.entry = entry;
+const siteUrl = (env.SITE_URL || Astro.site?.origin || SITE_URL).replace(/\/$/, "");
 ---
-<Base settings={data.settings} active="devlog" title={entry.title} description={entry.excerpt}>
+<Base settings={data.settings} active="devlog" title={entry.title} description={entry.seoDescription || entry.excerpt} canonical={`${siteUrl}/devlog/${entry.slug}`} ogType="article">
   <RenderSections page={`devlog:${entry.slug}`} sections={sections} data={data} />
 </Base>

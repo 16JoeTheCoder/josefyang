@@ -19,9 +19,22 @@ export function setAtPath<T>(obj: T, path: string, value: unknown): T {
 
 /* ---------- preview ---------- */
 
-export function Preview({ route, reloadKey }: { route: string; reloadKey: number }) {
+export interface PickMsg { section: string; text: string; mediaKey: string | null; image: boolean }
+/** Lets an editor push live text into the preview before the draft is saved. */
+export type LiveSend = (section: string, old: string, next: string) => void;
+
+export function Preview({ route, reloadKey, onPick, liveRef }: { route: string; reloadKey: number; onPick?: (m: PickMsg) => void; liveRef?: { current: LiveSend | null } }) {
   const [width, setWidth] = useState<"desktop" | "mobile">("desktop");
   const ref = useRef<HTMLIFrameElement>(null);
+  useEffect(() => {
+    if (liveRef) liveRef.current = (section, old, next) => ref.current?.contentWindow?.postMessage({ type: "jy-live", section, old, next }, location.origin);
+    const onMsg = (e: MessageEvent) => {
+      if (e.origin !== location.origin || e.source !== ref.current?.contentWindow || e.data?.type !== "jy-pick") return;
+      onPick?.(e.data as PickMsg);
+    };
+    window.addEventListener("message", onMsg);
+    return () => { window.removeEventListener("message", onMsg); if (liveRef) liveRef.current = null; };
+  }, [onPick, liveRef]);
   const scroll = useRef(0);
   useEffect(() => {
     const f = ref.current;
@@ -49,6 +62,7 @@ export function Preview({ route, reloadKey }: { route: string; reloadKey: number
           <button type="button" aria-pressed={width === "desktop"} onClick={() => setWidth("desktop")}>Desktop</button>
           <button type="button" aria-pressed={width === "mobile"} onClick={() => setWidth("mobile")}>Mobile</button>
         </div>
+        {onPick && <span class="preview-hint">Click anything in the preview to edit it</span>}
         <a href={`/preview${route}`} target="_blank" rel="noopener">Open preview in a new tab</a>
       </div>
       <div class={`preview-frame ${width}`} ref={box} style={width === "desktop" ? `--s:${scale}` : undefined}><iframe ref={ref} title="Live preview (draft)" onLoad={onLoad} /></div>

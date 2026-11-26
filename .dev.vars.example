@@ -1,3 +1,5 @@
 # Copy to .dev.vars for local development. Never commit .dev.vars.
 DEV_ADMIN_BYPASS=1
 CACHE_PAGES=0
+# Empty = the game hub is served at /games (production sets game.josefyang.com in wrangler.jsonc).
+GAME_HOST=

@@ -66,9 +66,14 @@ export function useAutosave<T>(initial: T, initialUpdatedAt: number, save: Saver
   useEffect(() => {
     const onHide = () => { if (document.visibilityState === "hidden") void run(true); };
     const onUnload = (e: BeforeUnloadEvent) => { if (r.current.dirty || r.current.inflight) { e.preventDefault(); } };
+    // Cmd/Ctrl+S saves now instead of opening the browser's "save page" dialog.
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "s") { e.preventDefault(); window.clearTimeout(r.current.timer); void run(); }
+    };
     document.addEventListener("visibilitychange", onHide);
     window.addEventListener("beforeunload", onUnload);
-    return () => { document.removeEventListener("visibilitychange", onHide); window.removeEventListener("beforeunload", onUnload); };
+    window.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("visibilitychange", onHide); window.removeEventListener("beforeunload", onUnload); window.removeEventListener("keydown", onKey); };
   }, [run]);
   useEffect(() => () => window.clearTimeout(r.current.timer), []);
 

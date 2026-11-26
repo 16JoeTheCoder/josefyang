@@ -21,6 +21,7 @@ export default defineModule({
     buildLink: f.label("Build page link text", { max: 32, maxLines: 1 }),
     waiting: f.body("Slip text before anything is fed", { max: 100, maxLines: 2 }),
     emptyNote: f.body("Shown when nothing has failed yet", { max: 140, maxLines: 3 }),
+    emptyLink: f.button("Link to Projects when nothing has failed yet", 22),
   },
   defaults: {
     feedButton: t("Feed it in"),
@@ -35,5 +36,6 @@ export default defineModule({
     buildLink: t("Open the build page"),
     waiting: t("Nothing printed yet. Feed a build into the hopper."),
     emptyNote: t("Nothing has broken badly enough to make this page yet. Give it time."),
+    emptyLink: t("View projects"),
   },
 });

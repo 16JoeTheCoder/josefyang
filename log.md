@@ -16,3 +16,10 @@ Newest at the bottom. Read this first every session.
 - Added weekly D1→R2 backup cron (src/worker.ts), font subset, Lighthouse check (home 99/100/100/100).
 - Where to resume: Lighthouse CI in GitHub Actions; click-to-edit from preview (data-field-path); Library "Replace everywhere" should refresh open editors; AVIF variants; real content entry by Josef.
 - Known: admin state can be stale after Replace everywhere until reload. Media upload writes the original to R2 before validating variants (orphan object possible on a bad variant).
+
+## 2026-11-25 (plan v2 session)
+
+- Read both handoff zips; merged with chat decisions into plan.md "Plan v2". Board for workers: board.md.
+- Lead: video field contract, workshop hero (home-hero v2 + floor target), admin click-to-edit/live text/section library/drag. Sonnet workers: S1 Chronos modules + pack, S2 portfolio updates, S3 game hub, S5 packs + video, S6 blog, S7 admin polish. Reviewers after.
+- Verified: Chronos pack → admin import → draft build with all media from R2 (preview /builds/chronos).
+- Reviews done (R1 code/security, R2 public QA); all high/med findings fixed. Production build passes. Open items for Josef: see PR description.

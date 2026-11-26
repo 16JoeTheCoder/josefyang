@@ -1,3 +1,4 @@
+import type { BlockDoc } from "./blocks";
 import type { BuildMeta } from "./build-fields";
 import type { ImageValue } from "./fields";
 import type { Section } from "./module";
@@ -30,6 +31,15 @@ export interface DevlogEntry {
   date: string;
   status: "draft" | "published";
   updatedAt: number;
+  /** Rich-text document; null for posts written before the editor (use `body`). */
+  blocks: BlockDoc | null;
+  type: "note" | "article";
+  tags: string[];
+  sites: ("main" | "games")[];
+  gameSlug: string | null;
+  /** ISO datetime; a published post stays hidden until this time. */
+  publishAt: string | null;
+  seoDescription: string;
 }
 
 export interface Milestone { id: string; date: string; label: string; title: string; body: string; status: string }

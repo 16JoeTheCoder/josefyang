@@ -5,7 +5,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "main": "./src/worker.ts",
   // Weekly D1 backup to R2 (Sunday 02:00 Jakarta time). Restore: see README.
-  "triggers": { "crons": ["0 19 * * 6"] },
+  "triggers": { "crons": ["0 19 * * 6", "7 * * * *"] }, // weekly D1 backup; hourly release of scheduled posts
   "assets": { "binding": "ASSETS", "directory": "./dist" },
   "observability": { "enabled": true },
   "d1_databases": [
@@ -22,7 +22,10 @@
     "ADMIN_EMAIL": "josef@josefyang.com",
     "CACHE_PAGES": "1",
     // Empty = images are served by this Worker at /media/*. Set to "https://media.josefyang.com" once the R2 custom domain exists.
-    "MEDIA_BASE_URL": ""
+    "MEDIA_BASE_URL": "",
+    // Hostname of the game hub (docs/GAME-CONTRACT.md). "/" and "/<slug>" on this host serve /games and /games/<slug>;
+    // /games* on josefyang.com redirects here. Add it as a Custom Domain on this Worker first. Empty = hub only at /games.
+    "GAME_HOST": "game.josefyang.com"
   }
   // Secrets (never in this file): CF_ACCESS_AUD, CF_ACCESS_TEAM_DOMAIN, CF_ANALYTICS_TOKEN
 }

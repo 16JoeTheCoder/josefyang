@@ -8,7 +8,7 @@ import mod from "./module";
 interface Props { content: Content<typeof mod.fields>; data: PageData }
 const { content: c, data } = Astro.props;
 const F = mod.fields;
-const entries = data.devlog;
+const entries = data.devlog.filter((e) => e.sites.includes("main"));
 const groups = new Map<string, DevlogEntry[]>();
 for (const e of entries) {
   const m = e.date.slice(0, 7);
@@ -36,22 +36,45 @@ const slot = { ratio: "4 / 5", empty: c.photoEmpty.value };
               <h2 class="month-name">{monthName(month)}</h2>
               {notes.get(month) && <p class="month-note">{notes.get(month)}</p>}
             </div>
-            <ul class="cards">
-              {list.map((e) => (
-                <li data-entry data-build={e.build?.slug ?? ""} data-failed={e.build?.failed ? "1" : "0"}>
-                  <a class="card-link" href={`/devlog/${e.slug}`}>
-                    <Img v={e.hero} f={slot} sizes="(max-width: 700px) 92vw, 300px" />
-                    <p class="card-meta">
-                      {e.build && <span class:list={["pill", e.build.failed ? "pill-failed" : "pill-tag"]}>{e.build.failed ? failedLabel : e.build.title}</span>}
-                      <span>{shortDate(e.date)}</span>
-                    </p>
-                    <h3 class="card-title">{e.title}</h3>
-                    <p class="card-sum">{e.excerpt}</p>
-                  </a>
-                  {e.fuseUrl && <a class="rough" href={e.fuseUrl} target="_blank" rel="noopener">{c.roughNotes.value}</a>}
-                </li>
-              ))}
-            </ul>
+            <div class="month-body">
+            {list.some((e) => e.type === "article") && (
+              <ul class="cards">
+                {list.filter((e) => e.type === "article").map((e) => (
+                  <li data-entry data-build={e.build?.slug ?? ""} data-failed={e.build?.failed ? "1" : "0"}>
+                    <a class="card-link" href={`/devlog/${e.slug}`}>
+                      <Img v={e.hero} f={slot} sizes="(max-width: 700px) 92vw, 300px" />
+                      <p class="card-meta">
+                        {e.build && <span class:list={["pill", e.build.failed ? "pill-failed" : "pill-tag"]}>{e.build.failed ? failedLabel : e.build.title}</span>}
+                        <span>{shortDate(e.date)}</span>
+                        {e.readMinutes && <span>{e.readMinutes} {c.minRead.value}</span>}
+                      </p>
+                      <h3 class="card-title">{e.title}</h3>
+                      <p class="card-sum">{e.excerpt}</p>
+                    </a>
+                    {e.fuseUrl && <a class="rough" href={e.fuseUrl} target="_blank" rel="noopener">{c.roughNotes.value}</a>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {list.some((e) => e.type !== "article") && (
+              <ul class="notes">
+                {list.filter((e) => e.type !== "article").map((e) => (
+                  <li data-entry data-build={e.build?.slug ?? ""} data-failed={e.build?.failed ? "1" : "0"}>
+                    <a class="note-link" href={`/devlog/${e.slug}`}>
+                      <p class="card-meta">
+                        <span class="note-tag">{c.noteLabel.value}</span>
+                        {e.build && <span class:list={["pill", e.build.failed ? "pill-failed" : "pill-tag"]}>{e.build.failed ? failedLabel : e.build.title}</span>}
+                        <span>{shortDate(e.date)}</span>
+                      </p>
+                      <h3 class="note-title">{e.title}</h3>
+                      {e.excerpt && <p class="card-sum">{e.excerpt}</p>}
+                    </a>
+                    {e.fuseUrl && <a class="rough" href={e.fuseUrl} target="_blank" rel="noopener">{c.roughNotes.value}</a>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            </div>
           </div>
         ))}
       </>
@@ -91,6 +114,16 @@ const slot = { ratio: "4 / 5", empty: c.photoEmpty.value };
   .month-num { font-family: var(--font-display); font-weight: 900; font-stretch: 70%; font-size: clamp(5rem, 3rem + 6vw, 9rem); line-height: 0.8; letter-spacing: var(--track-tight); font-variant-numeric: tabular-nums; }
   .month-name { margin-top: 14px; font-family: var(--font-display); font-weight: 800; font-size: 1.0625rem; }
   .month-note { margin-top: 6px; font-size: var(--size-s); color: var(--muted); }
+  .month-body { display: grid; gap: 40px; align-content: start; min-width: 0; }
+  .notes { display: grid; border-top: 1px solid var(--black); }
+  .notes li { border-bottom: 1px solid var(--hairline); }
+  .notes li[hidden] { display: none; }
+  .note-link { display: block; padding: 20px 0 6px; text-decoration: none; max-width: var(--measure); }
+  .note-link .card-meta { margin-top: 0; }
+  .note-tag { font-family: var(--font-display); font-weight: 800; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; }
+  .note-title { margin-top: 8px; font-family: var(--font-display); font-weight: 800; font-size: 1.1875rem; line-height: 1.2; text-wrap: balance; }
+  .note-link:hover .note-title { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; }
+  .note-link .card-sum { margin-top: 6px; }
   .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 20px; }
   .cards li[hidden] { display: none; }
   .card-link { display: block; text-decoration: none; }

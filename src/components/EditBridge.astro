@@ -1,0 +1,46 @@
+---
+/**
+ * Draft-only bridge between the preview iframe and the admin (click-to-edit + live text).
+ * Inert unless the page is a draft AND framed by the admin on the same origin. Never ships to the public site.
+ */
+---
+<script is:inline>
+(() => {
+  if (window.parent === window) return;
+  const origin = location.origin;
+  const css = document.createElement("style");
+  css.textContent = "[data-edit-section] :is(h1,h2,h3,h4,p,li,a,span,figcaption,strong,img,.img-slot){cursor:pointer}" +
+    ".jy-hover{outline:2px dashed var(--sun) !important;outline-offset:4px !important}" +
+    ".jy-flash{animation:jy-flash 900ms ease-out}@keyframes jy-flash{0%{background:color-mix(in srgb,var(--sun) 35%,transparent)}100%{background:transparent}}";
+  document.head.appendChild(css);
+  const pick = (t) => t.closest("img, .img-slot, .img-empty") || t.closest("h1,h2,h3,h4,p,li,a,figcaption,strong,span,button");
+  let last = null;
+  document.addEventListener("mouseover", (e) => {
+    const el = e.target instanceof Element && e.target.closest("[data-edit-section]") ? pick(e.target) : null;
+    if (last && last !== el) last.classList.remove("jy-hover");
+    if (el) el.classList.add("jy-hover");
+    last = el;
+  });
+  document.addEventListener("click", (e) => {
+    if (!(e.target instanceof Element)) return;
+    const sec = e.target.closest("[data-edit-section]");
+    if (!sec) return;
+    e.preventDefault(); e.stopPropagation();
+    const el = pick(e.target);
+    const img = el && (el.matches("img") ? el : el.querySelector("img"));
+    const key = img ? (img.currentSrc || img.src).match(/\/(m\/[a-z0-9]+)\//)?.[1] ?? null : null;
+    parent.postMessage({ type: "jy-pick", section: sec.dataset.editSection, text: el && !img ? (el.textContent || "").trim().slice(0, 600) : "", mediaKey: key, image: !!(el && (img || el.matches(".img-slot, .img-empty"))) }, origin);
+  }, true);
+  window.addEventListener("message", (e) => {
+    if (e.origin !== origin || !e.data || e.data.type !== "jy-live") return;
+    const sec = e.data.section ? document.querySelector('[data-edit-section="' + CSS.escape(e.data.section) + '"]') : document.body;
+    if (!sec) return;
+    const old = String(e.data.old).trim();
+    if (!old) return;
+    const walker = document.createTreeWalker(sec, NodeFilter.SHOW_ELEMENT);
+    for (let n = walker.currentNode; n; n = walker.nextNode()) {
+      if (n.children.length === 0 && (n.textContent || "").trim() === old) { n.textContent = e.data.next; n.classList.remove("jy-flash"); void n.offsetWidth; n.classList.add("jy-flash"); }
+    }
+  });
+})();
+</script>

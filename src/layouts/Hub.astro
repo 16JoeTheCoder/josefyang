@@ -1,0 +1,71 @@
+---
+/** Game hub shell: own header and footer, dark "after dark" ground, site tokens and fonts only. */
+import { env } from "cloudflare:workers";
+import Base from "./Base.astro";
+import Icon from "../components/Icon.astro";
+import type { HubCopy } from "../core/game-fields";
+import { hubPath, hubUrl } from "../core/games";
+import type { SiteSettings } from "../core/settings";
+interface Props { settings: SiteSettings; hub: HubCopy; title?: string; description?: string; slug?: string; back?: boolean }
+const { settings, hub, title, description, slug, back = false } = Astro.props;
+const host = Astro.url.hostname;
+const home = hubPath(env.GAME_HOST, host);
+const canonical = hubUrl(env.GAME_HOST, Astro.url.origin, slug);
+const site = Astro.site?.href ?? "/";
+---
+<Base settings={settings} title={title} description={description} canonical={canonical} chrome={false}>
+  <div class="hub">
+    <header class="hub-bar">
+      <div class="wrap hub-bar-in">
+        <a class="hub-brand" href={home}><span class="hub-mark" aria-hidden="true"></span>{hub.brand.value}</a>
+        <nav class="hub-links">
+          {back && <a href={home}><Icon name="arrow-left" size={18} />{hub.backLabel.value}</a>}
+          <a href={site}>{hub.siteLabel.value}</a>
+        </nav>
+      </div>
+    </header>
+    <slot />
+    <footer class="hub-foot">
+      <div class="wrap hub-foot-in">
+        <p>{hub.footerLine.value}</p>
+        <a href={site}>{hub.siteLabel.value}</a>
+      </div>
+    </footer>
+  </div>
+</Base>
+<style is:global>
+  /* Hub: black ground, white type, sun as accent only. Everything from tokens.css. */
+  main:has(> .hub) { background: var(--black); }
+  .hub { background: var(--black); color: var(--white); min-height: 100dvh; display: flex; flex-direction: column; }
+  .hub > :not(.hub-bar):not(.hub-foot) { flex: 1 0 auto; }
+  .hub a { text-underline-offset: 5px; }
+  .hub :focus-visible { outline-color: var(--sun); }
+  .hub .muted { color: var(--muted-dark); }
+
+  .hub-bar { border-bottom: 1px solid var(--rule-dark); }
+  .hub-bar-in { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--nav-h); }
+  .hub-brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 800; letter-spacing: -0.01em; text-decoration: none; min-height: 44px; }
+  .hub-mark { width: 14px; height: 14px; background: var(--sun); flex: none; }
+  .hub-links { display: flex; align-items: center; gap: var(--space-5); font-family: var(--font-display); font-weight: 500; font-size: 0.9375rem; }
+  .hub-links a { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; text-decoration: none; color: var(--muted-dark); transition: color var(--dur-fast) var(--ease-out); }
+  .hub-links a:hover { color: var(--white); text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; }
+
+  .hub-brand { min-width: 0; }
+  @media (max-width: 520px) { .hub-links a:not(:first-child):not(:only-child) { display: none; } .hub-brand { font-size: 0.9375rem; } }
+  .hub-foot { border-top: 1px solid var(--rule-dark); margin-top: var(--section-y); }
+  .hub-foot-in { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-3) var(--space-5); padding-block: var(--space-6); color: var(--muted-dark); font-size: var(--size-s); }
+  .hub-foot a { color: var(--white); }
+
+  /* shared bits */
+  .hub .pill { border-color: var(--rule-dark); color: var(--white); font-weight: 500; }
+  .hub .pill-status { background: var(--white); color: var(--black); border-color: var(--white); font-weight: 700; }
+  .hub .pill-featured { background: var(--sun); color: var(--black); border-color: var(--sun); font-weight: 700; }
+  .hub .btn-play { background: var(--sun); color: var(--black); }
+  .hub .btn-play:hover { background: var(--white); }
+  .hub .btn-ghost { background: transparent; color: var(--white); border-color: var(--white); }
+  .hub .btn-ghost:hover { background: var(--white); color: var(--black); }
+  .hub .btn[aria-disabled="true"] { background: transparent; color: var(--muted-dark); border-color: var(--rule-dark); cursor: default; pointer-events: none; }
+  .hub .img-empty { background: var(--rule-dark); color: var(--muted-dark); }
+  .hub .img-slot { border-radius: var(--radius-m); }
+  .hub .img-fit { background: var(--rule-dark); }
+</style>

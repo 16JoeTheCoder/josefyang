@@ -2,6 +2,7 @@ import { defineMiddleware } from "astro:middleware";
 import { env } from "cloudflare:workers";
 import { verifyAdmin } from "./core/auth";
 import { cacheGet, cachePut } from "./core/cache";
+import { gameHostRewrite, gameHostServes, mainHostRedirect } from "./lib/game-host";
 
 const PROTECTED = [/^\/admin(\/|$)/, /^\/preview(\/|$)/, /^\/api\/admin(\/|$)/];
 
@@ -15,6 +16,7 @@ function securityHeaders(res: Response, path: string): Response {
       "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
       "style-src 'self' 'unsafe-inline'",
       `img-src 'self' data: blob:${media}`,
+      `media-src 'self' blob:${media}`,
       "font-src 'self'",
       "connect-src 'self' https://cloudflareinsights.com",
       `frame-ancestors ${path.startsWith("/preview") ? "'self'" : "'none'"}`,
@@ -67,12 +69,26 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     return securityHeaders(out, path);
   }
 
+  // Game hub (game.josefyang.com): same app, host-based routing. Locally (no GAME_HOST) /games just works.
+  let rewriteTo: string | undefined;
+  if (env.GAME_HOST && ctx.request.method !== "POST") {
+    if (url.hostname === env.GAME_HOST) {
+      // The hub host serves only hub pages and shared assets, never the portfolio (duplicate content).
+      if (!gameHostServes(path)) return securityHeaders(new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain" } }), path);
+      rewriteTo = gameHostRewrite(path) ?? undefined;
+    }
+    else if (["GET", "HEAD"].includes(ctx.request.method)) {
+      const to = mainHostRedirect(path, url.search, env.GAME_HOST);
+      if (to) return Response.redirect(to, 301);
+    }
+  }
+
   const cacheable = env.CACHE_PAGES === "1" && ctx.request.method === "GET" && !path.startsWith("/api/") && !path.startsWith("/media/");
   if (cacheable && !ctx.request.headers.get("x-warm")) {
     const hit = await cacheGet(url.href);
     if (hit) return hit;
   }
-  const res = await next();
+  const res = rewriteTo ? await next(rewriteTo) : await next();
   const out = securityHeaders(new Response(res.body, res), path);
   if (cacheable && out.status === 200 && (out.headers.get("Content-Type") ?? "").includes("text/html")) {
     const [a, b] = out.body ? out.body.tee() : [null, null];

@@ -1,7 +1,11 @@
 ---
+import { env } from "cloudflare:workers";
 import Img from "../../components/Img.astro";
+import "../../styles/blog-prose.css";
 import type { Content } from "../../core/fields";
 import type { PageData } from "../../core/types";
+import { mediaBase } from "../../core/media";
+import { renderBlocksToHtml, renderBodyToHtml } from "../../core/posts";
 import { shortDate } from "../../lib/dates";
 import mod from "./module";
 interface Props { content: Content<typeof mod.fields>; data: PageData }
@@ -10,7 +14,7 @@ const e = data.entry;
 const i = e ? data.devlog.findIndex((x) => x.id === e.id) : -1;
 const newer = i > 0 ? data.devlog[i - 1] : undefined;
 const older = i >= 0 ? data.devlog[i + 1] : undefined;
-const paras = (e?.body ?? "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+const html = e ? (e.blocks ? renderBlocksToHtml(e.blocks, mediaBase(env.MEDIA_BASE_URL)) : renderBodyToHtml(e.body)) : "";
 const failed = data.settings.site.failedPill.value;
 ---
 {e && (
@@ -27,10 +31,11 @@ const failed = data.settings.site.failedPill.value;
     <div class="wrap"><Img v={e.hero} f={{ ratio: "16 / 10", empty: c.photoEmpty.value }} eager sizes="(max-width: 1360px) 96vw, 1280px" /></div>
     <div class="wrap de-body">
       {e.excerpt && <p class="de-lead">{e.excerpt}</p>}
-      {paras.map((p) => <p>{p}</p>)}
-      {e.images.length > 0 && (
+      <div class="bp" set:html={html} />
+      {!e.blocks && e.images.length > 0 && (
         <div class="de-imgs">{e.images.map((im) => <Img v={im} f={{ ratio: "4 / 5", empty: c.photoEmpty.value }} sizes="(max-width: 700px) 92vw, 340px" />)}</div>
       )}
+      {e.tags.length > 0 && <ul class="de-tags">{e.tags.map((tag) => <li class="pill pill-tag">{tag}</li>)}</ul>}
       <p class="de-links">
         {e.fuseUrl && <a class="link-u" href={e.fuseUrl} target="_blank" rel="noopener">{c.fuseLink.value}</a>}
         {e.build && <a class="link-u" href={`/builds/${e.build.slug}`}>{c.buildLink.value}</a>}
@@ -51,6 +56,8 @@ const failed = data.settings.site.failedPill.value;
   .de-body > p { margin-top: 1.2em; font-size: 1.125rem; line-height: 1.75; }
   .de-body > p.de-lead { margin-top: 0; font-size: var(--lead); color: var(--black); font-weight: 500; }
   .de-imgs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 40px; }
+  .de-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 40px; }
+  .de-body > .bp { margin-top: 1.2em; }
   .de-links { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 40px; font-family: var(--font-display); font-weight: 700; }
   .de-nav { display: flex; justify-content: space-between; gap: 24px; margin-top: var(--space-9); padding-top: 32px; border-top: 1px solid var(--black); }
   .de-nav a { display: flex; flex-direction: column; gap: 4px; max-width: 40ch; text-decoration: none; font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; line-height: 1.15; }

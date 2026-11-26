@@ -15,7 +15,10 @@ const onStage = failed.slice(0, SLOTS.length);
 const kind = (k: string) => (k === "software" ? c.software.value : c.hardware.value);
 ---
 {failed.length === 0 ? (
-  <section class="hop ground-granite-fine"><div class="wrap"><T v={c.emptyNote} f={F.emptyNote} class="hop-empty" /></div></section>
+  <section class="hop ground-granite-fine"><div class="wrap hop-empty-wrap">
+    <T v={c.emptyNote} f={F.emptyNote} class="hop-empty" />
+    {c.emptyLink.value && <a class="btn btn-primary" href="/projects">{c.emptyLink.value}</a>}
+  </div></section>
 ) : (
   <section class="hop ground-granite-fine" data-hopper>
     <div class="wrap hop-stage" data-stage role="group" aria-label={c.stageLabel.value}>
@@ -94,7 +97,7 @@ const kind = (k: string) => (k === "software" ? c.software.value : c.hardware.va
 </script>
 <style>
   .hop { padding: 24px 0 var(--section-y); }
-  .hop :global(.hop-empty) { color: var(--muted); padding: 48px 0; }
+  .hop :global(.hop-empty) { color: var(--muted); padding: 48px 0 24px; }
 
   /* Default (no JS / reduced motion): every slip as an expandable list item. */
   .hop-stage, .slip-wrap { display: none; }

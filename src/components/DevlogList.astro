@@ -1,0 +1,33 @@
+---
+/** A plain list of devlog posts, each linking to its canonical page on josefyang.com. */
+import type { PublicPost } from "../core/posts";
+import { shortDate } from "../lib/dates";
+interface Props { posts: PublicPost[]; label: string }
+const { posts, label } = Astro.props;
+---
+<ul class="dl-list">
+  {posts.map((p) => (
+    <li>
+      <a href={p.url} class="dl-item">
+        <time class="dl-date" datetime={p.date}>{shortDate(p.date)}</time>
+        <span class="dl-main">
+          <span class="dl-title">{p.title}</span>
+          {p.excerpt && <span class="dl-ex">{p.excerpt}</span>}
+          <span class="dl-read">{label}</span>
+        </span>
+      </a>
+    </li>
+  ))}
+</ul>
+<style is:global>
+  .dl-list { border-top: 1px solid var(--rule-dark); }
+  .dl-list li { border-bottom: 1px solid var(--rule-dark); }
+  .dl-item { display: grid; gap: var(--space-2); padding-block: var(--space-5); text-decoration: none; }
+  .dl-date { color: var(--muted-dark); font-family: var(--font-display); font-weight: 500; font-size: var(--size-s); font-variant-numeric: tabular-nums; }
+  .dl-main { display: grid; gap: var(--space-2); max-width: var(--measure); }
+  .dl-title { font-family: var(--font-display); font-weight: 800; font-size: var(--size-l); line-height: 1.12; letter-spacing: -0.01em; text-wrap: balance; }
+  .dl-ex { color: var(--muted-dark); font-size: var(--size-s); line-height: 1.6; }
+  .dl-read { font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+  .dl-item:hover .dl-title { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+  @media (min-width: 800px) { .dl-item { grid-template-columns: 140px minmax(0, 1fr); gap: var(--space-6); } }
+</style>

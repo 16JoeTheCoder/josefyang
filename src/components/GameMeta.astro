@@ -1,0 +1,22 @@
+---
+/** Status pill, platform pills and genres for one game (hub card and game page). */
+import type { GameFields } from "../core/game-fields";
+import type { HubCopy } from "../core/game-fields";
+import Icon from "./Icon.astro";
+interface Props { game: GameFields; hub: HubCopy; genres?: boolean }
+const { game, hub, genres = false } = Astro.props;
+const status = { development: hub.statusDevelopment, playable: hub.statusPlayable, released: hub.statusReleased }[game.status]?.value ?? "";
+const plats = [
+  game.platforms.browser && { icon: "monitor", label: hub.platformBrowser.value },
+  game.platforms.android && { icon: "phone", label: hub.platformAndroid.value },
+  game.platforms.ios && { icon: "devices", label: hub.platformIos.value },
+].filter(Boolean) as { icon: string; label: string }[];
+---
+<ul class="g-meta">
+  <li><span class="pill pill-status">{status}</span></li>
+  {plats.map((p) => <li><span class="pill"><Icon name={p.icon} size={16} />{p.label}</span></li>)}
+  {genres && game.genres.map((g) => g.name.value && <li><span class="pill">{g.name.value}</span></li>)}
+</ul>
+<style is:global>
+  .g-meta { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+</style>

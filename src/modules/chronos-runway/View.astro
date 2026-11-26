@@ -1,0 +1,139 @@
+---
+import type { Content } from "../../core/fields";
+import { afterSync, budget, bufferStart, clock, draftDuration, duration, end, fill, fixed, original, planned, position, slotStyle, span, start } from "./day";
+import mod from "./module";
+interface Props { content: Content<typeof mod.fields>; sectionId: string }
+const { content: c, sectionId } = Astro.props;
+const day = budget(original);
+const ticks = [start, 12 * 60, 14 * 60, 16 * 60, end];
+const fixedTotal = fixed.reduce((n, x) => n + (x.at[1] - x.at[0]), 0);
+const draftSpan = span(original, original + draftDuration);
+const id = c.anchor.value || sectionId;
+const T = (k: keyof typeof c) => (c[k] as { value: string }).value;
+const msgs = {
+  original: T("noteOriginal"), after: T("noteAfter"), moved: T("noteMoved"), busy: T("noteBusy"), end: T("noteEnd"), draftAria: T("draftAria"),
+};
+---
+<section class="rw ground-granite-fine" id={id}>
+  <div class="wrap">
+    <div class="rw-panel">
+      <div class="rw-reading">
+        <p class="rw-reading-main"><span>{fill(c.readingLabel.value, { time: clock(start) })}</span><strong>{duration(day.workable)}</strong></p>
+        <p class="rw-sum">{fill(c.readingSum.value, { left: duration(end - start), fixed: duration(fixedTotal), buffer: duration(end - bufferStart) })}</p>
+      </div>
+      <div class="rw-body" data-runway data-messages={JSON.stringify(msgs)} data-after={afterSync} data-original={original}>
+        <div class="rw-head">
+          <div><h2 class="rw-title">{c.heading.value}</h2><p class="rw-sub">{c.subtitle.value}</p></div>
+          <div class="rw-presets" data-enhanced hidden>
+            <button type="button" data-slot={original} aria-pressed="true">{c.presetOriginal.value}</button>
+            <button type="button" data-slot={afterSync} aria-pressed="false">{c.presetAfter.value}</button>
+          </div>
+        </div>
+        <div class="rw-grid" role="group" aria-label={fill(c.gridLabel.value, { from: clock(start), to: clock(end) })}>
+          <span aria-hidden="true"></span>
+          <div class="rw-axis" aria-hidden="true">
+            {ticks.map((m) => <span style={`--left:${position(m)}%`}>{clock(m)}</span>)}
+          </div>
+          <span class="rw-lane">{c.laneFixed.value}</span>
+          <div class="rw-track rw-fixed">
+            {fixed.map(({ label, at }) => <span class="rw-block" style={slotStyle(at)} title={`${label}, ${span(at[0], at[1])}`}>{label}</span>)}
+          </div>
+          <span class="rw-lane">{c.lanePlan.value}</span>
+          <div class="rw-track" data-track>
+            {planned.map(({ label, at }) => <span class="rw-block" style={slotStyle(at)} title={`${label}, ${span(at[0], at[1])}`}>{label}</span>)}
+            <span class="rw-block rw-buffer" style={slotStyle([bufferStart, end])} title={`${c.bufferLabel.value}, ${span(bufferStart, end)}`}>{c.bufferLabel.value}</span>
+            <button class="rw-block rw-draft" data-draft type="button" style={slotStyle([original, original + draftDuration])} aria-label={fill(c.draftAria.value, { time: draftSpan })} aria-describedby={`${id}-help`} disabled><span>{c.draftLabel.value}</span></button>
+          </div>
+          <span class="rw-lane">{c.laneOpen.value}</span>
+          <div class="rw-track rw-gaps" data-gaps aria-hidden="true">
+            {day.open.map((iv) => <span class="rw-gap" style={slotStyle(iv)}></span>)}
+          </div>
+        </div>
+        <div class="rw-summary">
+          <p><output data-longest>{duration(day.longest)}</output><span>{c.longestLabel.value}</span></p>
+          <p><output data-unassigned>{duration(day.unassigned)}</output><span>{c.totalLabel.value}</span></p>
+          <p class="rw-note" data-note aria-live="polite">{fill(c.noteOriginal.value, { time: draftSpan })}</p>
+        </div>
+        <p class="rw-help" id={`${id}-help`} data-enhanced hidden>{c.help.value}</p>
+        <details class="rw-details">
+          <summary>{c.detailsLabel.value}</summary>
+          <div>
+            <ul aria-label={c.fixedList.value}>
+              {fixed.map(({ label, at }) => <li><span>{label}</span><span>{span(at[0], at[1])}</span></li>)}
+              <li><span>{c.bufferList.value}</span><span>{span(bufferStart, end)}</span></li>
+            </ul>
+            <ul aria-label={c.plannedList.value}>
+              {planned.map(({ label, at }) => <li><span>{label}</span><span>{span(at[0], at[1])}</span></li>)}
+              <li><span>{c.draftLabel.value}</span><span data-draft-time>{draftSpan}</span></li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+  import { onPage } from "../../core/island";
+  import { mountRunway } from "./island";
+  onPage("[data-runway]", mountRunway);
+</script>
+<style>
+  .rw { padding: 0 0 var(--space-8); }
+  .rw-panel { background: var(--obj-screen); color: var(--white); border-radius: var(--radius-m); overflow: hidden; box-shadow: var(--shadow-object); }
+  .rw-reading { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3) var(--space-5); padding: var(--space-5) var(--space-6) var(--space-4); border-bottom: 1px solid var(--rule-dark); }
+  .rw-reading-main { display: flex; align-items: baseline; gap: var(--space-4); flex-wrap: wrap; }
+  .rw-reading-main span, .rw-sum { font-size: var(--size-s); color: var(--muted-dark); }
+  .rw-reading-main strong { font-family: var(--font-display); font-weight: 800; font-variant-numeric: tabular-nums; color: var(--sun); font-size: clamp(2.25rem, 1.2rem + 3.4vw, 3.5rem); letter-spacing: var(--track-tight); line-height: 1; white-space: nowrap; }
+  .rw-body { padding: var(--space-5) var(--space-6) var(--space-5); }
+  .rw-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
+  .rw-title { font-family: var(--font-display); font-weight: 800; font-size: var(--size-l); line-height: 1.12; letter-spacing: -0.01em; }
+  .rw-sub, .rw-help { color: var(--muted-dark); font-size: var(--size-xs); line-height: 1.5; }
+  .rw-presets { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+  .rw-presets[hidden], .rw-help[hidden] { display: none; }
+  .rw-presets button { min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--pill); background: transparent; cursor: pointer; font-family: var(--font-display); font-weight: 700; font-size: var(--size-xs); }
+  .rw-presets button:hover { background: var(--obj-strap); }
+  .rw-presets button[aria-pressed="true"] { background: var(--white); color: var(--black); }
+  .rw-grid { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 6px var(--space-2); margin-top: var(--space-4); }
+  .rw-axis { position: relative; height: 24px; font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 0.72rem; color: var(--muted-dark); }
+  .rw-axis span { position: absolute; left: var(--left); transform: translateX(-50%); }
+  .rw-axis span:first-child { transform: none; }
+  .rw-axis span:last-child { transform: translateX(-100%); }
+  .rw-lane { color: var(--muted-dark); font-size: var(--size-xs); font-weight: 500; }
+  .rw-track { position: relative; height: 40px; background: var(--black); border-radius: 4px; }
+  .rw-block, .rw-body :global(.rw-gap) { position: absolute; left: var(--left); width: var(--width); }
+  .rw-block { display: block; top: 3px; bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 7px; border: 1px solid var(--obj-track); border-radius: 4px; background: var(--obj-strap); color: var(--white); font-size: 0.74rem; line-height: 1.7; text-align: left; }
+  .rw-fixed .rw-block { border: 1px dashed var(--muted-dark); background: var(--obj-screen); }
+  .rw-buffer { color: var(--sun-tile); border-color: var(--sun-tile); }
+  .rw-draft { z-index: 1; background: var(--sun); color: var(--sun-ink); border-color: transparent; cursor: grab; touch-action: pan-y; font-family: var(--font-display); font-weight: 800; transition: left 420ms var(--ease-out), background-color 140ms; }
+  .rw-draft:disabled { cursor: default; }
+  @media (max-width: 720px) { .rw-draft { min-width: 44px; min-height: 44px; } }
+  .rw-draft:focus-visible { outline-color: var(--white); outline-offset: 2px; }
+  .rw-draft[data-dragging] { cursor: grabbing; transition: none; z-index: 2; }
+  .rw-draft[data-invalid="true"] { background: var(--sun-tile); }
+  .rw-gaps { height: 10px; }
+  .rw-body :global(.rw-gap) { height: 100%; border-radius: 2px; background: var(--white); min-width: 1px; }
+  .rw-body :global(.rw-gap[data-updated]) { animation: rw-open 540ms var(--ease-out) both; }
+  @keyframes rw-open { from { clip-path: inset(0 42% 0 0); opacity: 0.55; } to { clip-path: inset(0); opacity: 1; } }
+  .rw-summary { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: end; gap: var(--space-3) var(--space-6); padding-top: var(--space-4); }
+  .rw-summary p { display: grid; font-size: var(--size-xs); color: var(--muted-dark); line-height: 1.4; }
+  .rw-summary output { color: var(--white); font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
+  .rw-summary .rw-note { min-height: 1.5em; justify-self: end; text-align: right; max-width: 40ch; }
+  .rw-help { margin-top: var(--space-3); }
+  .rw-details { margin-top: var(--space-2); font-size: var(--size-s); color: var(--muted-dark); }
+  .rw-details summary { cursor: pointer; width: fit-content; display: list-item; line-height: 44px; }
+  .rw-details > div { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3) var(--space-6); }
+  .rw-details li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 10px; border-top: 1px solid var(--rule-dark); padding-block: var(--space-1); }
+  .rw-details li span:last-child { font-variant-numeric: tabular-nums; }
+  @media (max-width: 760px) {
+    .rw { padding-bottom: var(--space-7); }
+    .rw-reading { flex-direction: column; align-items: flex-start; padding: var(--space-4); gap: var(--space-1); }
+    .rw-body { padding: var(--space-4); }
+    .rw-grid { grid-template-columns: 36px minmax(0, 1fr); gap: 6px 4px; }
+    .rw-axis { font-size: 0.62rem; }
+    .rw-lane { font-size: 0.62rem; }
+    .rw-block { padding-inline: 2px; font-size: 0.58rem; }
+    .rw-summary { grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+    .rw-summary .rw-note { grid-column: 1 / -1; justify-self: start; text-align: left; }
+    .rw-details > div { grid-template-columns: 1fr; }
+  }
+</style>

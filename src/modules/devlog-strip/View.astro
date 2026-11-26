@@ -9,6 +9,7 @@ interface Props { content: Content<typeof mod.fields>; data: PageData; sectionId
 const { content: c, data, sectionId } = Astro.props;
 const F = mod.fields;
 const entries = data.devlog.filter((e) => e.status === "published" || data.mode === "draft").slice(0, 5);
+const fuse = data.settings.contacts.fuseUrl;
 const slot = { ratio: "4 / 5", empty: c.photoEmpty.value };
 ---
 <section class="strip">
@@ -20,7 +21,10 @@ const slot = { ratio: "4 / 5", empty: c.photoEmpty.value };
     <a class="btn btn-secondary" href="/devlog">{c.button.value}</a>
   </div>
   {entries.length === 0 ? (
-    <div class="wrap"><T v={c.emptyNote} f={F.emptyNote} class="strip-empty" /></div>
+    <div class="wrap">
+      <T v={c.emptyNote} f={F.emptyNote} class="strip-empty" />
+      {fuse && <a class="link-u strip-fuse" href={fuse} target="_blank" rel="noopener">{c.emptyLink.value}</a>}
+    </div>
   ) : (
     <div class="strip-track" tabindex="0" role="region" aria-labelledby={`${sectionId}-h`}>
       <ul class="strip-row">
@@ -42,6 +46,7 @@ const slot = { ratio: "4 / 5", empty: c.photoEmpty.value };
   .strip-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; }
   .strip :global(.strip-line) { margin-top: 14px; color: var(--muted); }
   .strip :global(.strip-empty) { margin-top: 40px; color: var(--muted); }
+  .strip-fuse { display: inline-block; margin-top: 12px; font-family: var(--font-display); font-weight: 700; }
   .strip-track { margin-top: var(--space-7); overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: max(var(--gutter), calc((100vw - var(--container)) / 2)); overscroll-behavior-x: contain; scrollbar-width: thin; padding-bottom: 16px; }
   .strip-track:focus-visible { outline-offset: -2px; }
   .strip-row { display: flex; gap: 20px; width: max-content; padding-inline: max(var(--gutter), calc((100vw - var(--container)) / 2)); }
