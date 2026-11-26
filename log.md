@@ -23,3 +23,12 @@ Newest at the bottom. Read this first every session.
 - Lead: video field contract, workshop hero (home-hero v2 + floor target), admin click-to-edit/live text/section library/drag. Sonnet workers: S1 Chronos modules + pack, S2 portfolio updates, S3 game hub, S5 packs + video, S6 blog, S7 admin polish. Reviewers after.
 - Verified: Chronos pack → admin import → draft build with all media from R2 (preview /builds/chronos).
 - Reviews done (R1 code/security, R2 public QA); all high/med findings fixed. Production build passes. Open items for Josef: see PR description.
+
+## 2026-11-26 (production deploy)
+
+- Deployed to josefyang-site from branch deploy/plan-v2 (version da0bffb4). The branch merges fix/admin-email-access: production was running it, main lacked it (real D1 id, three admin emails). Deploying main without it would be wrong.
+- D1 migrations 0005 + 0006 applied. Pre-deploy backup: .wrangler/backups/prod-pre-planv2-2026-11-26.sql (not in git). Time Travel bookmark: 00000278-00000000-0000512f-b211d4be2d3f2676a29018692cc3d852.
+- Incident: after the first deploy, cached HTML pointed at removed CSS files (404). Purged the zone cache, then added a per-build id to the edge cache key; second deploy verified clean without a purge.
+- Chronos pack imported through the live admin as a draft. Not published.
+- game.josefyang.com belongs to the separate josefyang-games Worker (not touched). docs/GAME-CONTRACT.md §8 assumes otherwise. GAME_HOST makes josefyang.com/games redirect there.
+- Open: push branch/PR to main; published Home name "BuiltByJosef Portfolio" is 2 characters too long for the new hero (blocks Home publish); admin forms show un-migrated v1 hero content (public and preview show v2); About shows Greenmech placeholders publicly.
