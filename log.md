@@ -32,3 +32,12 @@ Newest at the bottom. Read this first every session.
 - Chronos pack imported through the live admin as a draft. Not published.
 - game.josefyang.com belongs to the separate josefyang-games Worker (not touched). docs/GAME-CONTRACT.md §8 assumes otherwise. GAME_HOST makes josefyang.com/games redirect there.
 - Open: push branch/PR to main; published Home name "BuiltByJosef Portfolio" is 2 characters too long for the new hero (blocks Home publish); admin forms show un-migrated v1 hero content (public and preview show v2); About shows Greenmech placeholders publicly.
+
+## 2026-11-28 (Phase 1: portfolio, content and mobile performance)
+
+- Intake: main 965dc73 verified; V3 patch forward-only → applied (73 paths), overlay identical; check, 177 tests and build passed. Committed as e52e350 (V3 only).
+- Baseline perf (V3, tests/perf/mobile.mjs, 390×844, 4× CPU, 1.6 Mbps/150 ms) recorded before changes.
+- Built: host router + /games journey + /hub catalog, private host boundary, 60 s TTL + bounded purge, bounded reads + migration 0008, per-route CSS, floor cap + skip, On my bench, Home layout upgrade, About story, Chronos case study (pack updated), devlog strip bounded.
+- Sonnet verifiers: browser QA 7/8 pass (fixed: no-JS tablist showing, Back to projects losing the build); data/security review (fixed: lean card query still read draft_json, text-band migrate overreach, catalog host serving /devlog/rss.xml, missing devlog order index, games-limit merge, query-key cache fan-out).
+- Local fixtures: seed/dev-phase1.sql (fixture game + game updates), tests/fixtures/home-legacy.json, tests/e2e/route-fixture.sh, tests/e2e/freshness.sh.
+- Open: Home LCP on touch +0.4 s vs V3 (floor transform settles after mount; 1.25 s, in budget); /devlog, /failures, /projects still read everything; production Access/routes/D1 unverified; Josef to confirm "student council" wording.

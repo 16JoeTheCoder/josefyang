@@ -7,7 +7,8 @@ import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { MAX_DOC_BYTES, blockDocSchema, emptyDoc, mediaRefs as blockMediaRefs, plainText, readMinutesFor } from "../../../core/blocks";
 import { buildMetaDefaults } from "../../../core/build-fields";
-import { purgeEverything } from "../../../core/purge";
+import { purgeAffected } from "../../../core/purge";
+import { upgradeHomeLayout } from "../../../core/layout-upgrade";
 import {
   buildDocShape, buildMedia, buildMetaSchema, buildProblems, sectionMedia, sectionProblems, sectionsShape, slugSchema,
   validateSections, validateSettings,
@@ -59,10 +60,10 @@ async function setUsage(ownerType: string, ownerId: string, refs: { mediaId: str
   await db().batch(stmts);
 }
 
-/** Publishing anything purges every public page on both hosts and warms it again (few pages, so this stays cheap). */
+/** Publishing purges a bounded set of affected paths in this data centre; the 60 s TTL bounds everything else (src/core/purge.ts). */
 function purge(ctx: Ctx, extra: string[] = []) {
   if (env.CACHE_PAGES !== "1") return;
-  ctx.locals.cfContext.waitUntil(purgeEverything(db(), ctx.url.origin, env.GAME_HOST, extra));
+  ctx.locals.cfContext.waitUntil(purgeAffected(ctx.url.origin, env.GAME_HOST, extra));
 }
 
 /* ---------- pages ---------- */
@@ -89,8 +90,28 @@ async function savePage(ctx: Ctx, id: string) {
   return json({ updatedAt: t, problems: sectionProblems(v.sections) });
 }
 
-async function publishPage(ctx: Ctx, id: string) {
+/** Opt-in Phase 1 Home layout upgrade: rewrites the draft only (idempotent); publishing stays a separate step. */
+async function upgradePageLayout(_ctx: Ctx, id: string) {
+  if (id !== "home") return fail(404, "No layout upgrade for this page");
   const p = await getPage(id);
+  const v = validateSections(p.sections);
+  if (!v.ok) return fail(422, v.error);
+  const up = upgradeHomeLayout(v.sections);
+  if (!up.changed) return json({ changed: false, notes: [], updatedAt: p.updatedAt, sections: v.sections });
+  const t = Math.max(now(), p.updatedAt + 1);
+  const js = JSON.stringify(up.sections);
+  await db().prepare("INSERT INTO pages (id, draft_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET draft_json = excluded.draft_json, updated_at = excluded.updated_at").bind(id, js, t).run();
+  await snapshot("page", id, up.sections, "layout upgrade");
+  await setUsage("page", id, sectionMedia(up.sections));
+  return json({ changed: true, notes: up.notes, updatedAt: t, sections: up.sections });
+}
+
+async function publishPage(ctx: Ctx, id: string) {
+  const raw = await getPage(id);
+  // Publish the migrated sections (older saved modules, e.g. a v1 hero, are upgraded the same way the renderer does).
+  const v = validateSections(raw.sections);
+  if (!v.ok) return fail(422, v.error);
+  const p = { ...raw, sections: v.sections };
   const problems = sectionProblems(p.sections);
   if (problems.length) return fail(422, "Fix these before publishing", { problems });
   const js = JSON.stringify(p.sections);
@@ -186,7 +207,7 @@ async function publishBuild(ctx: Ctx, id: string) {
       summary = ?, skills_json = ?, title = ?, started_on = ? WHERE id = ?`)
     .bind(t, doc.slug, m.kind, m.status, m.featured ? 1 : 0, m.homeOrder, m.summary.value, JSON.stringify(m.skills.map((s) => s.name.value)), m.title.value, m.startedOn || null, id).run();
   await snapshot("build", id, { slug: doc.slug, meta: doc.meta, sections: doc.sections }, "publish");
-  purge(ctx);
+  purge(ctx, [`/builds/${doc.slug}`]);
   return json({ publishedAt: t });
 }
 
@@ -763,6 +784,7 @@ const routes: [string, RegExp, Handler][] = [
   })],
   ["GET", /^pages\/([a-z-]+)$/, (_c, m) => PAGE_IDS.includes(m[1]!) ? getPage(m[1]!).then(json) : fail(404, "Unknown page")],
   ["PATCH", /^pages\/([a-z-]+)$/, (c, m) => PAGE_IDS.includes(m[1]!) ? savePage(c, m[1]!) : fail(404, "Unknown page")],
+  ["POST", /^pages\/([a-z-]+)\/upgrade-layout$/, (c, m) => PAGE_IDS.includes(m[1]!) ? upgradePageLayout(c, m[1]!) : fail(404, "Unknown page")],
   ["POST", /^pages\/([a-z-]+)\/publish$/, (c, m) => PAGE_IDS.includes(m[1]!) ? publishPage(c, m[1]!) : fail(404, "Unknown page")],
   ["GET", /^builds$/, async () => json(await listBuilds())],
   ["POST", /^builds$/, (c) => createBuild(c)],

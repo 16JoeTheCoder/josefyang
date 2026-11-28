@@ -11,7 +11,7 @@ const S = F.before.fields;
 const states = [["before", c.before], ["after", c.after]] as const;
 const editPath = (path: string) => Astro.locals.mode === "draft" ? path : undefined;
 ---
-<section class="ss" data-switch>
+<section class="ss" data-switch id={/^[a-z0-9-]+$/.test(c.anchor.value) ? c.anchor.value : undefined}>
   <div class="wrap">
     <Head dark heading={c.heading} headingField={F.heading} body={c.body} bodyField={F.body} linkLabel={c.linkLabel} linkUrl={c.linkUrl} />
     <div class="ss-stage" data-stage>

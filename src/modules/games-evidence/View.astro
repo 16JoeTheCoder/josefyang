@@ -1,0 +1,47 @@
+---
+import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
+import Icon from "../../components/Icon.astro";
+import type { Content } from "../../core/fields";
+import type { PageData } from "../../core/types";
+import mod from "./module";
+
+interface Props { content: Content<typeof mod.fields>; data: PageData; sectionId: string }
+const { content: c, data, sectionId } = Astro.props;
+const F = mod.fields;
+const I = F.items.of;
+const items = c.items.filter((item) => item.title.value.trim());
+const edit = data.mode === "draft";
+---
+{items.length > 0 && <section class="ge" aria-labelledby={sectionId + "-h"}>
+  <div class="wrap ge-grid">
+    <T v={c.heading} f={F.heading} as="h2" id={sectionId + "-h"} class="ge-title" editPath="heading" />
+    <ol class="ge-list">
+      {items.map((item, i) => {
+        const hasImage = !!(item.image.mediaId && item.image.key);
+        return <li class:list={["ge-item", hasImage && "has-image"]}>
+          {hasImage && <Img v={item.image} f={I.image} sizes="(max-width: 860px) 92vw, 560px" editPath={`items[${i}].image`} />}
+          <div>
+            <T v={item.title} f={I.title} as="h3" editPath={`items[${i}].title`} />
+            <T v={item.text} f={I.text} class="ge-text" editPath={`items[${i}].text`} />
+            {item.linkUrl && item.linkLabel.value && <a class="ge-link" href={item.linkUrl} data-edit-path={edit ? `items[${i}].linkLabel` : undefined}>{item.linkLabel.value}<Icon name="arrow-right" size={16} /></a>}
+          </div>
+        </li>;
+      })}
+    </ol>
+  </div>
+</section>}
+<style>
+  .ge { padding-block: var(--section-y); background: var(--white); }
+  .ge-grid { display: grid; gap: var(--space-6) var(--space-8); }
+  .ge-grid :global(.ge-title) { font-size: var(--size-xl); font-weight: 850; line-height: .95; letter-spacing: var(--track-tight); max-width: 14ch; }
+  .ge-list { display: grid; border-top: 1px solid var(--hairline); }
+  .ge-item { display: grid; gap: var(--space-5); padding-block: var(--space-6); border-bottom: 1px solid var(--hairline); }
+  .ge-item :global(h3) { font-family: var(--font-display); font-size: var(--size-l); font-weight: 800; line-height: 1.05; letter-spacing: var(--track-display); }
+  .ge-item :global(.ge-text) { margin-top: var(--space-3); max-width: 56ch; color: var(--muted); line-height: 1.6; }
+  .ge-link { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; margin-top: var(--space-2); font-family: var(--font-display); font-weight: 700; text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 5px; }
+  @media (min-width: 861px) {
+    .ge-grid { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); }
+    .ge-item.has-image { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  }
+</style>

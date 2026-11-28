@@ -1,14 +1,14 @@
 ---
 import { env } from "cloudflare:workers";
 import Base from "../../layouts/Base.astro";
+import { views } from "../../core/views/build";
 import RenderSections from "../../core/RenderSections.astro";
 import { BUILD_LAYOUT, loadPageData, sectionsFromModules } from "../../core/db";
-const { data } = await loadPageData(env.DB, Astro.locals.mode);
-const build = data.builds.find((b) => b.slug === Astro.params.slug);
+const { data } = await loadPageData(env.DB, Astro.locals.mode, { buildSlug: Astro.params.slug });
+const build = data.build;
 if (!build) return Astro.rewrite("/404");
-data.build = build;
 const sections = build.sections.length ? build.sections : sectionsFromModules(BUILD_LAYOUT);
 ---
 <Base settings={data.settings} active="projects" title={build.meta.title.value} description={build.meta.summary.value}>
-  <RenderSections page={`build:${build.slug}`} sections={sections} data={data} />
+  <RenderSections page={`build:${build.slug}`} sections={sections} data={data} views={views} />
 </Base>

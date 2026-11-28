@@ -19,7 +19,7 @@ interface Boot {
 const hashRoute = () => location.hash.slice(1) || "page/home";
 
 const NAV_GROUPS: { title: string; items: [string, string][] }[] = [
-  { title: "Site pages", items: [["page/home", "Home"], ["page/projects", "Projects"], ["page/failures", "Failures"], ["page/devlog", "Devlog page"], ["page/entry", "Devlog entry layout"], ["page/about", "About"], ["milestones", "About timeline"]] },
+  { title: "Site pages", items: [["page/home", "Home"], ["page/projects", "Projects"], ["page/failures", "Failures"], ["page/devlog", "Devlog page"], ["page/entry", "Devlog entry layout"], ["page/about", "About"], ["page/games", "Games journey"], ["milestones", "About timeline"]] },
   { title: "Projects", items: [["builds", "Builds"], ["placement", "Home placement"], ["templates", "Templates"]] },
   { title: "Writing", items: [["devlog", "Blog"]] },
   { title: "Games", items: [["games", "Games"], ["gamehub", "Game hub text"]] },

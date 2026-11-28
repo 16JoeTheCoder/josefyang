@@ -2,7 +2,7 @@ import { defineMiddleware } from "astro:middleware";
 import { env } from "cloudflare:workers";
 import { verifyAdmin } from "./core/auth";
 import { cacheGet, cachePut } from "./core/cache";
-import { gameHostRewrite, gameHostServes, mainHostRedirect } from "./lib/game-host";
+import { mainHostOf, privateHostAllowed, routeRequest } from "./lib/game-host";
 
 const PROTECTED = [/^\/admin(\/|$)/, /^\/preview(\/|$)/, /^\/api\/admin(\/|$)/];
 
@@ -40,6 +40,11 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   ctx.locals.mode = "published";
 
   if (PROTECTED.some((r) => r.test(path))) {
+    // Exact-main-host boundary: admin and previews never answer on the game host or any other alias,
+    // even with a valid Access identity. localhost is the explicit development lane.
+    if (!privateHostAllowed(url.hostname, mainHostOf(env.SITE_URL))) {
+      return securityHeaders(new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } }), path);
+    }
     const email = await verifyAdmin(ctx.request, env);
     if (!email) {
       return securityHeaders(new Response(path.startsWith("/api/") ? JSON.stringify({ error: "forbidden" }) : "Forbidden", {
@@ -61,6 +66,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
       const res = await next(path.replace(/^\/preview/, "") || "/");
       const out = new Response(res.body, res);
       out.headers.set("Cache-Control", "no-store");
+      out.headers.set("X-Robots-Tag", "noindex, nofollow");
       return securityHeaders(out, path);
     }
     const res = await next();
@@ -69,22 +75,16 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     return securityHeaders(out, path);
   }
 
-  // Game hub (game.josefyang.com): same app, host-based routing. Locally (no GAME_HOST) /games just works.
-  let rewriteTo: string | undefined;
-  if (env.GAME_HOST && ctx.request.method !== "POST") {
-    if (url.hostname === env.GAME_HOST) {
-      // The hub host serves only hub pages and shared assets, never the portfolio (duplicate content).
-      if (!gameHostServes(path)) return securityHeaders(new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain" } }), path);
-      rewriteTo = gameHostRewrite(path) ?? undefined;
-    }
-    else if (["GET", "HEAD"].includes(ctx.request.method)) {
-      const to = mainHostRedirect(path, url.search, env.GAME_HOST);
-      if (to) return Response.redirect(to, 301);
-    }
+  // One host-aware router for the journey, the catalog and legacy paths (src/lib/game-host.ts).
+  const route = routeRequest({ pathname: path, search: url.search, method: ctx.request.method, gameHost: env.GAME_HOST || undefined, host: url.hostname });
+  if (route.kind === "notfound") return securityHeaders(new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain" } }), path);
+  if (route.kind === "redirect") {
+    return securityHeaders(new Response(null, { status: 301, headers: { Location: route.location, "Cache-Control": "public, max-age=3600" } }), path);
   }
+  const rewriteTo = route.kind === "rewrite" ? route.to : undefined;
 
   const cacheable = env.CACHE_PAGES === "1" && ctx.request.method === "GET" && !path.startsWith("/api/") && !path.startsWith("/media/");
-  if (cacheable && !ctx.request.headers.get("x-warm")) {
+  if (cacheable) {
     const hit = await cacheGet(url.href);
     if (hit) return hit;
   }

@@ -10,11 +10,12 @@ const state = {
 export default defineModule({
   id: "showcase-switch",
   name: "Showcase switch",
-  version: 1,
+  version: 2,
   description: "Two matching states (image, title, note) with a button that crossfades between them, a numbered steps list and a footnote.",
   island: true,
   pages: ["build"],
   fields: {
+    anchor: f.label("Link anchor (no #, optional)", { max: 30, maxLines: 1 }),
     heading: f.heading("Heading", { max: 44, maxLines: 2, fit: 34 }),
     body: f.body("Body", { max: 200, maxLines: 4, fit: 150 }),
     linkLabel: f.label("Link text", { max: 44, maxLines: 1 }),
@@ -30,6 +31,7 @@ export default defineModule({
     footnote: f.body("Footnote", { max: 220, maxLines: 3, fit: 180 }),
   },
   defaults: {
+    anchor: t(""),
     heading: t("[Heading]"),
     body: t("[One or two sentences on what the switch shows.]"),
     linkLabel: t(""),
@@ -41,4 +43,5 @@ export default defineModule({
     steps: [],
     footnote: t(""),
   },
+  migrate: (old) => old,
 });

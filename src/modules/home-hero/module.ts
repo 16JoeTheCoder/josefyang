@@ -12,7 +12,7 @@ export default defineModule({
   island: false,
   pages: ["home"],
   fields: {
-    headline: f.giant("Your name", { max: 30, maxLines: 2, fit: 14 }),
+    headline: f.giant("Your name", { max: 30, maxLines: 2, fit: 20 }),
     line: f.body("One line about you", { max: 110, maxLines: 2, fit: 90 }),
     projectsLink: f.button("Link down to the projects", 24),
     pages: f.list("Working pages on the desk (A4 scans)", "Page", {

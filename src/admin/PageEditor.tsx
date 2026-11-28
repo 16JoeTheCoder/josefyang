@@ -11,8 +11,8 @@ import "./visual-workspace.css";
 
 export interface PageRec { id: string; sections: Section[]; updatedAt: number; dirty: boolean }
 
-export const PAGE_ROUTES: Record<string, string> = { home: "/", projects: "/projects", failures: "/failures", devlog: "/devlog", about: "/about" };
-export const PAGE_NAMES: Record<string, string> = { home: "Home", projects: "Projects", failures: "Failures", devlog: "Devlog page", entry: "Devlog entry layout", about: "About" };
+export const PAGE_ROUTES: Record<string, string> = { home: "/", projects: "/projects", failures: "/failures", devlog: "/devlog", about: "/about", games: "/games" };
+export const PAGE_NAMES: Record<string, string> = { home: "Home", projects: "Projects", failures: "Failures", devlog: "Devlog page", entry: "Devlog entry layout", about: "About", games: "Games journey" };
 
 /** A request from the preview (or the panels) to open a section and focus one of its fields. */
 export interface FocusReq { sectionId: string; path: string | null; n: number }
@@ -432,6 +432,13 @@ export function PageEditor({ page, onPublished, focusSection, entryPreviewId, on
     } finally { setPublishing(false); }
   }
 
+  async function upgradeLayout() {
+    await a.flush();
+    const r = await api<{ changed: boolean; notes: string[] }>("POST", "pages/" + page.id + "/upgrade-layout", {});
+    await reload();
+    toast(r.changed ? `Draft updated: ${r.notes.join(". ")}. Publish when it looks right.` : "The Home draft already uses the new layout.");
+  }
+
   async function reload() {
     const restored = await api<PageRec>("GET", "pages/" + page.id);
     a.reset(prepareSections(restored.sections), restored.updatedAt);
@@ -447,6 +454,8 @@ export function PageEditor({ page, onPublished, focusSection, entryPreviewId, on
       <div class="visual-workspace-actions">
         <button type="button" aria-pressed={pane === "sections"} onClick={() => { setPane(pane === "sections" ? "properties" : "sections"); setEditMode(true); revealInspector(); }}>Sections</button>
         <button type="button" aria-pressed={pane === "history"} onClick={() => { setPane(pane === "history" ? "properties" : "history"); revealInspector(); }}>History</button>
+        {page.id === "home" && !a.value.some((s) => s.moduleId === "on-my-bench") && <button type="button" onClick={() => void upgradeLayout().catch(() => toast("Could not update the layout."))}
+          title="Adds On my bench after the floor and hides the two older sections in the draft. The live page changes only when you publish.">Use the new Home layout</button>}
         {route && <button type="button" aria-pressed={!editMode} onClick={() => setEditMode((v) => !v)}>{editMode ? "Preview interactions" : "Back to editing"}</button>}
       </div>
       <StatusBar status={a.status} savedAt={a.savedAt} error={a.error} problems={a.problems.length ? a.problems : serverProblems} onPublish={publish} publishing={publishing} dirty={dirty}

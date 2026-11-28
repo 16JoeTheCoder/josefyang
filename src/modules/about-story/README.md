@@ -1,9 +1,6 @@
-# About: Greenmech story (`about-story`)
+# About: my story (`about-story`, v2)
 
-White section on About, right after the intro: a heading, one paragraph (the task, your role, one decision, what changed) and an optional 3:2 image with a caption.
+Right after the About intro: why I started building (first person), an optional link to the work (default `/projects`) and an optional 3:2 image with caption.
 
-- Pages: "about"
-- Island: No: zero JavaScript
-- Fields and defaults: `module.ts`. Render: `View.astro` (scoped styles, tokens only).
-- Defaults are bracketed placeholders. Replace them with facts Josef has confirmed before publishing; nothing here is invented.
-- The image block is omitted until an image is added (alt text is required to publish).
+- v1 was an unfilled Greenmech placeholder (hidden publicly while bracketed). v2 migrate replaces it with the approved story only if heading and story are still bracketed placeholders; anything Josef wrote is kept.
+- Public render hides the section while the heading or story is still a `[placeholder]`.

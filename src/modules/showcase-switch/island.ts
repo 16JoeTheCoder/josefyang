@@ -1,10 +1,10 @@
 /**
- * Showcase switch: crossfades between two states (GSAP). Both states are visible stacked without JS;
+ * Showcase switch: crossfades between two states (Web Animations). Both states are visible stacked without JS;
  * once mounted they share one cell. The note is announced through a status region.
  * Reduced motion swaps instantly.
  */
 import { reducedMotion, type Unmount } from "../../core/island";
-import { showPanel, warmImages } from "../../components/showcase/fade";
+import { showPanel, warmOnIntent } from "../../components/showcase/fade";
 
 export function mountSwitch(root: HTMLElement): Unmount | void {
   const stage = root.querySelector<HTMLElement>("[data-stage]");
@@ -18,7 +18,7 @@ export function mountSwitch(root: HTMLElement): Unmount | void {
   stage.dataset.ready = "true";
   actions.hidden = false;
   showPanel(panels, 0, true);
-  warmImages(stage);
+  const unwarm = warmOnIntent([go], () => panels[1]);
 
   const to = (i: 0 | 1) => {
     showPanel(panels, i, reducedMotion());
@@ -32,6 +32,7 @@ export function mountSwitch(root: HTMLElement): Unmount | void {
   go.addEventListener("click", onGo);
   replay.addEventListener("click", onReplay);
   return () => {
+    unwarm();
     go.removeEventListener("click", onGo);
     replay.removeEventListener("click", onReplay);
   };

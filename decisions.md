@@ -82,3 +82,38 @@ What: Devlog upgraded in place (migration 0005; Tiptap JSON blocks, strict white
 
 ### D19. Admin editing model
 What: click anything in the preview to jump to its field (matched by section + text/image, no per-field markup in views); typing updates the preview instantly before autosave; "+ Add a section" lists modules allowed on that page; Remove is a two-click confirm (no dialogs); drag handle reorders (sections collapse while dragging; transforms only), Move up/down kept for keyboard. This reverses brief rule "no drag-and-drop" at Josef's request (25 Nov).
+
+## 2026-11-28 (Phase 1: portfolio, content and mobile performance)
+
+### D20. Main /games is the portfolio journey; the catalog moved to internal /hub routes
+What: `josefyang.com/games` now renders a Games journey (intro, game-making evidence, ≤ 6 game-related Devlog updates, "Browse the games"). `/game`, `/game/`, `/games/` 301 to `/games`; `/games/<slug>` 301 to the catalog detail. The catalog pages moved from `/games` to `/hub` so the game host can rewrite `/` → `/hub` without ever reaching the journey. One pure router (`src/lib/game-host.ts`) decides everything.
+Why: the brief wants a portfolio journey on main, canonical there, with no hub/journey rewrite loop.
+Alternatives: keep `/games` as the catalog and add `/games/journey` (breaks the requested canonical).
+Reverse: route `/games` back through `routeRequest` to the catalog and move `src/pages/hub` back to `src/pages/games`.
+
+### D21. Admin and previews answer only on the main host (or localhost)
+What: `/admin*`, `/preview*`, `/api/admin*` return 404 on any other host, before the Access check. localhost is the explicit dev lane. Previews also send `X-Robots-Tag: noindex, nofollow` and `no-store`.
+Reverse: remove the `privateHostAllowed` check in `src/middleware.ts`.
+
+### D22. Finite HTML freshness: 60 s edge TTL, bounded purge, no warming
+What: cached public HTML lives 60 s (`s-maxage=60`, was 7 days). Publishing deletes at most 40 affected paths in the local data centre and warms nothing. Cache keys keep only query parameters that change the HTML (none today). Measured locally: miss ~34 ms vs hit ~10 ms TTFB; a change without purge appeared at t+63 s; a publish appeared at t+0 (tests/e2e/freshness.sh).
+Why: `cache.delete` is per data centre, so only a TTL bounds staleness globally; warming every page on every publish was unbounded.
+Reverse: change `EDITORIAL_TTL` in `src/core/cache.ts`.
+
+### D23. Bounded reads from the saved layout
+What: each module declares what it reads (`MODULE_NEEDS` in `src/core/db.ts`). Published pages read only that: builds as a meta-only projection (no sections), the build page reads its own row, Devlog lists use lean columns with per-page limits (Home 10, Games 6), RSS reads 50 full rows. Unknown or custom modules fall back to the old full read. Previews keep the full read. Migration 0008 adds an index so LIMITs stop early. Measured (scaled fixture, 120 builds, 600 posts): Home 4.07 MB → ~57 KB read.
+Still unbounded: `/devlog` archive, `/failures` hopper (`SELECT *`), entry prev/next list, `/projects` cards.
+
+### D24. Per-route CSS
+What: each route imports only its own module views (`src/core/views/<page>.ts`), so it ships only those modules' CSS. Shared section CSS dropped from 107 KB raw on every route to 5–28 KB per route. A section whose module is not allowed on that page now logs "not available on this page" instead of rendering (the admin only offers allowed modules). `tests/views.test.ts` keeps the groups in sync with each module's `pages`.
+
+### D25. Home: capped floor, first-screen skip, On my bench, opt-in layout upgrade
+What: floor camera travel capped at 1.5 extra viewport heights (6 stops: 435svh → 250svh); touch, reduced motion and screens under 640 px tall scroll normally with explicit controls. "Skip to what I'm working on" sits under the hero line and lands focus on the On my bench heading. On my bench is a new module (Websites, Games, Python simulations, ESP32 electronics; no statuses). The Home layout upgrade is a button in the editor (Use the new Home layout): draft only, idempotent, hides "A bit about me" and "I run my life on tools I built" (kept, so the floor still uses the tool screenshots), publishing stays a separate step.
+Hero fit: the floor's hero headline ignored the fit steps; it now steps down, and the fit budget is 20 characters, so "BuiltByJosef Portfolio" publishes one step smaller without changing the words.
+Reverse: Version history on the Home page restores the previous layout.
+
+### D26. About and Chronos copy
+What: About now opens with the first-person story (turned 17 in October 2026, felt late, started learning tools, found he enjoys building) and treats CS50P and ESP32 as learning. Greenmech is removed from defaults until it can be verified; migrations only replace copy that still equals the old defaults. Added "History and geopolitics" to Off the bench. "I'm on the student council" comes from the Phase 1 handoff topic list. Josef: please confirm that wording. Chronos: placeholders ([year], [start] to [end], [stack]) are cleared and left out; the intro shows a real screenshot in the first screen plus What it does / What I built; the one-timer switch is the documented decision.
+
+### D27. Kept the repo palette over the global ink/paper/fire tokens
+What: the global instructions name ink/paper/fire, but `prompt/01-brief-and-brand.md` explicitly rejects that system for this site (see D17). New modules use repo tokens only.

@@ -1,0 +1,23 @@
+---
+/** Catalog game detail. Unknown slugs render a real 404 here (no Astro.rewrite: the catalog host already rewrote once). */
+import { env } from "cloudflare:workers";
+import Hub from "../../layouts/Hub.astro";
+import GameDetail from "../../components/GameDetail.astro";
+import { loadHub, hubPath } from "../../core/games";
+const { settings, hub, games } = await loadHub(env.DB, Astro.locals.mode);
+const rec = games.find((g) => g.slug === Astro.params.slug);
+if (!rec) Astro.response.status = 404;
+const home = hubPath(env.GAME_HOST, Astro.url.hostname);
+---
+{rec ? <GameDetail settings={settings} hub={hub} rec={rec} /> : (
+  <Hub settings={settings} hub={hub} title={settings.site.notFoundTitle.value} back>
+    <section class="wrap hub-missing">
+      <h1 class="r-giant">{settings.site.notFoundTitle.value}</h1>
+      <p class="r-body">{settings.site.notFoundText.value}</p>
+      <a class="btn btn-light" href={home}>{hub.backLabel.value}</a>
+    </section>
+  </Hub>
+)}
+<style>
+  .hub-missing { padding-block: var(--space-9); display: grid; gap: var(--space-5); justify-items: start; }
+</style>

@@ -1,9 +1,16 @@
 ---
 import T from "../../components/T.astro";
+import Icon from "../../components/Icon.astro";
 import type { Content } from "../../core/fields";
+import type { PageData } from "../../core/types";
 import mod from "./module";
-interface Props { content: Content<typeof mod.fields> }
-const { content: c } = Astro.props;
+interface Props { content: Content<typeof mod.fields>; data: PageData }
+const { content: c, data } = Astro.props;
+const i = data.build ? data.builds.findIndex((b) => b.slug === data.build!.slug) : -1;
+const next = data.builds.length > 1 && i >= 0 ? data.builds[(i + 1) % data.builds.length] : undefined;
+// "Back to projects" returns to the selector at this build (Projects re-entry).
+const reentry = (u: string) => (u === "/projects" && data.build ? `/projects#${data.build.slug}` : u);
+const real = (v: string) => !!v.trim() && !/^\[.*\]$/s.test(v.trim());
 const F = mod.fields;
 const ext = (u: string) => (u.startsWith("http") ? { target: "_blank", rel: "noopener" } : {});
 ---
@@ -11,15 +18,18 @@ const ext = (u: string) => (u.startsWith("http") ? { target: "_blank", rel: "noo
   <div class="wrap se-row">
     <T v={c.heading} f={F.heading} as="h2" class="se-title" />
     <div class="se-actions">
-      {c.primaryUrl && <a class="btn btn-light" href={c.primaryUrl} {...ext(c.primaryUrl)}>{c.primaryLabel.value}</a>}
-      {c.secondaryUrl && <a class="btn btn-light-outline" href={c.secondaryUrl} {...ext(c.secondaryUrl)}>{c.secondaryLabel.value}</a>}
+      {c.primaryUrl && real(c.primaryLabel.value) && <a class="btn btn-light" href={c.primaryUrl} {...ext(c.primaryUrl)}>{c.primaryLabel.value}</a>}
+      {c.secondaryUrl && <a class="btn btn-light-outline" href={reentry(c.secondaryUrl)} {...ext(c.secondaryUrl)}>{c.secondaryLabel.value}</a>}
     </div>
+    {next && <p class="se-next">{c.nextLabel.value} <a href={`/builds/${next.slug}`}>{next.meta.title.value}<Icon name="arrow-right" size={16} /></a></p>}
   </div>
 </section>
 <style>
   .se { background: var(--black); color: var(--white); padding: var(--space-8) 0; border-top: 1px solid var(--rule-dark); }
   .se-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-5); }
   .se-row :global(.se-title) { font-size: clamp(2rem, 1.2rem + 3.2vw, 3.9rem); overflow-wrap: anywhere; }
+  .se-next { flex-basis: 100%; padding-top: var(--space-5); border-top: 1px solid var(--rule-dark); color: var(--muted-dark); }
+  .se-next a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--white); font-family: var(--font-display); font-weight: 700; text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 5px; }
   .se-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
   @media (max-width: 560px) {
     .se { padding: var(--space-7) 0; }

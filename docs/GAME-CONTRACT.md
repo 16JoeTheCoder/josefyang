@@ -101,4 +101,21 @@ The hub is served by the same Worker as josefyang.com (`josefyang-site`), select
 2. **Confirm the variable.** `wrangler.jsonc` already sets `"GAME_HOST": "game.josefyang.com"`. Deploy from the VS Code terminal at the repo: `npm run build` then `npx wrangler deploy`. (CI does this if it deploys on push.)
 3. **Access must not cover the hub.** Zero Trust → Access → Applications → the admin application → check its destinations are only `josefyang.com/admin*`, `josefyang.com/api/admin*` and `josefyang.com/preview*`. `game.josefyang.com` must not appear.
 4. **Each game.** Repeat step 1 for each game's own Worker with `<slug>.josefyang.com`.
-5. **Check.** Open `https://game.josefyang.com` (hub), `https://josefyang.com/games` (should redirect there), and `https://game.josefyang.com/<slug>`.
+5. **Check.** Open `https://game.josefyang.com` (catalog), `https://josefyang.com/games` (the portfolio Games journey, not a redirect since Phase 1), `https://josefyang.com/games/<slug>` (301 to the catalog detail) and `https://game.josefyang.com/<slug>`.
+
+> Live status (26 Nov 2026 log): game.josefyang.com is currently owned by the separate `josefyang-games` Worker, so this section describes the in-repo implementation only.
+
+## 9. Routes since Phase 1 (one host-aware router: `src/lib/game-host.ts`)
+
+| Host | Path | Result |
+|---|---|---|
+| main | `/games` | Games journey (portfolio page, canonical `https://josefyang.com/games`) |
+| main | `/games/`, `/game`, `/game/` | 301 → `/games`, query kept (GET/HEAD; HEAD has no body) |
+| main | `/games/<slug>` | 301 → catalog detail (`https://<GAME_HOST>/<slug>` or `/hub/<slug>`), query kept; an unknown slug is a real 404 there |
+| main | `/hub*` | internal catalog routes: 301 to the game host when GAME_HOST is set |
+| game host | `/`, `/<slug>` | catalog (rewritten to `/hub`, `/hub/<slug>`); never the journey |
+| game host | `/games*`, `/hub*` | 301 → `/` or `/<slug>` on the same host |
+| game host | `/admin*`, `/preview*`, `/api/admin*` | 404 (private routes answer only on the main host or localhost) |
+| game host | anything else except shared assets, `/media`, `/api/public` and root files | 404 |
+
+**Local contract (no GAME_HOST):** the journey is at `/games`, the catalog at `/hub` and `/hub/<slug>` on the same host, and the journey's "Browse the games" button points at `/hub`. Browsers that cached the old `josefyang.com/games` → game host 301 may keep following it until their cache expires (it was a permanent redirect); a hard refresh or a query string bypasses it.

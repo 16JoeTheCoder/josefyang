@@ -47,17 +47,18 @@ export async function loadHub(db: D1Database, mode: Mode): Promise<HubData> {
   return { settings, hub, games };
 }
 
-/** Public URL of the hub or one game. On the game host the paths drop the /games prefix. */
+/** Public URL of the catalog or one game: the game host, or the local /hub routes without GAME_HOST (src/lib/game-host.ts). */
 export function hubUrl(gameHost: string | undefined, origin: string, slug?: string): string {
   const base = gameHost ? `https://${gameHost}` : origin;
-  const path = gameHost ? (slug ? `/${slug}` : "/") : (slug ? `/games/${slug}` : "/games");
+  const path = gameHost ? (slug ? `/${slug}` : "/") : (slug ? `/hub/${slug}` : "/hub");
   return base + path;
 }
 
 /** Links inside hub pages: relative to the host the visitor is on. */
 export function hubPath(gameHost: string | undefined, host: string, slug?: string): string {
   const onGameHost = !!gameHost && host === gameHost;
-  return onGameHost ? (slug ? `/${slug}` : "/") : (slug ? `/games/${slug}` : "/games");
+  if (onGameHost) return slug ? `/${slug}` : "/";
+  return gameHost ? hubUrl(gameHost, "", slug) : (slug ? `/hub/${slug}` : "/hub");
 }
 
 export function stepLines(text: string): string[] {

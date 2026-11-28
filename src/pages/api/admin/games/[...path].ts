@@ -5,7 +5,7 @@
 import type { APIContext, APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
-import { purgeAndWarm } from "../../../../core/cache";
+import { purgeAffected } from "../../../../core/purge";
 import { fieldsToZod, mediaRefs, publishProblems, type Problem } from "../../../../core/fields";
 import { gameDefaults, gameFields, hubFields, type GameDoc } from "../../../../core/game-fields";
 import { HUB_KEY, gameDocFromJson, hubFromJson, type GameRow } from "../../../../core/games";
@@ -29,7 +29,7 @@ async function body<T extends z.ZodType>(ctx: Ctx, schema: T): Promise<z.infer<T
 const isResp = (x: unknown): x is Response => x instanceof Response;
 
 /** Slugs the game host cannot serve at its root (they are real routes or asset folders). */
-const RESERVED = new Set(["games", "api", "admin", "media", "fonts", "preview", "favicon", "robots", "_astro"]);
+const RESERVED = new Set(["games", "game", "hub", "api", "admin", "media", "fonts", "preview", "favicon", "robots", "_astro"]);
 const slugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers and dashes").max(60)
   .refine((s) => !RESERVED.has(s), "That address is reserved");
 const docSchema = z.object({ slug: slugSchema, game: fieldsToZod(gameFields) });
@@ -57,14 +57,13 @@ function gameProblems(doc: GameDoc): Problem[] {
   return out;
 }
 
-/** After a publish: drop the cached hub pages (main host, or the game host when GAME_HOST is set) and warm them again. */
+/** After a publish: drop the cached catalog pages (bounded) and the main journey; no warming. */
 function purge(ctx: Ctx) {
   if (env.CACHE_PAGES !== "1") return;
   ctx.locals.cfContext.waitUntil((async () => {
     const rows = await db().prepare("SELECT slug FROM games WHERE published_json IS NOT NULL AND deleted_at IS NULL").all<{ slug: string }>();
     const slugs = rows.results.map((r) => r.slug);
-    if (env.GAME_HOST) await purgeAndWarm(`https://${env.GAME_HOST}`, ["/", ...slugs.map((s) => `/${s}`)]);
-    else await purgeAndWarm(ctx.url.origin, ["/games", ...slugs.map((s) => `/games/${s}`)]);
+    await purgeAffected(ctx.url.origin, env.GAME_HOST, [], slugs);
   })());
 }
 

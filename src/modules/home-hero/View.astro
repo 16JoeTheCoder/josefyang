@@ -6,8 +6,8 @@ import type { Content } from "../../core/fields";
 import type { PageData } from "../../core/types";
 import mod from "./module";
 
-interface Props { content: Content<typeof mod.fields>; data: PageData }
-const { content: c, data } = Astro.props;
+interface Props { content: Content<typeof mod.fields>; data: PageData; skip?: { href: string; label: string } }
+const { content: c, data, skip } = Astro.props;
 const target = data.builds.some((build) => build.meta.featured) ? "#featured" : "/projects";
 const scans = c.pages.flatMap(({ scan }, i) => scan.mediaId ? [{ scan, path: `pages[${i}].scan` }] : []);
 const edit = data.mode === "draft";
@@ -17,7 +17,10 @@ const edit = data.mode === "draft";
     <div>
       <T v={c.headline} f={mod.fields.headline} as="h1" editPath="headline" />
       <T v={c.line} f={mod.fields.line} editPath="line" />
-      <a href={target} data-edit-path={edit ? "projectsLink" : undefined}>{c.projectsLink.value}<Icon name="arrow-right" size={18} /></a>
+      <div class="intro-links">
+        <a href={target} data-edit-path={edit ? "projectsLink" : undefined}>{c.projectsLink.value}<Icon name="arrow-right" size={18} /></a>
+        {skip && <a href={skip.href}>{skip.label}<Icon name="arrow-down" size={18} /></a>}
+      </div>
     </div>
     {scans.length > 0 && <div class="scans">
       {scans.slice(0, 3).map(({ scan, path }) => <Img v={scan} f={mod.fields.pages.of.scan} sizes="(max-width: 720px) 24vw, 180px" editPath={path} />)}
@@ -27,8 +30,11 @@ const edit = data.mode === "draft";
 <style>
   .intro { min-height: min(100svh, 760px); display: grid; align-items: center; padding-block: 112px 40px; background: var(--workbench); color: var(--workbench-ink); }
   .intro-grid { display: grid; gap: 32px; }
-  .intro-grid :global(h1) { font-size: clamp(3rem, 10vw, 6rem); line-height: .94; letter-spacing: var(--track-tight); }
+  .intro-grid :global(h1) { --hero-size: clamp(3rem, 10vw, 6rem); font-size: var(--hero-size); line-height: .94; letter-spacing: var(--track-tight); text-wrap: balance; overflow-wrap: break-word; }
+  .intro-grid :global(h1[data-fit="1"]) { font-size: calc(var(--hero-size) * .84); }
+  .intro-grid :global(h1[data-fit="2"]) { font-size: calc(var(--hero-size) * .7); }
   .intro-grid :global(.r-body) { margin-top: 18px; color: var(--workbench-subtle); }
+  .intro-links { display: flex; flex-wrap: wrap; gap: 0 28px; }
   .intro-grid a { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; margin-top: 18px; font-weight: 700; text-decoration-color: var(--sun); }
   .scans { display: flex; gap: 12px; }
   .scans :global(.img-slot) { width: min(28vw, 175px); }

@@ -1,0 +1,64 @@
+---
+import T from "../../components/T.astro";
+import Icon from "../../components/Icon.astro";
+import type { Content } from "../../core/fields";
+import type { PageData } from "../../core/types";
+import { gameUpdates } from "../../core/journey";
+import { shortDate } from "../../lib/dates";
+import mod from "./module";
+
+interface Props { content: Content<typeof mod.fields>; data: PageData; sectionId: string }
+const { content: c, data, sectionId } = Astro.props;
+const F = mod.fields;
+const updates = gameUpdates(data.devlog);
+const edit = data.mode === "draft";
+---
+<section class="gu" aria-labelledby={sectionId + "-h"}>
+  <div class="wrap">
+    <div class="gu-head">
+      <div>
+        <T v={c.heading} f={F.heading} as="h2" id={sectionId + "-h"} class="gu-title" editPath="heading" />
+        <T v={c.line} f={F.line} class="gu-line" editPath="line" />
+      </div>
+      <a class="gu-all" href="/devlog" data-edit-path={edit ? "allLabel" : undefined}>{c.allLabel.value}<Icon name="arrow-right" size={17} /></a>
+    </div>
+    {updates.length === 0 ? (
+      <T v={c.emptyNote} f={F.emptyNote} class="gu-empty" editPath="emptyNote" />
+    ) : (
+      <ol class="gu-list">
+        {updates.map((u) => (
+          <li data-update-id={u.id}>
+            <a href={u.href}>
+              <time datetime={u.date}>{shortDate(u.date)}</time>
+              <span class="gu-copy">
+                <span class="gu-name">{u.title}</span>
+                {u.excerpt && <span class="gu-excerpt">{u.excerpt}</span>}
+                {u.game && <span class="gu-game">{c.gameLabel.value} {u.game}</span>}
+              </span>
+              <Icon name="arrow-right" size={19} />
+            </a>
+          </li>
+        ))}
+      </ol>
+    )}
+  </div>
+</section>
+<style>
+  .gu { padding-block: var(--section-y); background: var(--section); }
+  .gu-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: var(--space-4) var(--space-6); margin-bottom: var(--space-6); }
+  .gu-head :global(.gu-title) { font-size: var(--size-xl); font-weight: 850; line-height: .95; letter-spacing: var(--track-tight); }
+  .gu-head :global(.gu-line) { margin-top: var(--space-3); color: var(--muted); }
+  .gu-all { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; font-family: var(--font-display); font-weight: 700; text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 5px; }
+  .gu :global(.gu-empty) { padding: var(--space-6) 0; border-top: 1px solid var(--hairline); color: var(--muted); max-width: 52ch; }
+  .gu-list { border-top: 1px solid var(--hairline); }
+  .gu-list a { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) auto; gap: var(--space-4); align-items: baseline; padding: var(--space-5) 0; border-bottom: 1px solid var(--hairline); text-decoration: none; }
+  .gu-list a:hover .gu-name { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 5px; }
+  .gu-list a:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+  .gu-list time { color: var(--muted); font-size: var(--size-s); font-variant-numeric: tabular-nums; }
+  .gu-copy { display: grid; gap: 4px; min-width: 0; }
+  .gu-name { font-family: var(--font-display); font-size: var(--size-l); font-weight: 760; line-height: 1.1; overflow-wrap: anywhere; }
+  .gu-excerpt { color: var(--muted); line-height: 1.5; max-width: 62ch; }
+  .gu-game { color: var(--muted); font-size: var(--size-xs); }
+  .gu-list :global(svg) { color: var(--sun); align-self: center; }
+  @media (max-width: 640px) { .gu-list a { grid-template-columns: minmax(0, 1fr) auto; } .gu-list time { grid-column: 1 / -1; } }
+</style>

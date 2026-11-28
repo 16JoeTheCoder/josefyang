@@ -8,11 +8,12 @@ const links = [
   { href: "/projects", label: site.navProjects.value, id: "projects" },
   { href: "/failures", label: site.navFailures.value, id: "failures" },
   { href: "/devlog", label: site.navDevlog.value, id: "devlog" },
+  { href: "/games", label: site.navGames.value, id: "games" },
   { href: "/about", label: site.navAbout.value, id: "about" },
   { href: "#contact", label: site.navContact.value, id: "contact" },
 ];
 ---
-<header class:list={["nav", ["home", "projects", "failures", "devlog", "about"].includes(active ?? "") && "nav-dark"]}>
+<header class:list={["nav", ["home", "projects", "failures", "devlog", "about", "games"].includes(active ?? "") && "nav-dark"]}>
   <nav aria-label={site.navLabel.value} class="nav-pill">
     <a href="/" class="nav-logo" aria-current={active === "home" ? "page" : undefined}><span class="nav-mark" aria-hidden="true"></span>{site.logo.value}</a>
     <ul class="nav-links">

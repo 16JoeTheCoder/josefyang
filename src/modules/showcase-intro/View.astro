@@ -1,15 +1,24 @@
 ---
 import T from "../../components/T.astro";
+import Img from "../../components/Img.astro";
 import type { Content } from "../../core/fields";
 import mod from "./module";
-interface Props { content: Content<typeof mod.fields> }
-const { content: c } = Astro.props;
+import type { PageData } from "../../core/types";
+interface Props { content: Content<typeof mod.fields>; data?: PageData }
+const { content: c, data } = Astro.props;
+const parent = c.parentUrl === "/projects" && data?.build ? `/projects#${data.build.slug}` : c.parentUrl;
 const F = mod.fields;
+const real = (v: string) => !!v.trim() && !/^\[.*\]$/s.test(v.trim());
+const hasShot = !!(c.shot.mediaId && c.shot.key);
+const facts = [
+  { h: c.doesHeading, hf: F.doesHeading, b: c.does, bf: F.does, path: "does" },
+  { h: c.builtHeading, hf: F.builtHeading, b: c.built, bf: F.built, path: "built" },
+].filter((x) => real(x.b.value));
 ---
 <header class="si ground-granite-fine">
   <div class="wrap">
     <nav class="si-crumb" aria-label={c.parentLabel.value}>
-      {c.parentUrl ? <a class="link-u" href={c.parentUrl}>{c.parentLabel.value}</a> : <span>{c.parentLabel.value}</span>}
+      {c.parentUrl ? <a class="link-u" href={parent}>{c.parentLabel.value}</a> : <span>{c.parentLabel.value}</span>}
       <span aria-hidden="true">/</span>
       <span aria-current="page">{c.currentLabel.value}</span>
     </nav>
@@ -20,6 +29,13 @@ const F = mod.fields;
         {c.ctaUrl && <a class="btn btn-primary" href={c.ctaUrl}>{c.cta.value}<span class="si-arrow" aria-hidden="true"></span></a>}
       </div>
     </div>
+    {hasShot && <figure class="si-shot"><Img v={c.shot} f={F.shot} eager sizes="(max-width: 1360px) 92vw, 1280px" editPath="shot" /></figure>}
+    {facts.length > 0 && <dl class="si-facts">
+      {facts.map((x) => <div>
+        <dt><T v={x.h} f={x.hf} as="span" editPath={x.path + "Heading"} /></dt>
+        <dd><T v={x.b} f={x.bf} editPath={x.path} /></dd>
+      </div>)}
+    </dl>}
   </div>
 </header>
 <style>
@@ -30,9 +46,17 @@ const F = mod.fields;
   .si-grid :global(.si-title) { font-stretch: 85%; overflow-wrap: anywhere; font-size: clamp(3.5rem, 1.6rem + 7.2vw, 9rem); }
   .si-side { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-5); padding-bottom: var(--space-2); }
   .si-side :global(.si-body) { font-size: var(--lead); line-height: 1.4; max-width: 31ch; }
+  .si-shot { margin-top: var(--space-7); }
+  .si-shot :global(.img-slot) { border-radius: var(--radius-m); box-shadow: var(--shadow-object); }
+  .si-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6) var(--space-8); margin-top: var(--space-7); }
+  .si-facts > div { border-top: 1px solid var(--hairline); padding-top: var(--space-4); }
+  .si-facts dt { font-family: var(--font-display); font-weight: 800; font-size: var(--size-l); letter-spacing: var(--track-display); }
+  .si-facts dd { margin: var(--space-3) 0 0; max-width: 52ch; line-height: 1.6; }
   .si-arrow { width: 8px; height: 8px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); margin-top: -3px; }
   @media (max-width: 860px) {
     .si { padding-top: calc(var(--nav-h) + var(--space-6)); padding-bottom: var(--space-6); }
     .si-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+    .si-shot { margin-top: var(--space-6); }
+    .si-facts { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); margin-top: var(--space-6); }
   }
 </style>

@@ -6,7 +6,7 @@ import { SITE_URL, esc, renderBlocksToHtml, renderBodyToHtml } from "../../core/
 
 export const GET: APIRoute = async ({ locals, site }) => {
   const origin = (env.SITE_URL || site?.origin || SITE_URL).replace(/\/$/, "");
-  const { data } = await loadPageData(env.DB, locals.mode, "devlog");
+  const { data } = await loadPageData(env.DB, locals.mode, { pageId: "devlog", sections: [], needs: { builds: true, devlog: { limit: 50, full: true } } });
   const mb = mediaBase(env.MEDIA_BASE_URL) === "/media" ? `${origin}/media` : mediaBase(env.MEDIA_BASE_URL);
   const posts = data.devlog.filter((e) => e.sites.includes("main")).slice(0, 50);
   const items = posts.map((e) => {

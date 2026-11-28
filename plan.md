@@ -152,3 +152,29 @@ Sources: chat decisions of 25 Nov, `Chronos - josefyang.com handoff.zip`, `hando
 | R | Sonnet | Review: code/security review + Playwright bug hunt (390/1440), then Opus fixes |
 
 Migrations: 0005 = blog (S6), 0006 = games (S3).
+
+---
+
+# Phase 1 (28 Nov 2026): portfolio, content and mobile performance
+
+Approved by Josef in the Phase 1 handoff (START-HERE: "authorize you to plan, implement and verify this phase"). Base: main 965dc73 + V3 patch (forward-applied, 73 paths, overlay identical, 177 tests/check/build green). Delivery: branch claude/stoic-lamport-dlw9vv + PR (Josef approved in chat), plus a portable Phase-1-Continuation outside the repo.
+
+## Scope and how
+1. **Home floor**: pinned height capped at stage + 1.5 × 100svh for any stop count (was 375–435svh); pinned only for fine pointer + no reduced motion + height ≥ 640px; everything else is normal scroll with explicit controls. A visible "Skip to what I'm working on" link (editable) in the first screen targets the bench heading (focus lands on it). First floor image `fetchpriority=high`, others lazy; no hidden media by default.
+2. **On my bench** (new module `on-my-bench`): four editable interests (Websites, Games, Python simulations, ESP32 electronics), each label/description/optional image/link; server-rendered as a readable list, enhanced to one stage with four selectors (ARIA tabs). Text-only composition when there is no image. No statuses or progress.
+3. **From the Devlog**: `devlog-strip` reads ≤ 10 lean summaries (no bodies), main-visible, due, display order.
+4. **Home draft upgrade**: `POST /api/admin/pages/home/upgrade-layout` (idempotent, opt-in, draft only): inserts `on-my-bench` after the floor, keeps hero art, custom sections and IDs; publish stays an explicit step. Hero headline fit: fix the real fit rule instead of changing saved copy.
+5. **About**: first-person story early (turned 17 in Oct 2026, felt late, started learning tools, found he enjoys building), CS50P + ESP32 as learning; school, council, hobbies, coffee, history and geopolitics. Greenmech placeholders removed from public defaults.
+6. **Chronos case study**: showcase-intro gains a real screenshot + What it does / What I built; switch before/after as the documented decision; placeholders ([year], [start] to [end], [stack]) cleared and hidden; video stays poster + click; tabs warm only on intent; GSAP removed from showcase fade (CSS).
+7. **Games journey**: main `/games` = new `games` page (journey intro, game-making evidence, ≤ 6 game-related updates, Browse the games → game host). `/game`, `/game/` 301 → `/games` (query kept; HEAD no body). Catalog moves to internal `/hub` routes: on GAME_HOST it serves `/` and `/<slug>`; main `/games/<slug>` 301 → catalog detail (query kept); unknown slug 404 at the catalog. No GAME_HOST (local) = catalog at `/hub`, `/games/<slug>` → `/hub/<slug>`. Admin/preview served only on the main host or localhost. Nav gets Games.
+8. **Reads**: per-module data needs map; builds cards use a meta-only JSON projection, build detail loads one row, devlog lists lean columns with per-page limits; unknown/legacy modules fall back to the full read.
+9. **Freshness**: editorial HTML `s-maxage=60` (finite, per route), cache key keeps meaningful query, no warm fetches; publish purges a bounded path list (local colo only; TTL is the global bound). Cron purges only listing pages + due slugs.
+10. **Perf**: `tests/perf/mobile.mjs` (390×844, 4× CPU, Fast 3G-like), cold + warm × 3 on Home, Projects, Chronos, /games, baseline vs candidate. Budgets declared before building (below).
+
+## Budgets (declared before building, local lab)
+Home, Projects, project detail: initial transfer ≤ 350 KB, JS ≤ 60 KB compressed, CLS ≤ 0.1, LCP ≤ 2.5 s (lab, throttled). /games: transfer ≤ 200 KB, JS ≤ 15 KB, LCP ≤ 2.0 s.
+
+## Done = acceptance
+Tests/check/build green; route fixture tests; browser screenshots 390/1440; perf receipt; Sonnet verification; continuation folder.
+
+Status 28 Nov 2026: items 1–10 implemented and verified locally (see log.md, decisions D20–D27). Production adoption pending.

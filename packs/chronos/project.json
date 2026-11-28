@@ -11,13 +11,13 @@
       "value": "A Windows desktop app for planning the day, with tasks and a focus timer. I use it every day; a phone version is next."
     },
     "year": {
-      "value": "[year]"
+      "value": ""
     },
     "built": {
-      "value": "[start] to [end]"
+      "value": ""
     },
     "madeWith": {
-      "value": "[stack]"
+      "value": ""
     },
     "startedOn": "",
     "links": [
@@ -27,7 +27,12 @@
         },
         "url": "https://github.com/16JoeTheCoder/chronos"
       }
-    ]
+    ],
+    "selectorImage": {
+      "file": "media/runway.webp",
+      "alt": "Chronos for Windows planning a day in the Flight Plan theme",
+      "mode": "fit"
+    }
   },
   "sections": [
     {
@@ -47,9 +52,177 @@
           "value": "Chronos is the Windows app I built to work out how much of my day I can use and make a plan around it."
         },
         "cta": {
-          "value": "Try the day runway"
+          "value": "See one design decision"
         },
-        "ctaUrl": "/builds/chronos#day-runway"
+        "ctaUrl": "/builds/chronos#one-timer",
+        "shot": {
+          "file": "media/runway.webp",
+          "alt": "Chronos for Windows planning a day: fixed commitments, planned work and an end-of-day buffer, in the Flight Plan theme",
+          "mode": "fit"
+        },
+        "doesHeading": {
+          "value": "What it does"
+        },
+        "does": {
+          "value": "Chronos plans my day on Windows. It works out how much usable time is left, keeps tasks and one focus timer in the same place, and turns a typed sentence into a task."
+        },
+        "builtHeading": {
+          "value": "What I built"
+        },
+        "built": {
+          "value": "The desktop app, the free-time calculation, and a timer that hands over cleanly when I start the next task, with tests for back-to-back starts. Six built-in themes change how the timer shows progress."
+        }
+      }
+    },
+    {
+      "moduleId": "showcase-switch",
+      "content": {
+        "heading": {
+          "value": "One timer. One active task."
+        },
+        "body": {
+          "value": "Starting the footage review pauses the launch page, saves its work session, and hands the timer to the review."
+        },
+        "linkLabel": {
+          "value": "Read the back-to-back starts test"
+        },
+        "linkUrl": "https://github.com/16JoeTheCoder/chronos/blob/2d2b076fa346bda33fe69b6a09a56ffa82f2ce35/tests/core/transition.test.ts#L144",
+        "before": {
+          "image": {
+            "file": "media/switch-before.webp",
+            "alt": "Before the switch, Write the launch page owns the timer and footage review is queued",
+            "mode": "fit"
+          },
+          "title": {
+            "value": "Write the launch page"
+          },
+          "note": {
+            "value": "The launch page owns the timer."
+          }
+        },
+        "after": {
+          "image": {
+            "file": "media/switch-after.webp",
+            "alt": "After the switch, Review the product footage owns the timer and the launch page card shows Paused and Resume",
+            "mode": "fit"
+          },
+          "title": {
+            "value": "Review the product footage"
+          },
+          "note": {
+            "value": "Review is active. The launch page is paused and its session is saved."
+          }
+        },
+        "goLabel": {
+          "value": "Start the review"
+        },
+        "replayLabel": {
+          "value": "Replay the switch"
+        },
+        "steps": [
+          {
+            "title": {
+              "value": "Start the task"
+            },
+            "body": {
+              "value": "Home sends the same command as the other app windows."
+            }
+          },
+          {
+            "title": {
+              "value": "Keep the work"
+            },
+            "body": {
+              "value": "Chronos closes the previous session and retains the time."
+            }
+          },
+          {
+            "title": {
+              "value": "Update the timer"
+            },
+            "body": {
+              "value": "Every window receives the same new state."
+            }
+          }
+        ],
+        "footnote": {
+          "value": "Space pauses a session. Holding Enter for two seconds finishes it. Starting the next task is a separate choice."
+        },
+        "anchor": {
+          "value": "one-timer"
+        }
+      }
+    },
+    {
+      "moduleId": "showcase-figures",
+      "content": {
+        "heading": {
+          "value": "From thought to something I can do."
+        },
+        "body": {
+          "value": "A task can come straight out of a sentence or a note I wrote while working."
+        },
+        "items": [
+          {
+            "image": {
+              "file": "media/quick-add.webp",
+              "alt": "Send launch recap tomorrow at 3pm, with the date, time, priority, and label parsed below",
+              "mode": "fit"
+            },
+            "title": {
+              "value": "See what gets saved."
+            },
+            "body": {
+              "value": "Quick Add parses the date, priority, and label offline and shows the result before I save."
+            }
+          },
+          {
+            "image": {
+              "file": "media/log-task.webp",
+              "alt": "A named project Log note contains a linked task checkbox",
+              "mode": "fit"
+            },
+            "title": {
+              "value": "Turn a note into a task."
+            },
+            "body": {
+              "value": "A task made from a Log entry stays linked to the line that started it."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "moduleId": "showcase-media",
+      "content": {
+        "heading": {
+          "value": "Move the work. Keep the meeting."
+        },
+        "body": {
+          "value": "There are 2h 59m of unassigned time either way. After moving the draft, I lose the two-hour stretch at the end of the day. That matters if the next task needs an uninterrupted hour and a half."
+        },
+        "linkLabel": {
+          "value": "See how Chronos calculates free time"
+        },
+        "linkUrl": "https://github.com/16JoeTheCoder/chronos/blob/2d2b076fa346bda33fe69b6a09a56ffa82f2ce35/src/core/time/timeLeft.ts#L40",
+        "poster": {
+          "file": "media/runway.webp",
+          "alt": "The Chronos desktop app with fixed commitments, planned work, and an end-of-day buffer in the Flight Plan theme",
+          "mode": "fit"
+        },
+        "video": {
+          "file": "media/runway-demo.mp4",
+          "alt": "Chronos runway recording showing the draft move around the launch sync"
+        },
+        "playLabel": {
+          "value": "Play the 8-second demo"
+        },
+        "failLabel": {
+          "value": "The recording could not play here."
+        },
+        "caption": {
+          "value": "Chronos for Windows · Flight Plan theme · Fictional studio launch"
+        }
       }
     },
     {
@@ -133,154 +306,6 @@
         "bufferList": {
           "value": "End-of-day buffer"
         }
-      }
-    },
-    {
-      "moduleId": "showcase-media",
-      "content": {
-        "heading": {
-          "value": "Move the work. Keep the meeting."
-        },
-        "body": {
-          "value": "There are 2h 59m of unassigned time either way. After moving the draft, I lose the two-hour stretch at the end of the day. That matters if the next task needs an uninterrupted hour and a half."
-        },
-        "linkLabel": {
-          "value": "See how Chronos calculates free time"
-        },
-        "linkUrl": "https://github.com/16JoeTheCoder/chronos/blob/2d2b076fa346bda33fe69b6a09a56ffa82f2ce35/src/core/time/timeLeft.ts#L40",
-        "poster": {
-          "file": "media/runway.webp",
-          "alt": "The Chronos desktop app with fixed commitments, planned work, and an end-of-day buffer in the Flight Plan theme",
-          "mode": "fit"
-        },
-        "video": {
-          "file": "media/runway-demo.mp4",
-          "alt": "Chronos runway recording showing the draft move around the launch sync"
-        },
-        "playLabel": {
-          "value": "Play the 8-second demo"
-        },
-        "failLabel": {
-          "value": "The recording could not play here."
-        },
-        "caption": {
-          "value": "Chronos for Windows · Flight Plan theme · Fictional studio launch"
-        }
-      }
-    },
-    {
-      "moduleId": "showcase-switch",
-      "content": {
-        "heading": {
-          "value": "One timer. One active task."
-        },
-        "body": {
-          "value": "Starting the footage review pauses the launch page, saves its work session, and hands the timer to the review."
-        },
-        "linkLabel": {
-          "value": "Read the back-to-back starts test"
-        },
-        "linkUrl": "https://github.com/16JoeTheCoder/chronos/blob/2d2b076fa346bda33fe69b6a09a56ffa82f2ce35/tests/core/transition.test.ts#L144",
-        "before": {
-          "image": {
-            "file": "media/switch-before.webp",
-            "alt": "Before the switch, Write the launch page owns the timer and footage review is queued",
-            "mode": "fit"
-          },
-          "title": {
-            "value": "Write the launch page"
-          },
-          "note": {
-            "value": "The launch page owns the timer."
-          }
-        },
-        "after": {
-          "image": {
-            "file": "media/switch-after.webp",
-            "alt": "After the switch, Review the product footage owns the timer and the launch page card shows Paused and Resume",
-            "mode": "fit"
-          },
-          "title": {
-            "value": "Review the product footage"
-          },
-          "note": {
-            "value": "Review is active. The launch page is paused and its session is saved."
-          }
-        },
-        "goLabel": {
-          "value": "Start the review"
-        },
-        "replayLabel": {
-          "value": "Replay the switch"
-        },
-        "steps": [
-          {
-            "title": {
-              "value": "Start the task"
-            },
-            "body": {
-              "value": "Home sends the same command as the other app windows."
-            }
-          },
-          {
-            "title": {
-              "value": "Keep the work"
-            },
-            "body": {
-              "value": "Chronos closes the previous session and retains the time."
-            }
-          },
-          {
-            "title": {
-              "value": "Update the timer"
-            },
-            "body": {
-              "value": "Every window receives the same new state."
-            }
-          }
-        ],
-        "footnote": {
-          "value": "Space pauses a session. Holding Enter for two seconds finishes it. Starting the next task is a separate choice."
-        }
-      }
-    },
-    {
-      "moduleId": "showcase-figures",
-      "content": {
-        "heading": {
-          "value": "From thought to something I can do."
-        },
-        "body": {
-          "value": "A task can come straight out of a sentence or a note I wrote while working."
-        },
-        "items": [
-          {
-            "image": {
-              "file": "media/quick-add.webp",
-              "alt": "Send launch recap tomorrow at 3pm, with the date, time, priority, and label parsed below",
-              "mode": "fit"
-            },
-            "title": {
-              "value": "See what gets saved."
-            },
-            "body": {
-              "value": "Quick Add parses the date, priority, and label offline and shows the result before I save."
-            }
-          },
-          {
-            "image": {
-              "file": "media/log-task.webp",
-              "alt": "A named project Log note contains a linked task checkbox",
-              "mode": "fit"
-            },
-            "title": {
-              "value": "Turn a note into a task."
-            },
-            "body": {
-              "value": "A task made from a Log entry stays linked to the line that started it."
-            }
-          }
-        ]
       }
     },
     {
@@ -450,7 +475,10 @@
         "secondaryLabel": {
           "value": "Back to projects"
         },
-        "secondaryUrl": "/projects"
+        "secondaryUrl": "/projects",
+        "nextLabel": {
+          "value": "Next project:"
+        }
       }
     }
   ]

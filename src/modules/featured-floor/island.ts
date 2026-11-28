@@ -17,7 +17,8 @@ export function mountFloor(root: HTMLElement): Unmount | void {
   const next = controls.querySelector<HTMLButtonElement>("[data-floor-next]")!;
   const counter = controls.querySelector<HTMLElement>("[data-floor-count]");
   const status = controls.querySelector<HTMLElement>("[data-floor-status]")!;
-  const motion = matchMedia("(prefers-reduced-motion: reduce), (max-height: 580px)");
+  // Camera motion only for fine pointers with room to breathe; touch, reduced motion and short screens scroll normally.
+  const motion = matchMedia("(prefers-reduced-motion: reduce), (pointer: coarse), (max-height: 639px)");
   const points = pieces.map(({ dataset }) => ({ x: Number(dataset.x), y: Number(dataset.y) }));
   const last = points.length - 1;
   if (last < 0) return;
@@ -63,7 +64,7 @@ export function mountFloor(root: HTMLElement): Unmount | void {
 
   function measure() {
     origin = root.getBoundingClientRect().top + window.scrollY;
-    step = Math.max(1, stage!.clientHeight * .6);
+    step = Math.max(1, stage!.clientHeight * .28);
     scale = Math.max(.23, Math.min(1.12, scene!.clientWidth / (innerWidth <= 720 ? 590 : 780), scene!.clientHeight / 490));
     render();
   }
@@ -108,9 +109,10 @@ export function mountFloor(root: HTMLElement): Unmount | void {
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
       const id = element.getAttribute("href")?.slice(1);
       if (!id) return;
-      const exit = document.getElementById(id);
+      const exit = document.getElementById(decodeURIComponent(id));
       if (exit) {
         event.preventDefault();
+        if (exit.tabIndex < 0 && !exit.hasAttribute("tabindex")) exit.setAttribute("tabindex", "-1");
         exit.focus({ preventScroll: true });
         window.scrollTo({ top: exit.getBoundingClientRect().top + window.scrollY, behavior: motion.matches ? "instant" : "smooth" });
       }

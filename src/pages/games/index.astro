@@ -1,58 +1,14 @@
 ---
+/** Main-site Games journey (portfolio). The catalog lives on GAME_HOST (or /hub locally): src/lib/game-host.ts. */
 import { env } from "cloudflare:workers";
-import Hub from "../../layouts/Hub.astro";
-import GameCard from "../../components/GameCard.astro";
-import DevlogList from "../../components/DevlogList.astro";
-import T from "../../components/T.astro";
-import { hubFields } from "../../core/game-fields";
-import { hubPosts, loadHub } from "../../core/games";
-const mode = Astro.locals.mode;
-const { settings, hub, games } = await loadHub(env.DB, mode);
-const posts = await hubPosts(env.DB, mode, { limit: 5 });
-const lead = games.find((g) => g.game.featured) ?? games[0];
-const rest = games.filter((g) => g !== lead);
+import Base from "../../layouts/Base.astro";
+import { views } from "../../core/views/games";
+import RenderSections from "../../core/RenderSections.astro";
+import { loadPageData } from "../../core/db";
+import { SITE_URL } from "../../core/posts";
+const { data, sections } = await loadPageData(env.DB, Astro.locals.mode, "games");
+const siteUrl = (env.SITE_URL || SITE_URL).replace(/\/$/, "");
 ---
-<Hub settings={settings} hub={hub} title={hub.brand.value} description={hub.line.value}>
-  <section class="hub-hero">
-    <div class="wrap">
-      <T v={hub.title} f={hubFields.title} as="h1" class="hub-title" />
-      <T v={hub.line} f={hubFields.line} class="hub-line" />
-    </div>
-  </section>
-  <section class="hub-games" aria-labelledby="games-h">
-    <div class="wrap">
-      <T v={hub.gridTitle} f={hubFields.gridTitle} as="h2" id="games-h" class="hub-h2" />
-      {games.length === 0 ? (
-        <div class="hub-empty">
-          <T v={hub.emptyTitle} f={hubFields.emptyTitle} as="h3" />
-          <T v={hub.emptyText} f={hubFields.emptyText} class="muted" />
-        </div>
-      ) : (
-        <>
-          {lead && <GameCard rec={lead} hub={hub} wide />}
-          {rest.length > 0 && <ul class="hub-grid">{rest.map((g) => <li><GameCard rec={g} hub={hub} /></li>)}</ul>}
-        </>
-      )}
-    </div>
-  </section>
-  <section class="hub-devlogs" aria-labelledby="dl-h">
-    <div class="wrap">
-      <T v={hub.devlogsTitle} f={hubFields.devlogsTitle} as="h2" id="dl-h" class="hub-h2" />
-      {posts.length === 0
-        ? <T v={hub.devlogsEmpty} f={hubFields.devlogsEmpty} class="muted" />
-        : <DevlogList posts={posts} label={hub.readLabel.value} />}
-    </div>
-  </section>
-</Hub>
-<style is:global>
-  .hub-hero { padding-block: clamp(48px, 8vw, 120px) clamp(40px, 6vw, 88px); }
-  .hub-title { --size-giant: clamp(3rem, 1.4rem + 6vw, 6rem); max-width: 14ch; }
-  .hub-line { margin-top: var(--space-5); font-size: var(--lead); color: var(--muted-dark); max-width: 52ch; }
-  .hub-games { padding-bottom: var(--space-8); }
-  .hub-h2 { margin-bottom: var(--space-6); }
-  .hub-grid { display: grid; gap: var(--space-8) var(--space-6); margin-top: var(--space-9); grid-template-columns: 1fr; }
-  .hub-empty { border: 1px dashed var(--rule-dark); border-radius: var(--radius-m); padding: var(--space-7) var(--space-5); display: grid; gap: var(--space-3); justify-items: start; }
-  .hub-devlogs { padding-top: var(--space-8); }
-  @media (min-width: 700px) { .hub-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (min-width: 1100px) { .hub-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-</style>
+<Base settings={data.settings} active="games" title={data.settings.site.navGames.value} canonical={`${siteUrl}/games`}>
+  <RenderSections page="games" sections={sections} data={data} views={views} />
+</Base>

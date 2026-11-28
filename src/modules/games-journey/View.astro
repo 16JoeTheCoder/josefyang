@@ -1,0 +1,38 @@
+---
+import { env } from "cloudflare:workers";
+import T from "../../components/T.astro";
+import Icon from "../../components/Icon.astro";
+import type { Content } from "../../core/fields";
+import type { PageData } from "../../core/types";
+import { catalogUrl } from "../../lib/game-host";
+import mod from "./module";
+
+interface Props { content: Content<typeof mod.fields>; data: PageData; sectionId: string }
+const { content: c, data, sectionId } = Astro.props;
+const F = mod.fields;
+const href = c.browseUrl || catalogUrl(env.GAME_HOST || undefined);
+const external = /^https?:/.test(href);
+const edit = data.mode === "draft";
+---
+<header class="gj ground-desk" aria-labelledby={sectionId + "-h"}>
+  <div class="wrap gj-grid">
+    <T v={c.heading} f={F.heading} as="h1" id={sectionId + "-h"} class="gj-title" editPath="heading" />
+    <div class="gj-side">
+      <T v={c.intro} f={F.intro} class="gj-intro" editPath="intro" />
+      <a class="btn btn-primary gj-browse" href={href} data-edit-path={edit ? "browseLabel" : undefined} rel={external ? "noopener" : undefined}>
+        {c.browseLabel.value}<Icon name={external ? "link" : "arrow-right"} size={18} />
+      </a>
+      <T v={c.browseNote} f={F.browseNote} class="gj-note" editPath="browseNote" />
+    </div>
+  </div>
+</header>
+<style>
+  .gj { padding: calc(var(--nav-h) + var(--space-9)) 0 var(--space-8); background: var(--desk); }
+  .gj-grid { display: grid; gap: var(--space-6); align-items: end; }
+  .gj-grid :global(.gj-title) { font-size: var(--size-giant); font-stretch: 80%; font-weight: 880; line-height: .86; letter-spacing: var(--track-tight); }
+  .gj-side { display: grid; justify-items: start; gap: var(--space-4); max-width: 46ch; }
+  .gj-side :global(.gj-intro) { font-size: var(--lead); line-height: 1.55; }
+  .gj-browse { margin-top: var(--space-2); }
+  .gj-side :global(.gj-note) { color: var(--muted); font-size: var(--size-xs); }
+  @media (min-width: 861px) { .gj-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+</style>
