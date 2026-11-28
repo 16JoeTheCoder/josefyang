@@ -9,31 +9,32 @@ interface Props { content: Content<typeof mod.fields>; data: PageData }
 const { content: c, data } = Astro.props;
 const F = mod.fields;
 const failed = data.build?.meta.status === "failed";
+const edit = data.mode === "draft";
 ---
 <section class="rows">
   <div class="wrap">
-    <div class="row"><T v={c.questionHeading} f={F.questionHeading} as="h2" /><T v={c.question} f={F.question} /></div>
-    <div class="row"><T v={c.buildHeading} f={F.buildHeading} as="h2" /><T v={c.build} f={F.build} /></div>
+    <div class="row"><T v={c.questionHeading} f={F.questionHeading} as="h2" editPath="questionHeading" /><T v={c.question} f={F.question} editPath="question" /></div>
+    <div class="row"><T v={c.buildHeading} f={F.buildHeading} as="h2" editPath="buildHeading" /><T v={c.build} f={F.build} editPath="build" /></div>
     <div class="row">
-      <T v={c.proofHeading} f={F.proofHeading} as="h2" />
+      <T v={c.proofHeading} f={F.proofHeading} as="h2" editPath="proofHeading" />
       <div>
         {c.proof.length > 0 && (
           <ul class="proof">
-            {c.proof.map((p) => (
-              <li><figure><Img v={p.image} f={F.proof.of.image} sizes="(max-width: 900px) 92vw, 460px" />{p.caption.value && <figcaption>{p.caption.value}</figcaption>}</figure></li>
+            {c.proof.map((p, i) => (
+              <li><figure><Img v={p.image} f={F.proof.of.image} sizes="(max-width: 900px) 92vw, 460px" editPath={`proof[${i}].image`} />{p.caption.value && <figcaption data-edit-path={edit ? `proof[${i}].caption` : undefined}>{p.caption.value}</figcaption>}</figure></li>
             ))}
           </ul>
         )}
-        {c.proofLinks.length > 0 && <ul class="proof-links">{c.proofLinks.map((l) => <li><a class="link-u" href={l.url} target="_blank" rel="noopener">{l.label.value}</a></li>)}</ul>}
+        {c.proofLinks.length > 0 && <ul class="proof-links">{c.proofLinks.map((l, i) => <li><a class="link-u" href={l.url} target="_blank" rel="noopener" data-edit-path={edit ? `proofLinks[${i}].label` : undefined}>{l.label.value}</a></li>)}</ul>}
       </div>
     </div>
     {failed && data.build && (
       <>
-        <div class="row"><T v={c.brokeHeading} f={F.brokeHeading} as="h2" /><T v={data.build.meta.whatBroke} f={buildFields.whatBroke} /></div>
-        <div class="row"><T v={c.learnedHeading} f={F.learnedHeading} as="h2" /><T v={data.build.meta.whatLearned} f={buildFields.whatLearned} /></div>
+        <div class="row"><T v={c.brokeHeading} f={F.brokeHeading} as="h2" editPath="brokeHeading" /><T v={data.build.meta.whatBroke} f={buildFields.whatBroke} /></div>
+        <div class="row"><T v={c.learnedHeading} f={F.learnedHeading} as="h2" editPath="learnedHeading" /><T v={data.build.meta.whatLearned} f={buildFields.whatLearned} /></div>
       </>
     )}
-    <div class="row"><T v={c.changedHeading} f={F.changedHeading} as="h2" /><T v={c.changed} f={F.changed} /></div>
+    <div class="row"><T v={c.changedHeading} f={F.changedHeading} as="h2" editPath="changedHeading" /><T v={c.changed} f={F.changed} editPath="changed" /></div>
   </div>
 </section>
 <style>

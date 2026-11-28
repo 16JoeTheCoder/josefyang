@@ -1,159 +1,180 @@
 ---
 import T from "../../components/T.astro";
 import Img from "../../components/Img.astro";
+import Icon from "../../components/Icon.astro";
 import type { Content } from "../../core/fields";
 import { buildFields } from "../../core/build-fields";
 import type { PageData } from "../../core/types";
 import mod from "./module";
+
 interface Props { content: Content<typeof mod.fields>; data: PageData; sectionId: string }
 const { content: c, data, sectionId } = Astro.props;
 const F = mod.fields;
 const failed = data.builds.filter((b) => b.meta.status === "failed");
-/** Where tiles lie around the hopper on desktop: [left %, top %, rotation deg]. */
-const SLOTS: [number, number, number][] = [[3, 6, -5], [7, 54, 3], [76, 14, 4], [72, 58, -3], [24, 72, 6], [52, 76, -4]];
-const onStage = failed.slice(0, SLOTS.length);
-const kind = (k: string) => (k === "software" ? c.software.value : c.hardware.value);
+const failurePosts = data.devlog.filter((entry) => entry.sites.includes("main") && (entry.categories ?? []).includes("category-failure"));
+const chronology = new Intl.NumberFormat("en", { minimumIntegerDigits: 2, useGrouping: false });
+const kind = (k: string) => k === "software" ? c.software.value : c.hardware.value;
+const filled = (value: string) => value.trim() !== "" && !/^\[.*\]$/s.test(value.trim());
+const caseId = (slug: string) => "case-" + slug;
+const drawerId = sectionId + "-case-files";
+const relatedPosts = new Map<string, typeof data.devlog[number]>();
+for (const post of data.devlog) {
+  if (post.buildId && post.sites.includes("main") && !relatedPosts.has(post.buildId)) relatedPosts.set(post.buildId, post);
+}
 ---
-{failed.length === 0 ? (
-  <section class="hop ground-granite-fine"><div class="wrap hop-empty-wrap">
-    <T v={c.emptyNote} f={F.emptyNote} class="hop-empty" />
-    {c.emptyLink.value && <a class="btn btn-primary" href="/projects">{c.emptyLink.value}</a>}
-  </div></section>
-) : (
-  <section class="hop ground-granite-fine" data-hopper>
-    <div class="wrap hop-stage" data-stage role="group" aria-label={c.stageLabel.value}>
-      {onStage.map((b, i) => (
-        <button
-          type="button"
-          class="tile"
-          data-tile={b.slug}
-          style={`--l:${SLOTS[i]![0]}%;--t:${SLOTS[i]![1]}%;--r:${SLOTS[i]![2]}deg`}
-          aria-describedby={`${sectionId}-hint`}
-        >
-          <Img v={b.meta.tileImage} f={buildFields.tileImage} sizes="220px" grey emptyLabel={false} />
-          <span class="tile-name">{b.meta.title.value}</span>
+<section class="archive" data-case-archive aria-label={c.archiveLabel.value}>
+  {failed.length === 0 ? (failurePosts.length === 0 && (
+    <div class="wrap"><div class="empty">
+      <T v={c.emptyNote} f={F.emptyNote} />
+      {c.emptyLink.value && <a class="case-link" href="/projects">{c.emptyLink.value}<Icon name="arrow-right" size={18} /></a>}
+    </div></div>
+  )) : (
+    <div class="wrap archive-grid">
+      <div class="cabinet" data-cabinet>
+        <div class="cabinet-top"><h2>{c.archiveLabel.value}</h2><span>{chronology.format(failed.length)}</span></div>
+        <button type="button" class="drawer-front" aria-expanded="true" aria-controls={drawerId} data-drawer-toggle data-open-label={c.openDrawer.value} data-close-label={c.closeDrawer.value} hidden>
+          <span class="drawer-handle" aria-hidden="true"></span><span data-drawer-label>{c.closeDrawer.value}</span>
         </button>
-      ))}
-      <div class="machine" data-mouth>
-        <svg class="funnel" viewBox="0 0 220 180" aria-hidden="true">
-          <rect x="0" y="0" width="220" height="8" fill="var(--sun)" />
-          <path d="M0 8 H220 L135 120 V160 H85 V120 Z" fill="var(--black)" />
-          <rect x="70" y="160" width="80" height="12" fill="var(--obj-strap)" />
-        </svg>
-        <div class="paper" data-paper aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-      </div>
-      <button type="button" class="btn btn-secondary feed" data-feed>{c.feedButton.value}</button>
-      <p class="sr-only" id={`${sectionId}-hint`}>{c.feedButton.value}</p>
-    </div>
-
-    <div class="slip-wrap" data-panel aria-live="polite">
-      <div class="wrap">
-        <p class="slip-wait" data-wait>{c.waiting.value}</p>
-        {failed.map((b) => (
-          <article class="slip" data-slip={b.slug} hidden>
-            <div>
-              <p class="slip-for">{c.printoutFor.value}</p>
-              <h2 class="slip-name">{b.meta.title.value}</h2>
-              <p class="slip-meta">{kind(b.meta.kind)}, {c.abandoned.value} {b.meta.failedOn.value}</p>
-            </div>
-            <div class="slip-body">
-              <T v={c.brokeHeading} f={F.brokeHeading} as="h3" />
-              <T v={b.meta.whatBroke} f={buildFields.whatBroke} />
-              <T v={c.learnedHeading} f={F.learnedHeading} as="h3" />
-              <T v={b.meta.whatLearned} f={buildFields.whatLearned} />
-              <p class="slip-links">
-                {b.meta.lessonUrl && <a class="link-u" href={b.meta.lessonUrl}>{c.lessonLink.value}</a>}
-                <a class="link-u" href={`/builds/${b.slug}`}>{c.buildLink.value}</a>
-              </p>
-            </div>
-          </article>
-        ))}
-      </div>
-    </div>
-
-    <div class="wrap hop-list">
-      {failed.map((b) => (
-        <details class="li-slip">
-          <summary><span class="li-name">{b.meta.title.value}</span><span class="li-meta">{kind(b.meta.kind)}, {c.abandoned.value} {b.meta.failedOn.value}</span></summary>
-          <div class="slip-body">
-            <T v={c.brokeHeading} f={F.brokeHeading} as="h3" />
-            <T v={b.meta.whatBroke} f={buildFields.whatBroke} />
-            <T v={c.learnedHeading} f={F.learnedHeading} as="h3" />
-            <T v={b.meta.whatLearned} f={buildFields.whatLearned} />
-            <p class="slip-links">
-              {b.meta.lessonUrl && <a class="link-u" href={b.meta.lessonUrl}>{c.lessonLink.value}</a>}
-              <a class="link-u" href={`/builds/${b.slug}`}>{c.buildLink.value}</a>
-            </p>
+        <div class="drawer" data-drawer id={drawerId}>
+          <div class="drawer-inner">
+            <ol class="file-list">
+              {failed.map((b, i) => (
+                <li>
+                  <a class="file" href={"#" + caseId(b.slug)} data-case-link={caseId(b.slug)} aria-current={i === 0 ? "true" : undefined}>
+                    <span class="file-number">{chronology.format(i + 1)}</span>
+                    <span class="file-title"><strong>{b.meta.title.value}</strong><span>{kind(b.meta.kind)}</span></span>
+                    <Icon name="arrow-right" size={16} class="file-icon" />
+                  </a>
+                </li>
+              ))}
+            </ol>
           </div>
-        </details>
-      ))}
+        </div>
+      </div>
+
+      <div class="case-stack" data-case-stack>
+        <p class="sr-only" data-case-announcement aria-live="polite"></p>
+        {failed.map((b, i) => {
+          const { meta, slug } = b;
+          const hasEvidence = !!(meta.failureEvidence.mediaId && meta.failureEvidence.key);
+          const media = hasEvidence ? meta.failureEvidence : meta.tileImage.mediaId && meta.tileImage.key ? meta.tileImage
+            : meta.floorImage.mediaId && meta.floorImage.key ? meta.floorImage : null;
+          const related = relatedPosts.get(b.id);
+          const hasFailure = filled(meta.whatBroke.value);
+          const hasLesson = filled(meta.whatLearned.value);
+          const hasChange = filled(meta.failureChange.value);
+          return (
+            <article class="case-report" id={caseId(slug)} data-case-report tabindex="-1" aria-labelledby={caseId(slug) + "-title"}>
+              <header class="report-head">
+                <div class="report-index"><span>{c.fileLabel.value} {chronology.format(i + 1)}</span><span>{kind(meta.kind)}{filled(meta.failedOn.value) && <> / {meta.failedOn.value}</>}</span></div>
+                <h2 id={caseId(slug) + "-title"}>{meta.title.value}</h2>
+                {filled(meta.summary.value) && <T v={meta.summary} f={buildFields.summary} class="report-summary" />}
+              </header>
+              <div class:list={["report-body", media && "with-evidence"]}>
+                <div class="report-notes">
+                  {hasFailure && <section><T v={c.brokeHeading} f={F.brokeHeading} as="h3" /><T v={meta.whatBroke} f={buildFields.whatBroke} /></section>}
+                  {hasLesson && <section><T v={c.learnedHeading} f={F.learnedHeading} as="h3" /><T v={meta.whatLearned} f={buildFields.whatLearned} /></section>}
+                  {hasChange && <section><T v={c.changedHeading} f={F.changedHeading} as="h3" /><T v={meta.failureChange} f={buildFields.failureChange} /></section>}
+                  {!hasFailure && !hasLesson && !hasChange && <T v={c.noReport} f={F.noReport} />}
+                </div>
+                {media && <figure class="report-image">
+                  <Img v={media} f={hasEvidence ? buildFields.failureEvidence : buildFields.tileImage} sizes="(max-width: 760px) 85vw, 290px" eager={i === 0} />
+                  <figcaption>{hasEvidence ? c.evidenceLabel.value : c.illustrationLabel.value}</figcaption>
+                </figure>}
+              </div>
+              <div class="report-links">
+                <a class="case-link" href={"/builds/" + slug}>{c.buildLink.value}<Icon name="arrow-right" size={16} /></a>
+                {meta.lessonUrl && <a class="case-link" href={meta.lessonUrl}>{c.lessonLink.value}<Icon name="arrow-right" size={16} /></a>}
+                {related && meta.lessonUrl !== "/devlog/" + related.slug && <a class="case-link" href={"/devlog/" + related.slug}>{related.title}<Icon name="arrow-right" size={16} /></a>}
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </div>
-  </section>
-)}
+  )}
+  {failurePosts.length > 0 && <div class="wrap failure-writing">
+    <T v={c.writingHeading} f={F.writingHeading} as="h2" editPath="writingHeading" />
+    <ul>{failurePosts.map((entry) => <li><a href={"/devlog/" + entry.slug}><strong>{entry.title}</strong><Icon name="arrow-right" size={17} /></a></li>)}</ul>
+  </div>}
+</section>
+
 <script>
   import { onPage } from "../../core/island";
   import { mountHopper } from "./island";
-  onPage("[data-hopper]", mountHopper);
+  onPage("[data-case-archive]", mountHopper);
 </script>
+
 <style>
-  .hop { padding: 24px 0 var(--section-y); }
-  .hop :global(.hop-empty) { color: var(--muted); padding: 48px 0 24px; }
-
-  /* Default (no JS / reduced motion): every slip as an expandable list item. */
-  .hop-stage, .slip-wrap { display: none; }
-  .li-slip { border-top: 1px solid var(--black); }
-  .li-slip:last-child { border-bottom: 1px solid var(--black); }
-  .li-slip summary { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 20px 0; cursor: pointer; min-height: 44px; list-style: none; }
-  .li-slip summary::-webkit-details-marker { display: none; }
-  .li-name { font-family: var(--font-display); font-weight: 900; font-size: var(--size-l); letter-spacing: -0.01em; }
-  .li-meta { color: var(--muted); font-size: var(--size-s); align-self: center; }
-  .li-slip .slip-body { padding: 0 0 28px; }
-
-  .slip-body :global(h3) { margin-top: 0; }
-  .slip-body :global(h3 ~ h3) { margin-top: 28px; }
-  .slip-body :global(.r-body) { margin-top: 8px; color: var(--muted); }
-  .slip-body :global(.r-body p + p) { margin-top: 0.8em; }
-  .slip-links { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 28px; font-family: var(--font-display); font-weight: 700; }
-
-  @media (prefers-reduced-motion: no-preference) {
-    :global(.js) .hop-list { display: none; }
-    :global(.js) .hop-stage { display: block; position: relative; height: clamp(520px, 52vw, 680px); }
-    :global(.js) .slip-wrap { display: block; background: var(--section); margin-top: 48px; padding: 64px 0 72px; }
+  .archive { background: var(--workbench); color: var(--workbench-ink); padding-block: 1px clamp(72px, 9vw, 130px); }
+  .archive-grid { display: grid; grid-template-columns: minmax(245px, 4fr) minmax(0, 8fr); align-items: start; gap: clamp(22px, 5vw, 74px); }
+  .cabinet { display: grid; min-width: 0; padding: 12px 12px 0; background: var(--workbench-mat); border: 1px solid var(--workbench-rule); border-radius: 13px; }
+  .cabinet-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 1px 9px 12px; border-bottom: 1px solid var(--workbench-rule); }
+  .cabinet-top h2 { font: 680 var(--size-xs) var(--font-display); }
+  .cabinet-top > span, .file-number { color: var(--workbench-subtle); font: 550 var(--size-xs) var(--font-display); font-variant-numeric: tabular-nums; }
+  .drawer { grid-row: 2; display: grid; grid-template-rows: 1fr; transition: grid-template-rows 360ms var(--ease-out); background: var(--workbench); }
+  .drawer[data-closed] { grid-template-rows: 0fr; }
+  .drawer-inner { min-height: 0; overflow: clip; }
+  .file-list { max-height: min(47vh, 385px); min-height: 0; overflow: auto; padding: 14px 8px 8px; scrollbar-color: var(--workbench-rule) transparent; scrollbar-width: thin; }
+  .file-list { transform-origin: top; transition: transform 360ms var(--ease-out); }
+  .drawer[data-closed] .file-list { transform: translateY(-12px); }
+  .file-list li { margin-bottom: 7px; }
+  .file { display: grid; grid-template-columns: 2.4ch 1fr auto; gap: 10px; align-items: center; position: relative; border: 1px solid var(--workbench-rule); border-radius: 3px 7px 3px 3px; padding: 8px 9px; min-height: 50px; text-decoration: none; background: var(--workbench-mat); transition: translate 240ms var(--ease-out), background 240ms var(--ease-out); }
+  .file::before { content: ""; position: absolute; top: -4px; left: -1px; width: 30%; height: 4px; background: var(--workbench-rule); border-radius: 3px 6px 0 0; }
+  .file:hover { translate: 2px 0; }
+  .file[aria-current] { color: var(--workbench); background: var(--archive-paper); border-color: var(--archive-paper); }
+  .file[aria-current]::before { background: var(--sun); }
+  .file[aria-current] .file-number, .file[aria-current] .file-title > span { color: var(--muted); }
+  .file-title { min-width: 0; display: grid; gap: 2px; line-height: 1.18; }
+  .file-title strong { font-family: var(--font-display); font-weight: 650; overflow-wrap: anywhere; }
+  .file-title > span { font-size: var(--size-xs); color: var(--workbench-subtle); }
+  .file :global(.file-icon) { color: var(--workbench-subtle); }
+  .file[aria-current] :global(.file-icon) { color: var(--workbench); }
+  .drawer-front { grid-row: 3; display: flex; justify-content: center; align-items: center; gap: 11px; width: calc(100% + 24px); margin-left: -12px; min-height: 53px; padding: 9px; background: var(--workbench-mat); color: var(--workbench-ink); border: 0; border-top: 1px solid var(--workbench-rule); border-radius: 0 0 12px 12px; cursor: pointer; font: 650 var(--size-xs) var(--font-display); }
+  .drawer-front[hidden] { display: none; }
+  .drawer-front:hover { background: var(--workbench-rule); }
+  .drawer-handle { width: 34px; height: 9px; border: 1px solid var(--workbench-subtle); border-bottom-width: 3px; border-radius: 3px; }
+  .case-stack { position: relative; display: grid; align-items: start; gap: 18px; }
+  .case-stack[data-ready] { isolation: isolate; }
+  .case-stack[data-ready]::before, .case-stack[data-ready]::after { content: ""; position: absolute; inset: 12px 9px -8px; background: var(--archive-rule); border-radius: 7px; z-index: -1; }
+  .case-stack[data-ready]::after { inset: 18px 18px -15px; background: var(--workbench-rule); z-index: -2; }
+  .case-report { min-width: 0; position: relative; scroll-margin-top: 25px; background: var(--archive-paper); color: var(--workbench); border-radius: 8px; padding: clamp(19px, 3.55vw, 49px); box-shadow: var(--shadow-object); }
+  .case-report[hidden] { display: none; }
+  .case-report[data-leaving] { position: absolute; inset: 0 0 auto; width: 100%; z-index: 0; pointer-events: none; }
+  .case-report[data-shown] { z-index: 1; }
+  .case-report:focus { outline-offset: -4px; }
+  .report-index { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 5px 12px; color: var(--muted); font: 620 var(--size-xs) var(--font-display); font-variant-numeric: tabular-nums; padding-bottom: 13px; border-bottom: 1px solid var(--archive-rule); }
+  .report-index > :first-child { color: var(--workbench); }
+  .report-index > :first-child::before { content: ""; display: inline-block; vertical-align: .13em; margin-right: 8px; width: 6px; height: 6px; background: var(--sun); }
+  .report-head h2 { font: 780 clamp(2.2rem, 4.8vw, 4.4rem) / .97 var(--font-display); letter-spacing: var(--track-tight); overflow-wrap: anywhere; margin-block: 20px 9px; text-wrap: balance; }
+  .report-head :global(.report-summary) { color: var(--muted); line-height: 1.45; max-width: 58ch; }
+  .report-body { margin-top: clamp(24px, 4vw, 48px); }
+  .report-body.with-evidence { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); grid-template-areas: "image notes"; align-items: start; gap: clamp(17px, 2.8vw, 36px); }
+  .report-image { grid-area: image; }
+  .with-evidence .report-notes { grid-area: notes; }
+  .report-image figcaption { font-size: var(--size-xs); color: var(--muted); margin-top: 8px; }
+  .report-image :global(.img-slot) { background: var(--section); border: 1px solid var(--archive-rule); border-radius: 5px; }
+  .report-image :global(.img-object img) { padding: 8px; }
+  .report-notes section + section { margin-top: 20px; padding-top: 17px; border-top: 1px solid var(--archive-rule); }
+  .report-notes :global(h3) { font-size: clamp(1rem, 1.9vw, 1.35rem); }
+  .report-notes :global(.r-body) { margin-top: 7px; font-size: var(--size-s); line-height: 1.52; color: var(--muted); }
+  .report-notes :global(.r-body p + p) { margin-top: .7em; }
+  .report-links { display: flex; flex-wrap: wrap; gap: 0 19px; align-items: center; margin-top: 21px; }
+  .case-link { display: inline-flex; align-items: center; min-height: 44px; gap: 8px; text-decoration: underline; text-decoration-color: var(--sun); font: 650 var(--size-xs) var(--font-display); }
+  .case-link:hover { text-decoration-color: currentColor; }
+  .failure-writing { margin-top: clamp(45px, 7vw, 90px); }
+  .failure-writing ul { margin-top: 20px; border-top: 1px solid var(--workbench-rule); }
+  .failure-writing a { display: flex; justify-content: space-between; gap: 18px; padding: 12px 0; min-height: 44px; text-decoration: none; border-bottom: 1px solid var(--workbench-rule); }
+  .failure-writing a:hover { text-decoration: underline; text-decoration-color: var(--sun); }
+  .empty { border-top: 1px solid var(--workbench-rule); color: var(--workbench-subtle); padding: 24px 0; }
+  @media (max-width: 810px) {
+    .archive-grid { grid-template-columns: 1fr; gap: 23px; }
+    .file-list { max-height: min(31svh, 225px); }
+    .report-body.with-evidence { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); }
   }
-
-  .tile {
-    position: absolute; left: var(--l); top: var(--t); width: clamp(150px, 15vw, 210px); rotate: var(--r);
-    padding: 12px 12px 16px; background: var(--white); border: 0; border-radius: 4px; cursor: grab; text-align: left;
-    box-shadow: var(--shadow-contact), 0 24px 30px -18px var(--shade-35);
-    touch-action: none; user-select: none; -webkit-user-select: none;
-    transition: box-shadow var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out);
-    outline: 3px solid transparent; outline-offset: 0;
-  }
-  .tile:hover, .tile:focus-visible, .tile[aria-pressed="true"] { outline-color: var(--sun); box-shadow: var(--shadow-lift); }
-  .tile.is-drag { cursor: grabbing; z-index: 5; }
-  .tile :global(.img-slot) { border-radius: 2px; }
-  .tile :global(.img-empty) { background: var(--tile); }
-  .tile-name { display: block; margin-top: 10px; font-family: var(--font-display); font-weight: 800; font-size: 0.875rem; line-height: 1.2; }
-  .machine { position: absolute; left: 50%; top: 22%; width: clamp(180px, 16vw, 220px); translate: -50% 0; }
-  .funnel { width: 100%; height: auto; overflow: visible; }
-  .paper { position: relative; width: 36%; margin: 0 auto; height: 40px; background: var(--white); box-shadow: var(--shadow-contact); display: flex; flex-direction: column; gap: 6px; padding: 12px 10px; overflow: hidden; }
-  .paper i { display: block; height: 3px; background: var(--black); width: 80%; }
-  .paper i:nth-child(3n) { width: 55%; }
-  .feed { position: absolute; left: calc(50% + clamp(110px, 10vw, 140px)); top: 38%; background: var(--white); }
-
-  .slip { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; }
-  .slip[hidden] { display: none; }
-  .slip-wait { color: var(--muted); }
-  .slip-for { font-size: var(--size-s); color: var(--muted); }
-  .slip-name { margin-top: 10px; font-family: var(--font-display); font-weight: 900; font-size: var(--size-xl); line-height: 0.95; letter-spacing: var(--track-display); overflow-wrap: anywhere; }
-  .slip-meta { margin-top: 14px; font-size: var(--size-s); }
-
-  @media (max-width: 860px) {
-    :global(.js) .hop-stage { height: auto; display: flex; flex-direction: column; align-items: center; gap: 20px; }
-    .tile { position: relative; left: auto; top: auto; rotate: 0deg; width: 100%; display: grid; grid-template-columns: 72px 1fr; align-items: center; gap: 14px; padding: 10px; }
-    .tile-name { margin: 0; font-size: 1rem; }
-    .machine { position: relative; left: auto; top: auto; translate: none; order: -1; width: 180px; }
-    .feed { position: static; order: -1; }
-    .slip { grid-template-columns: 1fr; gap: 28px; }
+  @media (max-width: 490px) {
+    .file-list { max-height: min(21svh, 172px); }
+    .report-body.with-evidence { grid-template-columns: 1fr; grid-template-areas: "notes" "image"; }
+    .report-image :global(.img-slot) { aspect-ratio: 16 / 9; }
   }
 </style>

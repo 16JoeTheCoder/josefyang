@@ -1,126 +1,227 @@
-/**
- * Projects character select (03-pages Projects). One state: the current index.
- * Native horizontal scroll-snap does the moving (touch, trackpad, wheel+shift, scrollbar all work);
- * we only read which card is centred. Lock-in = short exit animation, then navigate to /builds/<slug>.
- * The URL hash always names the current build, so "Back to the selector" (/projects#slug) lands on it.
- */
-import { gsap } from "gsap";
-import { navigate } from "astro:transitions/client";
-import { reducedMotion, type Unmount } from "../../core/island";
+import type { Unmount } from "../../core/island";
+
+const GESTURE_GAP = 150;
+const WHEEL_THRESHOLD = 32;
+const GALLERY_ENTRY_TOLERANCE = 24;
 
 export function mountSelector(root: HTMLElement): Unmount | void {
+  const gallery = root.querySelector<HTMLElement>("[data-gallery]");
   const track = root.querySelector<HTMLElement>("[data-track]");
-  if (!track) return;
+  if (!gallery || !track) return;
   const cards = [...track.querySelectorAll<HTMLElement>("[data-card]")];
+  const details = [...root.querySelectorAll<HTMLElement>("[data-detail]")];
+  const controls = root.querySelector<HTMLElement>("[data-controls]");
   const pos = root.querySelector<HTMLElement>("[data-pos]");
-  const lock = root.querySelector<HTMLAnchorElement>("[data-lock]");
   const prev = root.querySelector<HTMLButtonElement>("[data-prev]");
   const next = root.querySelector<HTMLButtonElement>("[data-next]");
-  if (reducedMotion()) return; // CSS shows a plain grid of links
-
-  cards.forEach((c) => c.querySelector<HTMLElement>("[data-name-link]")?.setAttribute("tabindex", "-1"));
+  const last = cards.length - 1;
+  if (last < 0) return;
+  const motion = matchMedia("(prefers-reduced-motion: reduce)");
+  const events = new AbortController();
+  const { signal } = events;
   let current = -1;
-  let raf = 0;
-  let locking = false;
+  let movingTo: number | null = null;
+  let scrollEndTimer = 0;
+  let wheelAt = -Infinity;
+  let wheelDirection = 0;
+  let wheelAmount = 0;
+  let wheelClaimed = false;
+  let wheelOwner: "page" | "gallery" = "page";
+  let overviewOpen = false;
+  let lastPageY = window.scrollY;
 
-  let touched = false; // the hash only changes once the visitor moves or arrived with a valid #slug
-  const set = (i: number) => {
-    if (i === current) return;
-    current = i;
-    cards.forEach((c, k) => c.setAttribute("aria-selected", k === i ? "true" : "false"));
-    const slug = cards[i]!.dataset.slug!;
-    if (pos) pos.textContent = String(i + 1);
-    if (lock) lock.href = `/builds/${slug}`;
-    if (prev) prev.disabled = i === 0;
-    if (next) next.disabled = i === cards.length - 1;
-    if (touched) history.replaceState(history.state, "", `#${slug}`);
-    touched = true;
-  };
+  function select(index: number, updateHash = true) {
+    if (current === index) return;
+    if (cards[current]?.contains(document.activeElement)) track!.focus({ preventScroll: true });
+    current = index;
+    cards.forEach((card, i) => {
+      card.toggleAttribute("data-active", i === index);
+      const link = card.querySelector<HTMLAnchorElement>("[data-select]");
+      if (link) link.tabIndex = i === index ? 0 : -1;
+      details[i]!.hidden = i !== index;
+    });
+    if (pos) pos.textContent = String(index + 1).padStart(2, "0");
+    prev?.setAttribute("aria-disabled", String(index === 0));
+    next?.setAttribute("aria-disabled", String(index === last));
+    if (updateHash) history.replaceState(history.state, "", "#" + cards[index]!.dataset.slug);
+  }
 
-  const centre = (i: number, behavior: ScrollBehavior) => {
-    const c = cards[Math.max(0, Math.min(cards.length - 1, i))]!;
-    track.scrollTo({ left: c.offsetLeft - (track.clientWidth - c.offsetWidth) / 2, behavior });
-  };
+  function center(index: number, smooth: boolean) {
+    const card = cards[index]!;
+    const left = track!.scrollLeft + card.getBoundingClientRect().left - track!.getBoundingClientRect().left
+      - (track!.clientWidth - card.offsetWidth) / 2;
+    track!.scrollTo({ left, behavior: smooth && !motion.matches ? "smooth" : "instant" });
+  }
 
-  const nearest = () => {
-    const mid = track.scrollLeft + track.clientWidth / 2;
-    let best = 0;
-    let d = Infinity;
-    cards.forEach((c, k) => { const dd = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid); if (dd < d) { d = dd; best = k; } });
-    return best;
-  };
+  function finishScroll() {
+    clearTimeout(scrollEndTimer);
+    movingTo = null;
+    const middle = track!.getBoundingClientRect().left + track!.clientWidth / 2;
+    let closest = current;
+    let distance = Infinity;
+    cards.forEach((card, i) => {
+      const rect = card.getBoundingClientRect();
+      const delta = Math.abs(rect.left + rect.width / 2 - middle);
+      if (delta < distance) { closest = i; distance = delta; }
+    });
+    if (closest >= 0) select(closest);
+  }
 
-  const onScroll = () => {
-    if (raf) return;
-    raf = requestAnimationFrame(() => { raf = 0; set(nearest()); });
-  };
+  function go(index: number, smooth = true, updateHash = true) {
+    const destination = Math.min(last, Math.max(0, index));
+    movingTo = destination;
+    select(destination, updateHash);
+    center(destination, smooth);
+    clearTimeout(scrollEndTimer);
+    scrollEndTimer = window.setTimeout(finishScroll, 650);
+  }
 
-  const doLock = (e?: Event) => {
-    e?.preventDefault();
-    if (locking) return;
-    locking = true;
-    const slug = cards[current]!.dataset.slug!;
-    const card = cards[current]!;
-    const tl = gsap.timeline({ onComplete: () => { void navigate(`/builds/${slug}`); } });
-    tl.to(cards.filter((c) => c !== card), { opacity: 0, duration: 0.25, ease: "power2.out" }, 0)
-      .to(root.querySelectorAll(".sel-head, .sel-controls, .sel-hint, .card-info"), { opacity: 0, y: 12, duration: 0.25, ease: "power2.out" }, 0)
-      .to(card.querySelector(".card-img"), { scale: 1.06, duration: 0.45, ease: "expo.out" }, 0);
-  };
+  function atGallery() {
+    const bounds = gallery!.getBoundingClientRect();
+    return bounds.top >= -GALLERY_ENTRY_TOLERANCE && bounds.top < innerHeight * .5;
+  }
 
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === "ArrowRight") { e.preventDefault(); centre(current + 1, "smooth"); }
-    else if (e.key === "ArrowLeft") { e.preventDefault(); centre(current - 1, "smooth"); }
-    else if (e.key === "Home") { e.preventDefault(); centre(0, "smooth"); }
-    else if (e.key === "End") { e.preventDefault(); centre(cards.length - 1, "smooth"); }
-    else if (e.key === "Enter" || e.key === " ") doLock(e);
-  };
+  function open(smooth = true, record = true) {
+    const detail = details[current];
+    if (!detail) return;
+    overviewOpen = true;
+    const hash = "#" + detail.id;
+    if (record && location.hash !== hash) history.pushState(history.state, "", hash);
+    detail.focus({ preventScroll: true });
+    detail.scrollIntoView({ block: "start", behavior: smooth && !motion.matches ? "smooth" : "instant" });
+  }
 
-  const onClick = (e: MouseEvent) => {
-    const card = (e.target as HTMLElement).closest<HTMLElement>("[data-card]");
+  function returnToGallery(smooth = true, record = true) {
+    overviewOpen = false;
+    if (record) history.replaceState(history.state, "", "#" + cards[current]!.dataset.slug);
+    track!.focus({ preventScroll: true });
+    gallery!.scrollIntoView({ block: "start", behavior: smooth && !motion.matches ? "smooth" : "instant" });
+  }
+
+  function onPageScroll() {
+    const movingUp = window.scrollY < lastPageY;
+    lastPageY = window.scrollY;
+    if (!movingUp || !atGallery()) return;
+    if (overviewOpen) {
+      overviewOpen = false;
+      history.replaceState(history.state, "", "#" + cards[current]!.dataset.slug);
+    }
+    if (details[current]?.contains(document.activeElement)) track!.focus({ preventScroll: true });
+  }
+
+  function beginWheel(event: WheelEvent, owner: "page" | "gallery") {
+    const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
+    const delta = horizontal ? event.deltaX : event.deltaY;
+    if (!delta || event.ctrlKey || event.metaKey) return 0;
+    const direction = Math.sign(delta);
+    const now = performance.now();
+    if (now - wheelAt > GESTURE_GAP || direction !== wheelDirection) {
+      wheelOwner = owner;
+      wheelAmount = 0;
+      wheelClaimed = false;
+    }
+    wheelAt = now;
+    wheelDirection = direction;
+    return delta;
+  }
+
+  function onOutsideWheel(event: WheelEvent) {
+    if (!event.composedPath().includes(gallery!)) beginWheel(event, "page");
+  }
+
+  function onWheel(event: WheelEvent) {
+    if (last === 0) return;
+    const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
+    const canBrowse = horizontal || atGallery();
+    const delta = beginWheel(event, canBrowse ? "gallery" : "page");
+    if (!delta || !canBrowse || wheelOwner === "page" || !event.cancelable) return;
+    if (wheelClaimed) { event.preventDefault(); return; }
+    const destination = current + Math.sign(delta);
+    if (destination < 0 || destination > last) { wheelOwner = "page"; return; }
+    event.preventDefault();
+    wheelAmount += Math.abs(delta) * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? track!.clientWidth : 1);
+    if (wheelAmount >= WHEEL_THRESHOLD) {
+      wheelClaimed = true;
+      go(destination);
+    }
+  }
+
+  function onKey(event: KeyboardEvent) {
+    if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+    const element = event.target as HTMLElement;
+    if (element.closest("input, textarea, select, [contenteditable], [popover]:popover-open")) return;
+    if (details[current]?.contains(element) && (event.key === "ArrowUp" || event.key === "Escape")) {
+      event.preventDefault();
+      if (!event.repeat) returnToGallery();
+      return;
+    }
+    if (!gallery!.contains(element) && element !== document.body && element !== document.documentElement) return;
+    if (!atGallery()) return;
+    const index = event.key === "ArrowRight" ? current + 1 : event.key === "ArrowLeft" ? current - 1
+      : event.key === "Home" ? 0 : event.key === "End" ? last : null;
+    const isAction = element.closest("a, button");
+    const activates = event.key === "ArrowDown"
+      || (event.key === " " && (element.closest("[data-select]") || !isAction))
+      || (event.key === "Enter" && !isAction);
+    if (index === null && !activates) return;
+    event.preventDefault();
+    if (event.repeat) return;
+    if (index !== null) go(index);
+    else open();
+  }
+
+  function fromHash() {
+    const hash = location.hash.slice(1);
+    const index = cards.findIndex((card) => card.dataset.slug === hash || card.id === hash);
+    const detail = details.findIndex((element) => element.id === hash);
+    if (detail >= 0) {
+      go(detail, false, false);
+      open(false, false);
+    } else if (index >= 0 || !hash || current < 0) {
+      const returning = overviewOpen;
+      go(Math.max(0, index), false, false);
+      if (returning) returnToGallery(false, false);
+    }
+  }
+
+  root.setAttribute("data-ready", "");
+  if (controls) controls.hidden = false;
+  fromHash();
+  track.addEventListener("scroll", () => {
+    clearTimeout(scrollEndTimer);
+    scrollEndTimer = window.setTimeout(finishScroll, movingTo === null ? 100 : 180);
+  }, { passive: true, signal });
+  track.addEventListener("scrollend", finishScroll, { signal });
+  gallery.addEventListener("wheel", onWheel, { passive: false, signal });
+  document.addEventListener("keydown", onKey, { signal });
+  prev?.addEventListener("click", () => { if (current > 0) go(current - 1); }, { signal });
+  next?.addEventListener("click", () => { if (current < last) go(current + 1); }, { signal });
+  track.addEventListener("click", (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+    const element = event.target as HTMLElement;
+    const card = element.closest<HTMLElement>("[data-card]");
     if (!card) return;
-    const i = Number(card.dataset.index);
-    e.preventDefault();
-    if (i === current) doLock(); else centre(i, "smooth");
-  };
-
-  // Vertical wheel over the track moves sideways only while there is somewhere to go; then the page scrolls on.
-  const onWheel = (e: WheelEvent) => {
-    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-    const atStart = track.scrollLeft <= 1 && e.deltaY < 0;
-    const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 1 && e.deltaY > 0;
-    if (atStart || atEnd) return;
-    e.preventDefault();
-    track.scrollBy({ left: e.deltaY, behavior: "auto" });
-  };
-
-  const fromHash = decodeURIComponent(location.hash.slice(1));
-  const found = cards.findIndex((c) => c.dataset.slug === fromHash);
-  const start = Math.max(0, found);
-  touched = false;
-  centre(start, "instant");
-  set(start);
-
-  track.addEventListener("scroll", onScroll, { passive: true });
-  track.addEventListener("keydown", onKey);
-  track.addEventListener("click", onClick);
-  track.addEventListener("wheel", onWheel, { passive: false });
-  const p = () => centre(current - 1, "smooth");
-  const n = () => centre(current + 1, "smooth");
-  prev?.addEventListener("click", p);
-  next?.addEventListener("click", n);
-  lock?.addEventListener("click", doLock);
-  const onResize = () => centre(current, "instant");
-  window.addEventListener("resize", onResize);
+    const index = Number(card.dataset.index);
+    if (index === current && !element.closest("[data-select], .slide-image")) return;
+    event.preventDefault();
+    if (index !== current) go(index);
+    else open();
+  }, { signal });
+  const resize = new ResizeObserver(() => { if (current >= 0) center(current, false); });
+  resize.observe(track);
+  window.addEventListener("hashchange", fromHash, { signal });
+  window.addEventListener("scroll", onPageScroll, { passive: true, signal });
+  window.addEventListener("wheel", onOutsideWheel, { capture: true, passive: true, signal });
+  root.addEventListener("click", (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    if (!(event.target as HTMLElement).closest("[data-return]")) return;
+    event.preventDefault();
+    returnToGallery();
+  }, { signal });
 
   return () => {
-    cancelAnimationFrame(raf);
-    track.removeEventListener("scroll", onScroll);
-    track.removeEventListener("keydown", onKey);
-    track.removeEventListener("click", onClick);
-    track.removeEventListener("wheel", onWheel);
-    prev?.removeEventListener("click", p);
-    next?.removeEventListener("click", n);
-    lock?.removeEventListener("click", doLock);
-    window.removeEventListener("resize", onResize);
+    events.abort();
+    clearTimeout(scrollEndTimer);
+    resize.disconnect();
   };
 }

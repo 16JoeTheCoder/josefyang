@@ -60,6 +60,16 @@
   --light-18: rgb(255 255 255 / 0.18);
   --light-60: rgb(255 255 255 / 0.6);
 
+  /* Workshop, feature gallery and contact */
+  --workbench: #151613;
+  --workbench-mat: #242624;
+  --workbench-ink: #f5f2ea;
+  --workbench-subtle: #c6c6ba;
+  --workbench-rule: #4c4d44;
+  --workbench-grid: #33352f;
+  --archive-paper: #f3f2ec;
+  --archive-rule: #d5d3c9;
+
   /* type */
   --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --font-body: "Zen Kaku Gothic New", "Helvetica Neue", Arial, sans-serif;
@@ -106,3 +116,4 @@
 @media (max-width: 720px) {
   :root { --gutter: 20px; }
 }
+

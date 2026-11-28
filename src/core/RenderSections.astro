@@ -29,9 +29,20 @@ for (const p of prepared) {
     Astro.locals.cfContext?.waitUntil(logHealth(env.DB, page, p.s.sectionId, p.s.moduleId, p.error));
   }
 }
+const hasCaseDrawer = page === "failures" && prepared.some((entry) => entry.s.moduleId === "hopper" && "View" in entry);
+const tools = page === "home" ? prepared.find((entry) => entry.s.moduleId === "own-tools" && "View" in entry)?.content : undefined;
+const heroIndex = page === "home" && data.builds.some((build) => build.meta.featured)
+  ? prepared.findIndex((entry, index) =>
+      entry.s.moduleId === "home-hero" && "View" in entry &&
+      prepared[index + 1]?.s.moduleId === "featured-floor" && "View" in prepared[index + 1]!)
+  : -1;
 ---
-{prepared.map((p) => "View" in p && p.View ? (
+{prepared.map((p, index) => index !== heroIndex && (!hasCaseDrawer || p.s.moduleId !== "failure-list") && "View" in p && p.View ? (
   <Boundary page={page} sectionId={p.s.sectionId} moduleId={p.s.moduleId}>
-    <p.View content={p.content} data={data} sectionId={p.s.sectionId} />
+    <p.View content={p.content} data={data} sectionId={p.s.sectionId}
+      tools={p.s.moduleId === "featured-floor" ? tools : undefined}
+      hero={heroIndex >= 0 && index === heroIndex + 1
+        ? { content: prepared[heroIndex]!.content, sectionId: prepared[heroIndex]!.s.sectionId }
+        : undefined} />
   </Boundary>
 ) : null)}

@@ -8,23 +8,25 @@ interface Props { content: Content<typeof mod.fields> }
 const { content: c } = Astro.props;
 const F = mod.fields;
 const B = F.first.fields;
-const blocks = [c.first, c.second];
+const blocks = ([["first", c.first], ["second", c.second]] as const)
+  .filter(([, tool]) => tool.name.value.trim() && !/\bfuse\b/i.test(tool.name.value) && !/fuse\.josefyang\.com/i.test(tool.url));
+const editPath = (path: string) => Astro.locals.mode === "draft" ? path : undefined;
 ---
 <section class="tools">
   <div class="wrap">
-    <T v={c.heading} f={F.heading} as="h2" />
-    <T v={c.line} f={F.line} class="tools-line" />
-    {blocks.map((b, i) => (
+    <T v={c.heading} f={F.heading} as="h2" editPath="heading" />
+    <T v={c.line.value === "Both are in daily use. Both are open to look at." && blocks.length === 1 ? { value: "I use it every day." } : c.line} f={F.line} class="tools-line" editPath="line" />
+    {blocks.map(([key, b], i) => (
       <div class:list={["case", i % 2 === 1 && "case-flip"]}>
-        <div class="case-img"><Img v={b.image} f={B.image} sizes="(max-width: 900px) 92vw, 640px" /></div>
+        <div class="case-img"><Img v={b.image} f={B.image} sizes="(max-width: 900px) 92vw, 640px" editPath={`${key}.image`} /></div>
         <div class="case-text">
-          <T v={b.name} f={B.name} as="h3" class="case-name" />
-          <T v={b.headline} f={B.headline} as="p" class="case-headline" />
-          <T v={b.text} f={B.text} class="case-body" />
+          <T v={b.name} f={B.name} as="h3" class="case-name" editPath={`${key}.name`} />
+          <T v={b.headline} f={B.headline} as="p" class="case-headline" editPath={`${key}.headline`} />
+          <T v={b.text} f={B.text} class="case-body" editPath={`${key}.text`} />
           {b.stats.length > 0 && (
-            <ul class="stats">{b.stats.map((s) => <li><Icon name={s.icon} size={36} /><span>{s.label.value}</span></li>)}</ul>
+            <ul class="stats">{b.stats.map((s, j) => <li><Icon name={s.icon} size={36} /><span data-edit-path={editPath(`${key}.stats[${j}].label`)}>{s.label.value}</span></li>)}</ul>
           )}
-          {b.url && <a class="btn btn-primary" href={b.url} {...(b.url.startsWith("http") ? { target: "_blank", rel: "noopener" } : {})}>{b.button.value}</a>}
+          {b.url && <a class="btn btn-primary" href={b.url} {...(b.url.startsWith("http") ? { target: "_blank", rel: "noopener" } : {})} data-edit-path={editPath(`${key}.button`)}>{b.button.value}</a>}
         </div>
       </div>
     ))}

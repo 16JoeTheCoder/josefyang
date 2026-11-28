@@ -1,205 +1,35 @@
 ---
 import T from "../../components/T.astro";
 import Img from "../../components/Img.astro";
+import Icon from "../../components/Icon.astro";
 import type { Content } from "../../core/fields";
 import type { PageData } from "../../core/types";
 import mod from "./module";
+
 interface Props { content: Content<typeof mod.fields>; data: PageData }
 const { content: c, data } = Astro.props;
-const F = mod.fields;
-const scanField = F.pages.of.scan;
-const hasFeatured = data.builds.some((b) => b.meta.featured);
-const target = hasFeatured ? "#featured" : "/projects";
-// Six sheet positions on the desk; scans fill them in order, the rest stay blank paper.
-const sheets = Array.from({ length: 6 }, (_, i) => c.pages[i]?.scan ?? null);
+const target = data.builds.some((build) => build.meta.featured) ? "#featured" : "/projects";
+const scans = c.pages.flatMap(({ scan }, i) => scan.mediaId ? [{ scan, path: `pages[${i}].scan` }] : []);
+const edit = data.mode === "draft";
 ---
-<section class="desk ground-desk" data-desk aria-labelledby="desk-name">
-  <div class="desk-stage" data-desk-stage>
-    <header class="desk-title" data-desk-title>
-      <T v={c.headline} f={F.headline} as="h1" id="desk-name" class="desk-name" />
-      <T v={c.line} f={F.line} class="desk-line" />
-    </header>
-
-    <div class="scene" aria-hidden="true" data-desk-scene>
-      <div class="glow" data-glow></div>
-      {sheets.map((scan, i) => (
-        <div class={`sheet sheet-${i + 1}`}>
-          {scan?.mediaId
-            ? <Img v={scan} f={scanField} class="sheet-scan" sizes="(max-width: 860px) 40vw, 240px" emptyLabel={false} />
-            : <div class="sheet-blank"></div>}
-          {i === 1 && <svg class="ring" viewBox="0 0 100 100"><path d="M86 52a36 36 0 1 1-12-27" fill="none" stroke="var(--obj-coffee)" stroke-width="3.2" stroke-linecap="round" /></svg>}
-        </div>
-      ))}
-      <svg class="pencil" viewBox="0 0 300 16">
-        <rect x="26" y="2" width="236" height="12" rx="2" fill="var(--obj-pencil)" />
-        <rect x="26" y="2" width="236" height="4" fill="var(--light-18)" />
-        <rect x="262" y="2" width="18" height="12" fill="var(--muted-dark)" />
-        <rect x="280" y="2" width="18" height="12" rx="4" fill="var(--sun-tile)" />
-        <path d="M26 2 L4 8 L26 14 Z" fill="var(--obj-crema)" />
-        <path d="M11 6 L4 8 L11 10 Z" fill="var(--obj-graphite)" />
-      </svg>
-      <svg class="crumbs" viewBox="0 0 120 60">
-        <ellipse cx="14" cy="20" rx="4" ry="2.6" fill="var(--sun-tile)" />
-        <ellipse cx="32" cy="34" rx="2.6" ry="1.8" fill="var(--sun-tile)" />
-        <ellipse cx="58" cy="16" rx="2" ry="1.4" fill="var(--obj-rule)" />
-        <ellipse cx="86" cy="40" rx="3.2" ry="2" fill="var(--sun-tile)" />
-        <ellipse cx="104" cy="24" rx="1.6" ry="1.2" fill="var(--obj-rule)" />
-      </svg>
-      {c.showCoffee && (
-        <div class="cup" data-cup>
-          <svg viewBox="0 0 200 200">
-            <circle cx="96" cy="100" r="92" fill="var(--white)" />
-            <circle cx="96" cy="100" r="84" fill="none" stroke="var(--hairline)" stroke-width="2" />
-            <rect x="148" y="90" width="44" height="22" rx="11" fill="var(--white)" />
-            <circle cx="96" cy="100" r="62" fill="var(--white)" />
-            <circle cx="96" cy="100" r="54" fill="var(--obj-coffee)" />
-            <circle cx="96" cy="100" r="44" fill="var(--obj-crema)" />
-            <path d="M96 84 C84 70 68 88 96 118 C124 88 108 70 96 84 Z" fill="var(--obj-coffee)" />
-          </svg>
-          <span class="wisp wisp-a"></span>
-          <span class="wisp wisp-b"></span>
-        </div>
-      )}
-      <div class="laptop" data-laptop>
-        <div class="lt-shadow" data-lid-shadow></div>
-        <div class="lt-deck">
-          <svg class="lt-keys" viewBox="0 0 300 120" preserveAspectRatio="none">
-            <defs>
-              <pattern id="desk-key" width="20" height="20" patternUnits="userSpaceOnUse">
-                <rect x="1.5" y="1.5" width="17" height="17" rx="2.5" fill="var(--obj-device)" />
-              </pattern>
-            </defs>
-            <rect x="0" y="0" width="300" height="100" fill="url(#desk-key)" />
-            <rect x="70" y="101" width="160" height="17" rx="2.5" fill="var(--obj-device)" />
-          </svg>
-          <div class="lt-pad"></div>
-        </div>
-        <div class="lt-lid" data-lid>
-          <div class="lt-back"><span class="lt-mark"></span></div>
-          <div class="lt-face">
-            <div class="lt-screen" data-screen>
-              <p class="beat beat-name" data-beat>{c.headline.value}</p>
-              <p class="beat beat-line" data-beat>{c.line.value}</p>
-              <p class="beat beat-cta" data-beat>{c.projectsLink.value}<span class="beat-arrow"></span></p>
-            </div>
-          </div>
-        </div>
-      </div>
+<section class="intro">
+  <div class="wrap intro-grid">
+    <div>
+      <T v={c.headline} f={mod.fields.headline} as="h1" editPath="headline" />
+      <T v={c.line} f={mod.fields.line} editPath="line" />
+      <a href={target} data-edit-path={edit ? "projectsLink" : undefined}>{c.projectsLink.value}<Icon name="arrow-right" size={18} /></a>
     </div>
-
-    <a class="desk-link btn btn-primary" href={target} data-desk-link>
-      {c.projectsLink.value}
-      <svg class="desk-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v11M3 8.5 8 13.5l5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
-    </a>
-    <button type="button" class="desk-pause" data-desk-pause data-pause={c.pauseLabel.value} data-play={c.playLabel.value} aria-pressed="false" hidden>
-      <span class="desk-pause-icon" aria-hidden="true"></span><span data-desk-pause-text>{c.pauseLabel.value}</span>
-    </button>
+    {scans.length > 0 && <div class="scans">
+      {scans.slice(0, 3).map(({ scan, path }) => <Img v={scan} f={mod.fields.pages.of.scan} sizes="(max-width: 720px) 24vw, 180px" editPath={path} />)}
+    </div>}
   </div>
 </section>
-
-<script>
-  import { onPage } from "../../core/island";
-  import { mountDesk } from "./island";
-  onPage("[data-desk]", mountDesk);
-</script>
-
 <style>
-  /* ---------- static composition: phones, reduced motion, no JS ---------- */
-  .desk { --lw: min(70vw, 380px); --open: 158; position: relative; overflow: clip; }
-  .desk-stage { position: relative; display: flex; flex-direction: column; align-items: center; padding: calc(var(--nav-h) + 48px) var(--gutter) 56px; }
-  .desk-title { position: relative; z-index: 3; text-align: center; max-width: 900px; }
-  .desk-title :global(.desk-name) { font-size: clamp(3.25rem, 1.4rem + 7vw, 8.5rem); line-height: 0.88; }
-  .desk-title :global(.desk-name[data-fit="1"]) { font-size: clamp(2.8rem, 1.2rem + 6vw, 7rem); }
-  .desk-title :global(.desk-name[data-fit="2"]) { font-size: var(--size-xxl); }
-  .desk-title :global(.desk-line) { margin: 22px auto 0; max-width: 36ch; font-size: var(--lead); line-height: 1.5; text-wrap: balance; }
-
-  .scene { position: relative; width: 100%; max-width: 720px; aspect-ratio: 1 / 1.22; margin-top: 4px; perspective: 1600px; perspective-origin: 50% 30%; }
-  .glow { position: absolute; left: 50%; top: 40%; width: calc(var(--lw) * 2.2); aspect-ratio: 1.4; translate: -50% -50%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--sun) 16%, transparent), transparent); opacity: 1; pointer-events: none; z-index: 1; }
-
-  .sheet { position: absolute; width: calc(var(--lw) * 0.46); aspect-ratio: 210 / 297; translate: -50% -50%; background: var(--obj-paper); box-shadow: 0 1px 1px var(--shade-08), 0 10px 18px -12px var(--shade-28); z-index: 0; }
-  .sheet-blank { position: absolute; inset: 9% 8% 7% 12%; background: repeating-linear-gradient(to bottom, transparent 0 calc(7.4% - 1px), var(--obj-rule) calc(7.4% - 1px) 7.4%); }
-  .sheet-blank::before { content: ""; position: absolute; left: -5%; top: -6%; bottom: -4%; width: 1px; background: color-mix(in srgb, var(--sun) 28%, transparent); }
-  .sheet :global(.sheet-scan) { position: absolute; inset: 0; }
-  .sheet :global(.sheet-scan img) { mix-blend-mode: multiply; filter: grayscale(1) contrast(1.08); }
-  .ring { position: absolute; width: 46%; right: 6%; bottom: 10%; opacity: 0.34; rotate: -24deg; }
-  .sheet-1 { left: 12%; top: 62%; rotate: -15deg; }
-  .sheet-2 { left: 70%; top: 86%; rotate: 7deg; }
-  .sheet-3 { left: 88%; top: 34%; rotate: 12deg; }
-  .sheet-4 { left: 34%; top: 92%; rotate: -5deg; }
-  .sheet-5, .sheet-6 { display: none; }
-  .pencil { position: absolute; left: 4%; top: 88%; width: calc(var(--lw) * 0.62); rotate: -28deg; filter: drop-shadow(0 2px 1px var(--shade-15)) drop-shadow(0 8px 6px var(--shade-12)); z-index: 2; }
-  .crumbs { position: absolute; left: 62%; top: 94%; width: 80px; z-index: 1; }
-  .cup { position: absolute; left: 84%; top: 91%; width: calc(var(--lw) * 0.34); translate: -50% -50%; z-index: 4; }
-  .cup svg { filter: drop-shadow(0 3px 2px var(--shade-12)) drop-shadow(0 18px 18px var(--shade-20)); }
-  .wisp { position: absolute; left: 40%; top: 30%; width: 22%; height: 46%; border-radius: 50%; background: radial-gradient(closest-side, var(--light-60), transparent); filter: blur(6px); opacity: 0; pointer-events: none; }
-  .wisp-b { left: 52%; top: 26%; }
-
-  /* the laptop, seen from above: deck on the desk, lid hinged at the deck's far edge */
-  .laptop { position: absolute; left: 50%; top: 71%; width: var(--lw); aspect-ratio: 1.5; translate: -50% -50%; rotate: -8deg; transform-style: preserve-3d; z-index: 3; }
-  .lt-deck { position: absolute; inset: 0; border-radius: 10px; background: linear-gradient(160deg, var(--obj-shell-edge), var(--obj-shell) 40%); box-shadow: 0 2px 2px var(--shade-20), 0 30px 40px -20px var(--shade-45); }
-  .lt-keys { position: absolute; left: 7%; right: 7%; top: 9%; height: 52%; width: 86%; }
-  .lt-pad { position: absolute; left: 34%; right: 34%; top: 68%; bottom: 7%; border-radius: 6px; background: var(--light-05); box-shadow: inset 0 0 0 1px var(--light-05); }
-  .lt-shadow { position: absolute; left: 4%; right: 4%; bottom: 100%; height: 80%; border-radius: 40%; background: var(--shade-20); filter: blur(22px); opacity: calc(var(--open) / 158 * 0.7); transform-origin: bottom; transform: scaleY(calc(var(--open) / 158)); }
-  .lt-lid { position: absolute; inset: 0; transform-origin: 50% 0; transform: translateZ(1px) rotateX(calc(var(--open) * 1deg)); transform-style: preserve-3d; }
-  .lt-back, .lt-face { position: absolute; inset: 0; border-radius: 10px; backface-visibility: hidden; }
-  .lt-back { display: grid; place-items: center; background: linear-gradient(150deg, var(--obj-shell-edge), var(--obj-shell) 55%); box-shadow: inset 0 0 0 1px var(--light-05); }
-  .lt-mark { width: 9%; aspect-ratio: 1; border-radius: 3px; border: 1.5px solid var(--light-16); }
-  .lt-face { transform: rotateX(180deg); background: var(--obj-device); padding: 3.4%; box-shadow: inset 0 0 0 1px var(--light-05); }
-  .lt-screen { position: relative; height: 100%; border-radius: 4px; overflow: hidden; background: var(--obj-screen); color: var(--white); }
-  .beat { position: absolute; inset: 0; display: grid; place-content: center; padding: 6% 9%; text-align: center; text-wrap: balance; font-family: var(--font-display); }
-  .beat-name { font-weight: 900; font-size: calc(var(--lw) * 0.115); line-height: 0.9; letter-spacing: var(--track-tight); }
-  .beat-line, .beat-cta { opacity: 0; }
-  .beat-line { font-family: var(--font-body); font-weight: 500; font-size: calc(var(--lw) * 0.042); line-height: 1.45; }
-  .beat-cta { font-weight: 800; font-size: calc(var(--lw) * 0.06); display: flex; flex-direction: column; align-items: center; gap: 0.5em; }
-  .beat-arrow { width: 0.5em; height: 0.5em; border-right: 2px solid var(--sun); border-bottom: 2px solid var(--sun); rotate: 45deg; }
-
-  .desk-link { position: relative; z-index: 5; margin-top: 8px; gap: 10px; }
-  .desk-arrow { width: 16px; height: 16px; }
-  .desk-pause { display: none; }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .wisp-a { animation: desk-steam 5.2s var(--ease-out) infinite; }
-    .wisp-b { animation: desk-steam 5.2s var(--ease-out) -2.6s infinite; }
-    .desk[data-paused] .wisp, .desk[data-offscreen] .wisp { animation-play-state: paused; }
-  }
-  @keyframes desk-steam {
-    0% { opacity: 0; transform: translate(0, 0) scale(0.6, 0.7); }
-    30% { opacity: 0.75; }
-    100% { opacity: 0; transform: translate(-14%, -70%) scale(1.25, 1.5); }
-  }
-
-  /* ---------- the moving desk: wide screens, motion allowed, JS on ---------- */
-  @media (min-width: 861px) and (prefers-reduced-motion: no-preference) {
-    :global(.js) .desk { --lw: min(500px, 38vw, 54svh); --open: 0; height: 175svh; }
-    :global(.js) .desk-stage { position: sticky; top: 0; height: 100svh; padding: 0; display: block; overflow: hidden; }
-    :global(.js) .desk-title { position: absolute; left: 50%; top: calc(var(--nav-h) + 6svh); width: min(900px, 90vw); translate: -50% 0; }
-    :global(.js) .scene { position: absolute; inset: 0; max-width: none; aspect-ratio: auto; margin: 0; perspective-origin: 50% 40%; }
-    :global(.js) .laptop { top: 69%; }
-    :global(.js) .glow { top: 46%; opacity: 0; }
-    :global(.js) .sheet-1 { left: 31%; top: 66%; }
-    :global(.js) .sheet-2 { left: 37%; top: 88%; }
-    :global(.js) .sheet-3 { left: 70%; top: 52%; }
-    :global(.js) .sheet-4 { left: 18%; top: 92%; rotate: -9deg; }
-    :global(.js) .sheet-5 { display: block; left: 59%; top: 101%; rotate: 4deg; }
-    :global(.js) .sheet-6 { display: block; left: 95%; top: 84%; rotate: -10deg; }
-    :global(.js) .pencil { left: 22%; top: 78%; }
-    :global(.js) .crumbs { left: 24%; top: 58%; }
-    :global(.js) .cup { left: 78%; top: 74%; }
-    :global(.js) .desk-link { position: absolute; right: var(--gutter); bottom: 32px; margin: 0; }
-    :global(.js) .desk-pause { display: inline-flex; position: absolute; left: var(--gutter); bottom: 32px; z-index: 5; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px; border: 0; border-radius: var(--pill); background: var(--light-60); font-family: var(--font-display); font-weight: 600; font-size: var(--size-xs); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out); }
-    :global(.js) .desk-pause:hover { background: var(--white); }
-    :global(.js) .desk-pause[hidden] { display: none; }
-    .desk-pause-icon { width: 10px; height: 11px; border-inline: 3px solid currentColor; }
-    .desk-pause[aria-pressed="true"] .desk-pause-icon { border: 0; border-left: 10px solid currentColor; border-block: 5.5px solid transparent; width: 0; height: 0; }
-  }
-
-  /* wide screens without the motion (reduced motion or no JS): fit the still desk in one viewport */
-  @media (min-width: 861px) {
-    .desk { --lw: min(380px, 26svh); }
-    .scene { max-width: min(720px, 47svh); }
-    .desk-stage { padding-bottom: 32px; }
-  }
-  @media (max-width: 860px) {
-    .desk-title :global(.desk-line) { margin-top: 16px; }
-  }
+  .intro { min-height: min(100svh, 760px); display: grid; align-items: center; padding-block: 112px 40px; background: var(--workbench); color: var(--workbench-ink); }
+  .intro-grid { display: grid; gap: 32px; }
+  .intro-grid :global(h1) { font-size: clamp(3rem, 10vw, 6rem); line-height: .94; letter-spacing: var(--track-tight); }
+  .intro-grid :global(.r-body) { margin-top: 18px; color: var(--workbench-subtle); }
+  .intro-grid a { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; margin-top: 18px; font-weight: 700; text-decoration-color: var(--sun); }
+  .scans { display: flex; gap: 12px; }
+  .scans :global(.img-slot) { width: min(28vw, 175px); }
 </style>

@@ -108,7 +108,7 @@ function GameEditor({ game, onBack, onChanged }: { game: GameRec; onBack: () => 
   const problems = a.problems.length ? a.problems : serverProblems;
   return (
     <div class="split">
-      <div class="editor" onFocusOut={() => void a.flush()}>
+      <div class="editor" onFocusOut={() => void a.flush().catch(() => {})}>
         <header class="ed-head">
           <button type="button" class="linkish" onClick={onBack}>All games</button>
           <h1>{doc.game.name.value || "Untitled game"}</h1>
@@ -153,7 +153,7 @@ function HubForm({ init, toast }: { init: { value: Record<string, unknown>; upda
   const problems = a.problems.length ? a.problems : serverProblems;
   return (
     <div class="split">
-      <div class="editor" onFocusOut={() => void a.flush()}>
+      <div class="editor" onFocusOut={() => void a.flush().catch(() => {})}>
         <h1>Game hub text</h1>
         <p class="muted">Every line on the hub and on each game page that is not about one game: headings, install notes, labels.</p>
         <StatusBar status={a.status} savedAt={a.savedAt} error={a.error} problems={problems} onPublish={publish} publishing={publishing} dirty={dirty} />

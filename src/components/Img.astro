@@ -14,9 +14,11 @@ interface Props {
   ratio?: string;
   grey?: boolean;
   emptyLabel?: boolean;
+  editPath?: string;
 }
-const { v, f, sizes = "100vw", eager = false, class: cls = "", ratio, grey = false, emptyLabel = true } = Astro.props;
+const { v, f, sizes = "100vw", eager = false, class: cls = "", ratio, grey = false, emptyLabel = true, editPath } = Astro.props;
 const base = mediaBase(env.MEDIA_BASE_URL);
+const path = Astro.locals.mode === "draft" ? editPath : undefined;
 const has = !!(v && v.mediaId && v.key);
 const mode = v?.mode ?? "fill";
 const objectFallback = mode === "object" && v?.transparent === false;
@@ -26,7 +28,7 @@ const style = [
 ].join(";");
 ---
 {has ? (
-  <div class:list={["img-slot", `img-${objectFallback ? "fill" : mode}`, grey && "img-grey", cls]} style={style}>
+  <div class:list={["img-slot", `img-${objectFallback ? "fill" : mode}`, grey && "img-grey", cls]} style={style} data-edit-path={path}>
     <img
       src={fallbackSrc(base, v!)}
       srcset={srcset(base, v!) || undefined}
@@ -40,7 +42,7 @@ const style = [
     />
   </div>
 ) : (
-  <div class:list={["img-slot", "img-empty", `img-${mode}-empty`, cls]} style={style} role="img" aria-label={f.empty}>
+  <div class:list={["img-slot", "img-empty", `img-${mode}-empty`, cls]} style={style} data-edit-path={path} role="img" aria-label={f.empty}>
     <Icon name="image" size={36} />
     {emptyLabel && <span>{f.empty}</span>}
   </div>

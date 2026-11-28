@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
-import { walk, type Fields, type ImageValue, type TextValue } from "../core/fields";
+import { walk, withDefaults, type Fields, type ImageValue, type ListField, type Slot, type TextValue } from "../core/fields";
 import type { PageId, Section } from "../core/module";
 import { getModule, modules } from "../core/registry";
 import { api, isApiError } from "./api";
 import { useAutosave, type Problem } from "./autosave";
-import { FieldsForm } from "./Fields";
-import { ImagesPanel, Preview, StatusBar, TextPanel, Versions, setAtPath, type LiveSend, type PanelSection, type PickMsg } from "./parts";
+import { emptyValue, FieldControl, FieldsForm } from "./Fields";
+import { Preview, StatusBar, Versions, setAtPath, type LiveSend, type PanelSection, type PickMsg } from "./parts";
 import { useAdmin } from "./state";
+import "./visual-workspace.css";
 
 export interface PageRec { id: string; sections: Section[]; updatedAt: number; dirty: boolean }
 
-export const PAGE_ROUTES: Record<string, string> = { home: "/", projects: "/projects", failures: "/failures", devlog: "/devlog", about: "/about", entry: "/devlog" };
+export const PAGE_ROUTES: Record<string, string> = { home: "/", projects: "/projects", failures: "/failures", devlog: "/devlog", about: "/about" };
 export const PAGE_NAMES: Record<string, string> = { home: "Home", projects: "Projects", failures: "Failures", devlog: "Devlog page", entry: "Devlog entry layout", about: "About" };
 
 /** A request from the preview (or the panels) to open a section and focus one of its fields. */
@@ -144,29 +145,186 @@ export function SectionsEditor({ sections, onChange, page = "build", focus }: { 
   );
 }
 
-/** Finds which field of a section shows this text or image (click-to-edit from the preview). */
+
+/** Fields visible in the inspector, with collection controls and nested paths. */
+function inspectorSlots(fields: Fields, content: unknown, base = "", context = ""): (Slot & { title: string })[] {
+  const record = (content ?? {}) as Record<string, unknown>;
+  return Object.entries(fields).flatMap(([key, field]) => {
+    const path = base ? base + "." + key : key;
+    const title = context + field.label;
+    const value = record[key];
+    if (field.kind === "group") return inspectorSlots(field.fields, value, path, title + " / ");
+    if (field.kind !== "list") return [{ path, value, field, title }];
+    const items = Array.isArray(value) ? value : [];
+    return [{ path, value, field, title }, ...items.flatMap((item, i) => inspectorSlots(field.of, item, path + "[" + i + "]", title + " / " + field.itemLabel + " " + (i + 1) + " / "))];
+  });
+}
+
+/** An exact descriptor path takes precedence. Older sections fall back only to a unique match. */
 export function findField(sections: Section[], msg: PickMsg): FocusReq | null {
   const s = sections.find((x) => x.sectionId === msg.section);
   if (!s) return null;
   const m = getModule(s.moduleId);
-  if (!m) return { sectionId: s.sectionId, path: null, n: Date.now() };
-  const slots = walk(m.fields, s.content);
-  let hit: string | null = null;
-  if (msg.image) {
-    hit = slots.find((x) => x.field.kind === "image" && msg.mediaKey && (x.value as ImageValue | undefined)?.key === msg.mediaKey)?.path
-      ?? slots.find((x) => x.field.kind === "image" && !(x.value as ImageValue | undefined)?.mediaId)?.path ?? null;
-  } else if (msg.text) {
-    const norm = (v: string) => v.replace(/\s+/g, " ").trim().toLowerCase();
-    const want = norm(msg.text);
-    const texts = slots.filter((x) => x.field.kind === "text").map((x) => ({ path: x.path, v: norm((x.value as TextValue | undefined)?.value ?? "") })).filter((x) => x.v);
-    hit = texts.find((x) => x.v === want)?.path ?? texts.find((x) => want.includes(x.v) || x.v.includes(want))?.path ?? null;
+  const slots = m ? inspectorSlots(m.fields, s.content) : [];
+  const exact = msg.path && slots.find((slot) => slot.path === msg.path);
+  const norm = (v: string) => v.replace(/\s+/g, " ").trim();
+  const text = norm(msg.text ?? "");
+  const matches = msg.image ? slots.filter(({ field, value }) => {
+    if (field.kind !== "image") return false;
+    const image = value as ImageValue | undefined;
+    return msg.mediaKey ? image?.key === msg.mediaKey : !image?.mediaId;
+  }) : text ? slots.filter(({ field, value }) =>
+    field.kind === "text" && norm((value as TextValue | undefined)?.value ?? "") === text,
+  ) : [];
+  return { sectionId: s.sectionId, path: exact ? exact.path : matches.length === 1 ? matches[0]!.path : null, n: performance.now() };
+}
+
+function prepareSections(sections: Section[]): Section[] {
+  return sections.map((section) => {
+    const m = getModule(section.moduleId);
+    if (!m) return section;
+    const content = section.moduleVersion < m.version && m.migrate ? m.migrate(section.content, section.moduleVersion) : section.content;
+    return { ...section, moduleVersion: m.version, content: withDefaults(m.defaults, content) };
+  });
+}
+
+function CollectionInspector({ slot, onChange, onPick }: { slot: Slot<ListField>; onChange: (value: unknown) => void; onPick: (path: string) => void }) {
+  const items = Array.isArray(slot.value) ? slot.value as Record<string, unknown>[] : [];
+  const { field, path } = slot;
+  const move = (from: number, to: number) => {
+    const next = [...items];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item!);
+    onChange(next);
+  };
+
+  return <div class="visual-collection">
+    <p>{items.length} of {field.max} items</p>
+    <ol>
+      {items.map((item, i) => {
+        const label = Object.entries(field.of).find(([, child]) => child.kind === "text");
+        const title = label && (item[label[0]] as TextValue | undefined)?.value;
+        const children = inspectorSlots(field.of, item, path + "[" + i + "]");
+        return <li key={i}>
+          <strong>{title || field.itemLabel + " " + (i + 1)}</strong>
+          <div class="visual-collection-actions">
+            {children[0] && <button type="button" class="mini" onClick={() => onPick(children[0]!.path)}>Edit</button>}
+            <button type="button" class="mini" disabled={!i} onClick={() => move(i, i - 1)} aria-label={"Move item " + (i + 1) + " up"}>Up</button>
+            <button type="button" class="mini" disabled={i === items.length - 1} onClick={() => move(i, i + 1)} aria-label={"Move item " + (i + 1) + " down"}>Down</button>
+            <button type="button" class="mini danger" disabled={items.length <= field.min} onClick={() => onChange(items.filter((_, j) => i !== j))}>Remove</button>
+          </div>
+        </li>;
+      })}
+    </ol>
+    {items.length < field.max && <button type="button" onClick={() => onChange([...items, emptyValue({ kind: "group", label: field.itemLabel, fields: field.of })])}>Add {field.itemLabel.toLowerCase()}</button>}
+  </div>;
+}
+
+/** One selected field only. The chooser provides access to settings without a canvas element. */
+export function FieldInspector({ title, fields, content, focus, onPick, onChange, onClose }: {
+  title: string;
+  fields: Fields;
+  content: unknown;
+  focus: FocusReq;
+  onPick: (path: string | null) => void;
+  onChange: (path: string, value: unknown) => void;
+  onClose: () => void;
+}) {
+  const selectedControl = useRef<HTMLDivElement>(null);
+  const slots = inspectorSlots(fields, content);
+  const selected = slots.find((slot) => slot.path === focus.path);
+  useEffect(() => {
+    const field = selectedControl.current?.querySelector<HTMLElement>('textarea, input:not([type="range"]):not([type="checkbox"])');
+    if (selected?.field.kind === "text") field?.focus({ preventScroll: true });
+    else if (!selected) selectedControl.current?.querySelector<HTMLElement>("select")?.focus({ preventScroll: true });
+  }, [focus.n]);
+
+  return <>
+    <div class="visual-inspector-heading">
+      <div><p>{title}</p><h2>{selected?.field.label ?? "Properties"}</h2></div>
+      <button type="button" class="mini" onClick={onClose}>Clear</button>
+    </div>
+    <div class="visual-inspector-content" ref={selectedControl}>
+      <label class="visual-field-picker">
+        <span>{selected ? "Switch property" : "Choose a property"}</span>
+        <select value={selected?.path ?? ""} onChange={(event) => onPick((event.currentTarget as HTMLSelectElement).value || null)}>
+          <option value="">{selected ? "Select a different property" : "Select a property"}</option>
+          {slots.map(({ path, title: label }) => <option key={path} value={path}>{label}</option>)}
+        </select>
+      </label>
+      {selected && (selected.field.kind === "list"
+        ? <CollectionInspector key={selected.path} slot={selected as Slot<ListField>} onChange={(value) => onChange(selected.path, value)} onPick={onPick} />
+        : <FieldControl key={selected.path} id={focus.sectionId + "." + selected.path} field={selected.field} value={selected.value} onChange={(value) => onChange(selected.path, value)} />)}
+      {!selected && <p class="muted small">Choose a property here, or select an element on the page.</p>}
+    </div>
+  </>;
+}
+
+/** Structural edits are grouped in the section outline, away from individual properties. */
+export function SectionLayers({ sections, page = "build", onChange, onSelect }: {
+  sections: Section[];
+  page?: string;
+  onChange: (sections: Section[]) => void;
+  onSelect: (id: string) => void;
+}) {
+  const [addId, setAddId] = useState("");
+  const [remove, setRemove] = useState<string | null>(null);
+  const kind = PAGE_KIND[page] ?? "build";
+  const available = Object.values(modules).filter((m) => m.pages.includes(kind)).sort((a, b) => a.name.localeCompare(b.name));
+  const move = (i: number, to: number) => {
+    const next = [...sections];
+    const [section] = next.splice(i, 1);
+    next.splice(to, 0, section!);
+    onChange(next);
+  };
+  function add() {
+    const m = getModule(addId);
+    if (!m) return;
+    let id = m.id;
+    for (let i = 2; sections.some((section) => section.sectionId === id); i++) id = m.id + "-" + i;
+    onChange([...sections, { sectionId: id, moduleId: m.id, moduleVersion: m.version, content: structuredClone(m.defaults) }]);
+    setAddId("");
+    onSelect(id);
   }
-  return { sectionId: s.sectionId, path: hit, n: Date.now() };
+
+  return <div class="visual-layer-list">
+    <ol>
+      {sections.map((section, i) => <li class="visual-layer" key={section.sectionId}>
+        <button type="button" class="visual-layer-name" onClick={() => onSelect(section.sectionId)}>
+          <strong>{getModule(section.moduleId)?.name ?? section.moduleId}</strong>
+          {section.hidden && <span class="muted small">Hidden</span>}
+        </button>
+        <details>
+          <summary>Section options</summary>
+          <div class="visual-collection-actions">
+            <button type="button" class="mini" disabled={i === 0} onClick={() => move(i, i - 1)}>Move up</button>
+            <button type="button" class="mini" disabled={i === sections.length - 1} onClick={() => move(i, i + 1)}>Move down</button>
+            <button type="button" class="mini" onClick={() => onChange(sections.map((item) => item === section ? { ...item, hidden: !item.hidden } : item))}>{section.hidden ? "Show" : "Hide"}</button>
+            <button type="button" class="mini danger" onClick={() => {
+              if (remove !== section.sectionId) { setRemove(section.sectionId); return; }
+              onChange(sections.filter((item) => item !== section));
+              setRemove(null);
+            }}>{remove === section.sectionId ? "Confirm removal" : "Remove"}</button>
+            {remove === section.sectionId && <button type="button" class="mini" onClick={() => setRemove(null)}>Cancel</button>}
+          </div>
+        </details>
+      </li>)}
+    </ol>
+    {available.length > 0 && sections.length < 40 && <div class="visual-add-layer">
+      <label><span>Add a section</span>
+        <select value={addId} onChange={(event) => setAddId((event.currentTarget as HTMLSelectElement).value)}>
+          <option value="">Choose a section type</option>
+          {available.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+        </select>
+      </label>
+      <button type="button" disabled={!addId} onClick={add}>Add section</button>
+    </div>}
+  </div>;
 }
 
 /** Text slots whose value changed between two drafts (sent to the preview live, before saving). */
-export function changedTexts(prev: Section[], next: Section[]): { section: string; old: string; next: string }[] {
-  const out: { section: string; old: string; next: string }[] = [];
+export function changedTexts(prev: Section[], next: Section[]): { section: string; old: string; next: string; path: string }[] {
+  const out: { section: string; old: string; next: string; path: string }[] = [];
   for (const n of next) {
     const p = prev.find((x) => x.sectionId === n.sectionId);
     const m = getModule(n.moduleId);
@@ -176,7 +334,7 @@ export function changedTexts(prev: Section[], next: Section[]): { section: strin
       if (x.field.kind !== "text") continue;
       const v = (x.value as TextValue | undefined)?.value ?? "";
       const o = before.get(x.path);
-      if (o !== undefined && o !== v && o.trim()) out.push({ section: n.sectionId, old: o, next: v });
+      if (o !== undefined && o !== v) out.push({ section: n.sectionId, old: o, next: v, path: x.path });
     }
   }
   return out;
@@ -195,60 +353,131 @@ export function panelSections(sections: Section[], onChange: (s: Section[]) => v
   });
 }
 
-export function PageEditor({ page, onPublished, focusSection }: { page: PageRec; onPublished: () => void; focusSection?: string | null }) {
+
+export function PageEditor({ page, onPublished, focusSection, entryPreviewId, onOpenDevlog }: {
+  page: PageRec;
+  onPublished: () => void;
+  focusSection?: string | null;
+  entryPreviewId?: string;
+  onOpenDevlog?: () => void;
+}) {
   const { toast } = useAdmin();
   const [reloadKey, setReloadKey] = useState(0);
   const [publishing, setPublishing] = useState(false);
   const [dirty, setDirty] = useState(page.dirty);
   const [serverProblems, setServerProblems] = useState<Problem[]>([]);
-  const a = useAutosave<Section[]>(page.sections, page.updatedAt, async (sections, updatedAt, keepalive) => {
-    const r = await api<{ updatedAt: number; problems: Problem[] }>("PATCH", `pages/${page.id}`, { sections, updatedAt }, { keepalive });
+  const [focus, setFocus] = useState<FocusReq | null>(null);
+  const [pane, setPane] = useState<"properties" | "sections" | "history">("properties");
+  const [editMode, setEditMode] = useState(true);
+  const [canvasRequest, setCanvasRequest] = useState(0);
+  const live = useRef<LiveSend | null>(null);
+  const inspector = useRef<HTMLElement>(null);
+  const a = useAutosave<Section[]>(prepareSections(page.sections), page.updatedAt, async (sections, updatedAt, keepalive) => {
+    const saved = await api<{ updatedAt: number; problems: Problem[] }>("PATCH", "pages/" + page.id, { sections, updatedAt }, { keepalive });
     setReloadKey((k) => k + 1);
-    setDirty(true);
-    return r;
+    return saved;
   });
-  const publish = async () => {
+  const valueRef = useRef(a.value);
+  valueRef.current = a.value;
+  const route = page.id === "entry"
+    ? entryPreviewId ? `/devlog/${encodeURIComponent(entryPreviewId)}` : null
+    : PAGE_ROUTES[page.id] ?? "/";
+  const selected = a.value.find((item) => item.sectionId === focus?.sectionId);
+  const selectedModule = selected && getModule(selected.moduleId);
+
+  function choose(sectionId: string, path: string | null, jump = true) {
+    setFocus({ sectionId, path, n: performance.now() });
+    setPane("properties");
+    setEditMode(true);
+    if (jump) setCanvasRequest((n) => n + 1);
+  }
+
+  useEffect(() => {
+    if (focusSection) choose(focusSection, null);
+  }, [focusSection]);
+
+  const revealInspector = useCallback(() => {
+    if (matchMedia("(max-width: 850px)").matches) inspector.current?.scrollIntoView({ block: "nearest" });
+  }, []);
+
+  const onPick = useCallback((msg: PickMsg) => {
+    const result = findField(valueRef.current, msg);
+    if (!result) return;
+    setFocus(result);
+    setPane("properties");
+    revealInspector();
+  }, [revealInspector]);
+
+  function edit(next: Section[]) {
+    for (const c of changedTexts(valueRef.current, next)) live.current?.(c.section, c.old, c.next, c.path);
+    valueRef.current = next;
+    setDirty(true);
+    setServerProblems([]);
+    a.setValue(next);
+  }
+
+  async function publish() {
     setPublishing(true);
     try {
       await a.flush();
-      await api("POST", `pages/${page.id}/publish`, {});
-      setDirty(false); setServerProblems([]);
-      toast(`${PAGE_NAMES[page.id]} is live.`);
+      if (a.isDirty()) { toast("Wait for the draft to save before publishing."); return; }
+      await api("POST", "pages/" + page.id + "/publish", {});
+      setDirty(a.isDirty());
+      setServerProblems([]);
+      toast((PAGE_NAMES[page.id] ?? page.id) + " is live.");
       onPublished();
     } catch (e) {
       if (isApiError(e)) { setServerProblems(e.problems ?? []); toast(e.error); }
+      else toast("Could not publish this page.");
     } finally { setPublishing(false); }
-  };
-  const reload = async () => {
-    const p = await api<PageRec>("GET", `pages/${page.id}`);
-    a.reset(p.sections, p.updatedAt);
-    setDirty(true);
+  }
+
+  async function reload() {
+    const restored = await api<PageRec>("GET", "pages/" + page.id);
+    a.reset(prepareSections(restored.sections), restored.updatedAt);
+    setDirty(restored.dirty);
+    setServerProblems([]);
+    setFocus(null);
     setReloadKey((k) => k + 1);
-  };
-  const problems = a.problems.length ? a.problems : serverProblems;
-  const live = useRef<LiveSend | null>(null);
-  const [focus, setFocus] = useState<FocusReq | null>(null);
-  // Deep link from "Ready to publish": #page/home?s=home-hero opens that section.
-  useEffect(() => { if (focusSection) setFocus({ sectionId: focusSection, path: null, n: Date.now() }); }, [focusSection]);
-  const valueRef = useRef(a.value);
-  valueRef.current = a.value;
-  const edit = (next: Section[]) => {
-    for (const c of changedTexts(valueRef.current, next)) live.current?.(c.section, c.old, c.next);
-    a.setValue(next);
-  };
-  const onPick = useCallback((m: PickMsg) => setFocus(findField(valueRef.current, m)), []);
-  return (
-    <div class="split">
-      <div class="editor" onFocusOut={() => void a.flush()}>
-        <header class="ed-head"><h1>{PAGE_NAMES[page.id] ?? page.id}</h1></header>
-        <StatusBar status={a.status} savedAt={a.savedAt} error={a.error} problems={problems} onPublish={publish} publishing={publishing} dirty={dirty} />
-        <TextPanel sections={panelSections(a.value, edit)} />
-        <ImagesPanel sections={panelSections(a.value, edit)} />
-        <h2 class="ed-sub">Sections</h2>
-        <SectionsEditor sections={a.value} onChange={edit} page={page.id} focus={focus} />
-        <Versions ownerType="page" ownerId={page.id} onRestored={reload} refreshKey={reloadKey} />
+  }
+
+  return <section class="visual-workspace" aria-label="Page editor">
+    <header class="visual-workspace-toolbar">
+      <h1>{PAGE_NAMES[page.id] ?? page.id}</h1>
+      <div class="visual-workspace-actions">
+        <button type="button" aria-pressed={pane === "sections"} onClick={() => { setPane(pane === "sections" ? "properties" : "sections"); setEditMode(true); revealInspector(); }}>Sections</button>
+        <button type="button" aria-pressed={pane === "history"} onClick={() => { setPane(pane === "history" ? "properties" : "history"); revealInspector(); }}>History</button>
+        {route && <button type="button" aria-pressed={!editMode} onClick={() => setEditMode((v) => !v)}>{editMode ? "Preview interactions" : "Back to editing"}</button>}
       </div>
-      <Preview route={PAGE_ROUTES[page.id] ?? "/"} reloadKey={reloadKey} onPick={onPick} liveRef={live} />
+      <StatusBar status={a.status} savedAt={a.savedAt} error={a.error} problems={a.problems.length ? a.problems : serverProblems} onPublish={publish} publishing={publishing} dirty={dirty}
+        extra={<button type="button" onClick={() => void a.flush().catch(() => { /* The save status shows the error. */ })} disabled={a.status === "saving" || !a.isDirty()}>Save draft</button>} />
+    </header>
+    <div class="visual-workspace-body">
+      {route ? <Preview route={route} reloadKey={reloadKey} editMode={editMode} onPick={onPick} liveRef={live}
+        selection={focus ? { section: focus.sectionId, path: focus.path } : null} selectionRequest={canvasRequest} /> : <div class="preview visual-canvas-empty">
+        <h2>Preview an entry</h2>
+        <p>Create a Devlog entry to see this layout with your content.</p>
+        {onOpenDevlog && <button type="button" onClick={onOpenDevlog}>Open Devlog</button>}
+      </div>}
+      <aside ref={inspector} class="visual-inspector" aria-label={pane === "properties" ? "Selected properties" : pane === "sections" ? "Page sections" : "Version history"}>
+        {pane === "sections" ? <>
+          <div class="visual-inspector-heading"><h2>Sections</h2><button type="button" class="mini" onClick={() => setPane("properties")}>Close</button></div>
+          <SectionLayers sections={a.value} page={page.id} onChange={edit} onSelect={(id) => choose(id, null)} />
+        </> : pane === "history" ? <>
+          <div class="visual-inspector-heading"><h2>History</h2><button type="button" class="mini" onClick={() => setPane("properties")}>Close</button></div>
+          <div class="visual-inspector-content"><Versions ownerType="page" ownerId={page.id} beforeRestore={a.flush} onRestored={reload} refreshKey={reloadKey} expanded /></div>
+        </> : selected && selectedModule && focus ? (
+          <FieldInspector title={selectedModule.name} fields={selectedModule.fields} content={selected.content} focus={focus}
+            onPick={(path) => choose(selected.sectionId, path)} onClose={() => setFocus(null)}
+            onChange={(path, value) => edit(valueRef.current.map((item) => item.sectionId === selected.sectionId ? { ...item, content: setAtPath(item.content, path, value) } : item))} />
+        ) : <>
+          <div class="visual-inspector-heading"><h2>Properties</h2></div>
+          <div class="visual-inspector-content visual-inspector-empty">
+            <p>{!route ? "Browse the layout’s sections to edit their properties." : editMode ? "Select text or an image on the page to edit it here." : "Return to editing to select elements on the page."}</p>
+            {editMode && <button type="button" onClick={() => setPane("sections")}>Browse sections</button>}
+          </div>
+        </>}
+      </aside>
     </div>
-  );
+  </section>;
 }

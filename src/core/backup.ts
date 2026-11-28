@@ -1,5 +1,5 @@
 /** Weekly D1 → R2 backup (architecture §17.3): one SQL file of INSERTs per run, keeping the last 8. */
-const TABLES = ["pages", "templates", "builds", "devlog", "milestones", "media", "media_usage", "settings", "versions"];
+const TABLES = ["pages", "templates", "builds", "devlog_taxonomy", "devlog", "milestones", "media", "media_usage", "settings", "versions"];
 const KEEP = 8;
 
 const lit = (v: unknown): string =>

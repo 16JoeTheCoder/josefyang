@@ -1,114 +1,124 @@
-/**
- * The hopper (03-pages Failures). Pointer drag (not HTML5 drag-and-drop) drops a tile into the hopper;
- * a tap or click feeds it straight in; keyboard users focus a tile and press it or "Feed it in".
- * Reduced motion never mounts this: CSS shows the list of expandable slips instead.
- */
-import { gsap } from "gsap";
-import { reducedMotion, type Unmount } from "../../core/island";
+import type { Unmount } from "../../core/island";
 
 export function mountHopper(root: HTMLElement): Unmount | void {
-  if (reducedMotion()) return;
-  const tiles = [...root.querySelectorAll<HTMLButtonElement>("[data-tile]")];
-  const mouth = root.querySelector<HTMLElement>("[data-mouth]");
-  const paper = root.querySelector<HTMLElement>("[data-paper]");
-  const feedBtn = root.querySelector<HTMLButtonElement>("[data-feed]");
-  const slips = [...root.querySelectorAll<HTMLElement>("[data-slip]")];
-  const wait = root.querySelector<HTMLElement>("[data-wait]");
-  const panel = root.querySelector<HTMLElement>("[data-panel]");
-  if (!mouth || !tiles.length) return;
+  const drawer = root.querySelector<HTMLElement>("[data-drawer]");
+  const toggle = root.querySelector<HTMLButtonElement>("[data-drawer-toggle]");
+  const list = drawer?.querySelector<HTMLOListElement>("ol");
+  const label = root.querySelector<HTMLElement>("[data-drawer-label]");
+  const stack = root.querySelector<HTMLElement>("[data-case-stack]");
+  const announcement = root.querySelector<HTMLElement>("[data-case-announcement]");
+  const links = [...root.querySelectorAll<HTMLAnchorElement>("[data-case-link]")];
+  const reports = [...root.querySelectorAll<HTMLElement>("[data-case-report]")];
+  if (!drawer || !toggle || !label || !stack || !reports.length) return;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+  const compact = matchMedia("(max-width: 810px)");
+  const controller = new AbortController();
+  const { signal } = controller;
+  let active: HTMLElement | undefined;
+  let animations: Animation[] = [];
+  let revision = 0;
 
-  let selected = tiles[0]!;
-  let busy = false;
-  const select = (t: HTMLButtonElement) => {
-    selected = t;
-    tiles.forEach((x) => x.setAttribute("aria-pressed", x === t ? "true" : "false"));
-  };
-  select(selected);
+  function closeMotion() {
+    animations.forEach((animation) => animation.cancel());
+    animations = [];
+    reports.forEach((report) => {
+      report.hidden = report !== active;
+      report.inert = report !== active;
+      report.removeAttribute("data-leaving");
+      report.toggleAttribute("data-shown", report === active);
+    });
+  }
 
-  const show = (slug: string) => {
-    if (wait) wait.hidden = true;
-    slips.forEach((s) => { s.hidden = s.dataset.slip !== slug; });
-    const r = panel?.getBoundingClientRect();
-    if (panel && r && r.top > window.innerHeight * 0.85) panel.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  function revealActiveFile() {
+    const link = links.find((item) => item.dataset.caseLink === active?.id);
+    if (!link || !list || drawer?.inert) return;
+    const bounds = list.getBoundingClientRect();
+    const file = link.getBoundingClientRect();
+    if (file.top < bounds.top) list.scrollTop -= bounds.top - file.top;
+    else if (file.bottom > bounds.bottom) list.scrollTop += file.bottom - bounds.bottom + 8;
+  }
 
-  const feed = (t: HTMLButtonElement) => {
-    if (busy) return;
-    busy = true;
-    select(t);
-    const tr = t.getBoundingClientRect();
-    const mr = mouth.getBoundingClientRect();
-    const dx = mr.left + mr.width / 2 - (tr.left + tr.width / 2) + Number(gsap.getProperty(t, "x"));
-    const dy = mr.top + 10 - (tr.top + tr.height / 2) + Number(gsap.getProperty(t, "y"));
-    gsap.timeline({ onComplete: () => { busy = false; } })
-      .to(t, { x: dx, y: dy, rotation: 0, scale: 0.3, duration: 0.55, ease: "expo.in" })
-      .to(t, { opacity: 0, duration: 0.12 }, "-=0.12")
-      .add(() => show(t.dataset.tile!))
-      .fromTo(paper, { height: 40 }, { height: 150, duration: 0.6, ease: "expo.out" })
-      .to(paper, { height: 40, duration: 0.5, ease: "power2.inOut" }, "+=0.5")
-      .set(t, { x: 0, y: 0, scale: 0.9 }, "<")
-      .to(t, { opacity: 1, scale: 1, duration: 0.4, ease: "expo.out" }, "<");
-  };
+  function select(report: HTMLElement, animate = true) {
+    if (report === active) return;
+    const request = ++revision;
+    closeMotion();
+    const previous = active;
+    active = report;
+    reports.forEach((item) => {
+      item.hidden = item !== report;
+      item.inert = item !== report;
+      item.toggleAttribute("data-shown", item === report);
+    });
+    links.forEach((link) => {
+      if (link.dataset.caseLink === report.id) link.setAttribute("aria-current", "true");
+      else link.removeAttribute("aria-current");
+    });
+    revealActiveFile();
+    if (announcement && animate) announcement.textContent = report.querySelector("h2")?.textContent ?? "";
 
-  // Pointer drag
-  let drag: { t: HTMLButtonElement; x: number; y: number; moved: boolean; id: number } | null = null;
-  let suppressClick = false;
-  const onDown = (e: PointerEvent) => {
-    const t = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-tile]");
-    if (!t || busy || e.button !== 0) return;
-    drag = { t, x: e.clientX, y: e.clientY, moved: false, id: e.pointerId };
-  };
-  const onMove = (e: PointerEvent) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const dx = e.clientX - drag.x;
-    const dy = e.clientY - drag.y;
-    if (!drag.moved && Math.hypot(dx, dy) < 6) return;
-    if (!drag.moved) { drag.moved = true; drag.t.setPointerCapture(e.pointerId); drag.t.classList.add("is-drag"); }
-    gsap.set(drag.t, { x: dx, y: dy });
-  };
-  const onUp = (e: PointerEvent) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const d = drag;
-    drag = null;
-    if (!d.moved) return; // a plain click: handled by onClick
-    suppressClick = true;
-    d.t.classList.remove("is-drag");
-    const tr = d.t.getBoundingClientRect();
-    const mr = mouth.getBoundingClientRect();
-    const cx = tr.left + tr.width / 2;
-    const cy = tr.top + tr.height / 2;
-    const inside = cx > mr.left - 40 && cx < mr.right + 40 && cy > mr.top - 80 && cy < mr.top + mr.height * 0.7;
-    if (inside) feed(d.t);
-    else gsap.to(d.t, { x: 0, y: 0, duration: 0.5, ease: "expo.out" });
-  };
-  const onClick = (e: MouseEvent) => {
-    const t = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-tile]");
-    if (!t) return;
-    if (suppressClick) { suppressClick = false; return; }
-    feed(t);
-  };
-  const onFocus = (e: FocusEvent) => {
-    const t = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-tile]");
-    if (t && t.matches(":focus-visible")) select(t); // keyboard focus only: a pointer press that ends in a failed drag keeps the selection
-  };
-  const onFeed = () => feed(selected);
+    if (!previous || !animate || reduce.matches || !report.animate) return;
+    previous.hidden = false;
+    previous.setAttribute("data-leaving", "");
+    animations = [
+      previous.animate(
+        [{ opacity: 1, transform: "translate3d(0, 0, 0) scale(1)" },
+         { opacity: 0, transform: "translate3d(-28px, 7px, 0) scale(.98)" }],
+        { duration: 170, easing: "cubic-bezier(.3, .7, .35, 1)" },
+      ),
+      report.animate(
+        [{ opacity: 0, transform: compact.matches ? "translate3d(0, -15px, 0)" : "translate3d(-36px, 8px, 0) rotate(-1deg)" },
+         { opacity: 1, transform: "translate3d(0, 0, 0) rotate(0)" }],
+        { duration: 320, easing: "cubic-bezier(.16, 1, .3, 1)" },
+      ),
+    ];
+    void Promise.allSettled(animations.map((animation) => animation.finished)).then(() => {
+      if (revision === request) closeMotion();
+    });
+  }
 
-  root.addEventListener("pointerdown", onDown);
-  root.addEventListener("pointermove", onMove);
-  root.addEventListener("pointerup", onUp);
-  root.addEventListener("pointercancel", onUp);
-  root.addEventListener("click", onClick);
-  root.addEventListener("focusin", onFocus);
-  feedBtn?.addEventListener("click", onFeed);
+  function syncHash(animate = true) {
+    const report = reports.find((item) => "#" + item.id === location.hash);
+    if (report || !location.hash || !active) select(report ?? reports[0]!, animate);
+  }
+
+  function toggleDrawer() {
+    const closed = drawer!.toggleAttribute("data-closed");
+    drawer!.inert = closed;
+    toggle!.setAttribute("aria-expanded", String(!closed));
+    label!.textContent = (closed ? toggle!.dataset.openLabel : toggle!.dataset.closeLabel) ?? "";
+    if (!closed) revealActiveFile();
+  }
+
+  stack.setAttribute("data-ready", "");
+  syncHash(false);
+  toggle.hidden = false;
+  toggle.addEventListener("click", toggleDrawer, { signal });
+  window.addEventListener("hashchange", () => syncHash(), { signal });
+  links.forEach((link, index) => {
+    link.addEventListener("click", (event) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const report = reports.find((item) => item.id === link.dataset.caseLink);
+      if (!report) return;
+      event.preventDefault();
+      if (location.hash !== "#" + report.id) history.pushState(history.state, "", "#" + report.id);
+      select(report);
+      if (compact.matches || event.detail === 0) {
+        report.focus({ preventScroll: true });
+        report.scrollIntoView({ block: "nearest", behavior: reduce.matches ? "instant" : "smooth" });
+      }
+    }, { signal });
+    link.addEventListener("keydown", (event) => {
+      const next = event.key === "ArrowDown" ? index + 1 : event.key === "ArrowUp" ? index - 1
+        : event.key === "Home" ? 0 : event.key === "End" ? links.length - 1 : null;
+      if (next === null) return;
+      event.preventDefault();
+      links[Math.max(0, Math.min(links.length - 1, next))]?.focus();
+    }, { signal });
+  });
 
   return () => {
-    root.removeEventListener("pointerdown", onDown);
-    root.removeEventListener("pointermove", onMove);
-    root.removeEventListener("pointerup", onUp);
-    root.removeEventListener("pointercancel", onUp);
-    root.removeEventListener("click", onClick);
-    root.removeEventListener("focusin", onFocus);
-    feedBtn?.removeEventListener("click", onFeed);
-    gsap.killTweensOf([...tiles, paper]);
+    controller.abort();
+    revision++;
+    closeMotion();
   };
 }

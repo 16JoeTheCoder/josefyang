@@ -109,6 +109,7 @@ const SETTING_TITLES: Record<SettingsKey, string> = { contacts: "Contact links",
 type SettingsData = Record<string, { value: unknown; updatedAt: number; dirty: boolean }>;
 
 function SettingBlock({ k, data, onSaved }: { k: SettingsKey; data: SettingsData[string]; onSaved: (p: Problem[]) => void }) {
+  const fields = Object.fromEntries(Object.entries(settingsFields[k]).filter(([key]) => k !== "contacts" || !["fuseUrl", "fuseLabel"].includes(key))) as Fields;
   const a = useAutosave<Record<string, unknown>>(data.value as Record<string, unknown>, data.updatedAt, async (value, updatedAt, keepalive) => {
     const r = await api<{ updatedAt: number; problems: Problem[] }>("PATCH", `settings/${k}`, { value, updatedAt }, { keepalive });
     onSaved(r.problems);
@@ -124,7 +125,7 @@ function SettingBlock({ k, data, onSaved }: { k: SettingsKey; data: SettingsData
     catch (x) { toast(isApiError(x) ? x.error : "Upload failed"); }
   };
   return (
-    <details class="panel" open={k === "contacts"} onFocusOut={() => void a.flush()}>
+    <details class="panel" open={k === "contacts"} onFocusOut={() => void a.flush().catch(() => {})}>
       <summary>{SETTING_TITLES[k]} <span class="muted small">{a.status === "saving" ? "Saving…" : a.status === "saved" ? "Saved" : a.error}</span></summary>
       {k === "cv" ? (
         <div class="fields">
@@ -132,7 +133,7 @@ function SettingBlock({ k, data, onSaved }: { k: SettingsKey; data: SettingsData
           <label class="upload"><input type="file" accept="application/pdf" onChange={onCv} /><span>Upload CV (PDF)</span></label>
           {Boolean(a.value.fileKey) && <button type="button" class="mini danger" onClick={() => a.setValue({ ...a.value, fileKey: "" })}>Remove CV</button>}
         </div>
-      ) : <FieldsForm fields={settingsFields[k] as Fields} value={a.value} onChange={a.setValue} path={k} />}
+      ) : <FieldsForm fields={fields} value={a.value} onChange={a.setValue} path={k} />}
     </details>
   );
 }

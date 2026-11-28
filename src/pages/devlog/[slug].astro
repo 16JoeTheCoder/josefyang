@@ -4,12 +4,15 @@ import Base from "../../layouts/Base.astro";
 import RenderSections from "../../core/RenderSections.astro";
 import { loadPageData } from "../../core/db";
 import { SITE_URL } from "../../core/posts";
+import { fallbackSrc, mediaBase } from "../../core/media";
 const { data, sections } = await loadPageData(env.DB, Astro.locals.mode, "entry");
-const entry = data.devlog.find((e) => e.slug === Astro.params.slug);
+const entry = (data.mode === "draft" ? data.devlog.find((e) => e.id === Astro.params.slug) : undefined)
+  ?? data.devlog.find((e) => e.slug === Astro.params.slug);
 if (!entry) return Astro.rewrite("/404");
 data.entry = entry;
 const siteUrl = (env.SITE_URL || Astro.site?.origin || SITE_URL).replace(/\/$/, "");
+const socialImage = entry.hero?.mediaId ? new URL(fallbackSrc(mediaBase(env.MEDIA_BASE_URL), entry.hero), siteUrl).href : undefined;
 ---
-<Base settings={data.settings} active="devlog" title={entry.title} description={entry.seoDescription || entry.excerpt} canonical={`${siteUrl}/devlog/${entry.slug}`} ogType="article">
+<Base settings={data.settings} active="devlog" title={entry.seoTitle || entry.title} ogImage={socialImage} description={entry.seoDescription || entry.excerpt} canonical={`${siteUrl}/devlog/${entry.slug}`} ogType="article">
   <RenderSections page={`devlog:${entry.slug}`} sections={sections} data={data} />
 </Base>

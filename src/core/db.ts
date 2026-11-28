@@ -5,6 +5,7 @@ import { withDefaults, type ImageValue } from "./fields";
 import type { Section } from "./module";
 import { getModule } from "./registry";
 import { settingsDefaults, type SiteSettings, type SettingsKey } from "./settings";
+import { assignedTerms, postDraft, stringList, TAXONOMY_SQL, type TaxonomyTerm } from "./taxonomy";
 import type { BuildDoc, BuildRecord, DevlogEntry, Milestone, Mode, PageData } from "./types";
 
 export const now = () => Date.now();
@@ -60,10 +61,12 @@ export function buildFromRow(r: BuildRow, mode: Mode): BuildRecord | null {
   };
 }
 
-interface DevlogRow { id: string; slug: string | null; title: string; excerpt: string; body: string; build_id: string | null; hero_media_id: string | null; media_ids: string; fuse_url: string | null; read_minutes: number | null; entry_date: string | null; created_at: number; status: string; updated_at: number; blocks_json?: string | null; type?: string; tags_json?: string; sites_json?: string; game_slug?: string | null; publish_at?: string | null; seo_description?: string | null }
+export interface DevlogRow { id: string; slug: string | null; title: string; excerpt: string; body: string; build_id: string | null; hero_media_id: string | null; media_ids: string; read_minutes: number | null; entry_date: string | null; created_at: number; status: string; updated_at: number; blocks_json?: string | null; type?: string; tags_json?: string; sites_json?: string; game_slug?: string | null; publish_at?: string | null; seo_description?: string | null; seo_title?: string | null; categories_json?: string; tag_ids_json?: string | null; draft_json?: string | null; published_at?: number | null; save_token?: string | null }
 
-export function devlogFromRow(r: DevlogRow, builds: BuildRecord[]): DevlogEntry {
+export function devlogFromRow(r: DevlogRow, builds: BuildRecord[], taxonomy: ReadonlyMap<string, TaxonomyTerm>): DevlogEntry {
   const b = r.build_id ? builds.find((x) => x.id === r.build_id) : undefined;
+  const categories = assignedTerms(r.categories_json, taxonomy, "category");
+  const tags = assignedTerms(r.tag_ids_json, taxonomy, "tag");
   return {
     id: r.id,
     slug: r.slug ?? r.id,
@@ -74,17 +77,21 @@ export function devlogFromRow(r: DevlogRow, builds: BuildRecord[]): DevlogEntry 
     build: b ? { slug: b.slug, title: b.meta.title.value, failed: b.meta.status === "failed" } : null,
     hero: parse<ImageValue | null>(r.hero_media_id, null),
     images: parse<ImageValue[]>(r.media_ids, []),
-    fuseUrl: r.fuse_url ?? "",
+
     readMinutes: r.read_minutes,
     date: r.entry_date ?? new Date(r.created_at).toISOString().slice(0, 10),
     status: r.status === "published" ? "published" : "draft",
     updatedAt: r.updated_at,
     blocks: parseBlocksJson(r.blocks_json),
     type: r.type === "article" ? "article" : "note",
-    tags: parse<string[]>(r.tags_json, []),
+    tags: r.tag_ids_json == null ? stringList(r.tags_json) : tags.map((tag) => tag.name),
+    tagTerms: tags,
+    categories: categories.map((term) => term.id),
+    categoryTerms: categories,
     sites: parse<("main" | "games")[]>(r.sites_json, ["main"]),
     gameSlug: r.game_slug ?? null,
     publishAt: r.publish_at ?? null,
+    seoTitle: r.seo_title ?? "",
     seoDescription: r.seo_description ?? "",
   };
 }
@@ -109,19 +116,23 @@ export function sortBuilds(builds: BuildRecord[]): BuildRecord[] {
 
 export async function loadPageData(db: D1Database, mode: Mode, pageId?: string): Promise<{ data: PageData; sections: Section[] }> {
   const devlogWhere = mode === "draft" ? "" : "WHERE status = 'published' AND (publish_at IS NULL OR publish_at <= ?) AND sites_json LIKE '%\"main\"%'";
+  const devlogLimit = pageId === "devlog" || pageId === "entry" || pageId === "failures" ? "" : "LIMIT 200";
   const msWhere = mode === "draft" ? "" : "WHERE status = 'published'";
-  const [pageRes, settingsRes, buildsRes, devlogRes, msRes] = await db.batch([
+  const [pageRes, settingsRes, buildsRes, devlogRes, msRes, termsRes] = await db.batch([
     db.prepare("SELECT draft_json, published_json FROM pages WHERE id = ?").bind(pageId ?? ""),
     db.prepare("SELECT key, draft_json, published_json FROM settings"),
     db.prepare("SELECT id, slug, template_id, template_ver, draft_json, published_json, updated_at, published_at FROM builds WHERE deleted_at IS NULL"),
-    db.prepare(`SELECT * FROM devlog ${devlogWhere} ORDER BY entry_date DESC, created_at DESC LIMIT 200`).bind(...(mode === "draft" ? [] : [new Date().toISOString()])),
+    db.prepare(`SELECT * FROM devlog ${devlogWhere} ORDER BY entry_date DESC, created_at DESC ${devlogLimit}`).bind(...(mode === "draft" ? [] : [new Date().toISOString()])),
     db.prepare(`SELECT * FROM milestones ${msWhere} ORDER BY date ASC`),
+    db.prepare(TAXONOMY_SQL),
   ]);
   const pageRow = pageRes?.results[0] as { draft_json: string; published_json: string | null } | undefined;
   const pageJson = mode === "draft" ? pageRow?.draft_json : pageRow?.published_json;
   const sections = pageJson ? parse<Section[]>(pageJson, []) : defaultSections(pageId ?? "");
   const builds = sortBuilds(((buildsRes?.results ?? []) as unknown as BuildRow[]).map((r) => buildFromRow(r, mode)).filter((b): b is BuildRecord => b !== null));
-  const devlog = ((devlogRes?.results ?? []) as unknown as DevlogRow[]).map((r) => devlogFromRow(r, builds));
+  const taxonomy = new Map(((termsRes?.results ?? []) as unknown as TaxonomyTerm[]).map((term) => [term.id, term]));
+  const devlog = ((devlogRes?.results ?? []) as unknown as DevlogRow[])
+    .map((row) => devlogFromRow(mode === "draft" ? postDraft(row) : row, builds, taxonomy));
   const milestones = ((msRes?.results ?? []) as unknown as Milestone[]).map((m) => ({ ...m, body: m.body ?? "" }));
   const settings = settingsFromRows((settingsRes?.results ?? []) as { key: string; draft_json: string; published_json: string | null }[], mode);
   return { data: { mode, settings, builds, devlog, milestones }, sections };

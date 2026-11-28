@@ -1,71 +1,92 @@
 ---
 import T from "../../components/T.astro";
 import Img from "../../components/Img.astro";
+import Icon from "../../components/Icon.astro";
 import type { Content } from "../../core/fields";
 import type { PageData } from "../../core/types";
 import { shortDate } from "../../lib/dates";
 import mod from "./module";
+
 interface Props { content: Content<typeof mod.fields>; data: PageData }
 const { content: c, data } = Astro.props;
 const F = mod.fields;
-const latest = data.devlog[0];
-const fuse = data.settings.contacts.fuseUrl;
+const latest = data.devlog.find((entry) => entry.sites.includes("main"));
+const hasCover = !!latest?.hero?.mediaId;
 const showNow = !!(c.nowDate && c.nowText.value.trim());
+const latestLabel = c.latestLabel.value.replace(/[,:.]+$/, "");
 ---
-<section class="di">
-  <div class="wrap di-top">
-    <div>
-      <T v={c.heading} f={F.heading} as="h1" />
-      <T v={c.line} f={F.line} class="di-line" />
-      {showNow && (
-        <p class="di-now"><span class="di-now-tag">{c.nowLabel.value}</span><time datetime={c.nowDate}>{shortDate(c.nowDate)}</time><span class="di-now-text">{c.nowText.value}</span></p>
-      )}
-    </div>
-    {fuse && (
-      <aside class:list={["raw", !latest && "raw-next"]}>
-        <T v={c.rawTitle} f={F.rawTitle} as="h2" />
-        <T v={latest ? c.rawText : c.rawEmptyText} f={latest ? F.rawText : F.rawEmptyText} class="raw-text" />
-        <a class="link-u raw-link" href={fuse} target="_blank" rel="noopener">{c.rawLink.value}</a>
-      </aside>
-    )}
-  </div>
-  {latest && (
-    <div class="wrap">
-      <a class="feat" href={`/devlog/${latest.slug}`}>
-        <Img v={latest.hero} f={{ ratio: "16 / 10", empty: c.photoEmpty.value }} eager sizes="(max-width: 900px) 92vw, 700px" />
-        <div class="feat-text">
-          <p class="feat-label"><span class="dot" aria-hidden="true"></span>{c.latestLabel.value} {shortDate(latest.date)}</p>
-          <h2 class="feat-title">{latest.title}</h2>
-          <p class="feat-ex">{latest.excerpt}</p>
-          <p class="feat-meta">
-            {latest.build && <span class:list={["pill", latest.build.failed ? "pill-failed" : "pill-tag"]}>{latest.build.title}</span>}
+<section class="log-intro">
+  <div class="wrap">
+    <header class="log-masthead">
+      <T v={c.heading} f={F.heading} as="h1" editPath="heading" />
+      <div class="log-description">
+        <T v={c.line} f={F.line} editPath="line" />
+        <a class="archive-jump" data-edit-path={Astro.locals.mode === "draft" ? "archiveLink" : undefined} href="#devlog-archive">{c.archiveLink.value}<Icon name="arrow-down" size={17} /></a>
+      </div>
+    </header>
+
+    {latest ? (
+      <div class="log-lead" data-devlog-featured={latest.slug} id={`featured-${latest.slug}`}>
+        <div class="log-lead-text">
+          <p class="log-meta">
+            <span class="latest-mark">{latestLabel}</span>
+            <time datetime={latest.date}>{shortDate(latest.date)}</time>
             {latest.readMinutes && <span>{latest.readMinutes} {c.minRead.value}</span>}
           </p>
+          <h2><a href={`/devlog/${latest.slug}`} data-devlog-lead-link>{latest.title}</a></h2>
+          {latest.excerpt && <p class="log-excerpt">{latest.excerpt}</p>}
+          <a class="read-feature" href={`/devlog/${latest.slug}`} data-devlog-lead-link data-edit-path={Astro.locals.mode === "draft" ? "readLabel" : undefined}>{c.readLabel.value}<Icon name="arrow-right" size={18} /></a>
         </div>
-      </a>
-    </div>
-  )}
+        {hasCover && (
+          <figure class="log-cover">
+            <Img v={latest.hero} f={{ ratio: "16 / 9", empty: c.photoEmpty.value }} eager sizes="(max-width: 760px) 92vw, 680px" />
+          </figure>
+        )}
+      </div>
+    ) : (
+      <aside class="log-empty"><T v={c.noEntries} f={F.noEntries} editPath="noEntries" /></aside>
+    )}
+
+    {showNow && (
+      <div class="log-source">
+        {showNow && <p class="log-now"><strong>{c.nowLabel.value}</strong><time datetime={c.nowDate}>{shortDate(c.nowDate)}</time><span>{c.nowText.value}</span></p>}
+      </div>
+    )}
+  </div>
 </section>
 <style>
-  .di { background: var(--white); padding: calc(var(--nav-h) + 72px) 0 40px; }
-  .di-top { display: flex; justify-content: space-between; align-items: end; gap: 40px; flex-wrap: wrap; }
-  .di :global(.di-line) { margin-top: 20px; max-width: 34ch; font-size: var(--lead); }
-  .di-now { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-top: 28px; font-size: var(--size-s); }
-  .di-now-tag { font-family: var(--font-display); font-weight: 700; padding: 4px 10px; border-radius: var(--pill); background: var(--black); color: var(--white); font-size: var(--size-xs); }
-  .di-now time { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .di-now-text { flex-basis: 100%; max-width: 52ch; font-size: var(--size-m); }
-  @media (min-width: 620px) { .di-now-text { flex-basis: auto; } }
-  .raw-next { border-color: var(--black); border-width: 2px; }
-  .raw { max-width: 380px; padding: 24px; border: 1px solid var(--hairline); border-radius: var(--radius-m); }
-  .raw :global(h2) { font-size: 1.125rem; }
-  .raw :global(.raw-text) { margin-top: 8px; font-size: var(--size-s); color: var(--muted); }
-  .raw-link { display: inline-block; margin-top: 12px; font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); }
-  .feat { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 56px; align-items: center; margin-top: var(--space-8); text-decoration: none; }
-  .feat-label { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sun); }
-  .feat-title { margin-top: 14px; font-family: var(--font-display); font-weight: 900; font-size: var(--size-xl); line-height: 0.98; letter-spacing: var(--track-display); text-wrap: balance; }
-  .feat:hover .feat-title { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 0.06em; text-underline-offset: 0.1em; }
-  .feat-ex { margin-top: 16px; color: var(--muted); font-size: var(--lead); }
-  .feat-meta { display: flex; gap: 14px; align-items: center; margin-top: 18px; font-size: var(--size-xs); font-weight: 500; }
-  @media (max-width: 900px) { .feat { grid-template-columns: 1fr; gap: 24px; } }
+  .log-intro { padding: calc(var(--nav-h) + 52px) 0 clamp(34px, 6vw, 78px); background: var(--workbench); color: var(--workbench-ink); }
+  .log-masthead { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding-block-end: 25px; border-bottom: 1px solid var(--workbench-rule); }
+  .log-masthead :global(h1) { font-size: clamp(3.6rem, 9vw, 6rem); font-weight: 850; line-height: .88; letter-spacing: var(--track-tight); }
+  .log-description { display: grid; gap: 2px; justify-items: start; max-width: 34ch; }
+  .log-description :global(.r-body) { color: var(--workbench-subtle); }
+  .archive-jump, .read-feature, .log-source a { display: inline-flex; align-items: center; min-height: 44px; gap: 10px; width: fit-content; text-decoration: none; font-family: var(--font-display); font-size: var(--size-s); font-weight: 700; }
+  .archive-jump :global(.icon), .read-feature :global(.icon), .log-source a :global(.icon) { color: var(--sun); }
+  .archive-jump:hover, .read-feature:hover, .log-source a:hover { text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--sun); }
+  .log-lead { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: center; gap: clamp(28px, 6vw, 92px); margin-top: clamp(32px, 5vw, 58px); scroll-margin-top: 24px; }
+  .log-lead:not(:has(.log-cover)) { grid-template-columns: minmax(0, 1fr); }
+  .log-lead h2 { max-width: 16ch; margin-top: 11px; font: 820 clamp(2rem, 4.6vw, 4.25rem)/.98 var(--font-display); letter-spacing: var(--track-tight); text-wrap: balance; }
+  .log-lead h2 a { text-decoration: none; }
+  .log-lead h2 a:hover { text-decoration: underline; text-decoration-color: var(--sun); text-underline-offset: .12em; text-decoration-thickness: .04em; }
+  .log-meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 13px; font-size: var(--size-xs); color: var(--workbench-subtle); }
+  .latest-mark { display: inline-flex; align-items: center; gap: 7px; color: var(--workbench-ink); font-family: var(--font-display); font-weight: 700; }
+  .latest-mark::before { content: ""; width: 7px; height: 7px; background: var(--sun); }
+  .log-meta time, .log-now time { font-variant-numeric: tabular-nums; }
+  .log-excerpt { max-width: 45ch; margin-top: 16px; color: var(--workbench-subtle); font-size: var(--size-m); line-height: 1.6; }
+  .read-feature { margin-top: 14px; }
+  .log-cover :global(.img-slot) { border-radius: 4px; background: var(--workbench-mat); }
+  .log-cover :global(.img-fit) { background: var(--workbench-mat); }
+  .log-source { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px 28px; margin-top: clamp(29px, 4vw, 42px); padding-top: 5px; border-top: 1px solid var(--workbench-rule); color: var(--workbench-subtle); }
+  .log-source a:only-child { margin-left: auto; }
+  .log-now { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--size-s); }
+  .log-now strong { color: var(--workbench-ink); font-family: var(--font-display); }
+  .log-empty { margin-top: 32px; max-width: 48ch; }
+  .log-empty :global(.r-body) { color: var(--workbench-subtle); margin-top: 8px; }
+  @media (max-width: 760px) {
+    .log-intro { padding-top: calc(var(--nav-h) + 34px); }
+    .log-masthead { display: grid; gap: 12px; padding-bottom: 17px; }
+    .log-lead { grid-template-columns: 1fr; gap: 18px; margin-top: 26px; }
+    .log-lead h2 { max-width: 21ch; }
+    .log-source a:only-child { margin-left: 0; }
+  }
 </style>

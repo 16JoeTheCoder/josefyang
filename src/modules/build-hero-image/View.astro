@@ -5,7 +5,7 @@ import mod from "./module";
 interface Props { content: Content<typeof mod.fields> }
 const { content: c } = Astro.props;
 ---
-<section class="bhi"><div class="wrap"><Img v={c.image} f={mod.fields.image} eager sizes="(max-width: 1360px) 96vw, 1280px" class="bhi-img" /></div></section>
+<section class="bhi"><div class="wrap"><Img v={c.image} f={mod.fields.image} eager sizes="(max-width: 1360px) 96vw, 1280px" class="bhi-img" editPath="image" /></div></section>
 <style>
   .bhi { background: var(--white); padding-bottom: 24px; }
   @media (max-width: 720px) { .bhi :global(.bhi-img) { --ratio: 16 / 9 !important; } }

@@ -8,11 +8,11 @@ import Footer from "../components/Footer.astro";
 import type { SiteSettings } from "../core/settings";
 import { fallbackSrc, mediaBase } from "../core/media";
 interface Props { settings: SiteSettings; title?: string; description?: string; active?: string; ogImage?: string; canonical?: string; ogType?: string; /** false = no site nav/footer (the game hub brings its own). */ chrome?: boolean }
-const { settings, title, description, active, canonical, ogType = "website", chrome = true } = Astro.props;
+const { settings, title, description, active, canonical, ogImage, ogType = "website", chrome = true } = Astro.props;
 const seo = settings.seo;
 const fullTitle = title ? `${title}, ${seo.title.value}` : seo.title.value;
 const desc = description || seo.description.value;
-const og = settings.seo.ogImage.mediaId ? new URL(fallbackSrc(mediaBase(env.MEDIA_BASE_URL), settings.seo.ogImage), Astro.url).href : undefined;
+const og = ogImage || (settings.seo.ogImage.mediaId ? new URL(fallbackSrc(mediaBase(env.MEDIA_BASE_URL), settings.seo.ogImage), Astro.url).href : undefined);
 const beacon = Astro.locals.mode === "published" && env.CF_ANALYTICS_TOKEN
   ? JSON.stringify({ token: env.CF_ANALYTICS_TOKEN, spa: true }) : null;
 ---

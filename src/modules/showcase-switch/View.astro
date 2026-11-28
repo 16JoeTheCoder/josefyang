@@ -8,35 +8,36 @@ interface Props { content: Content<typeof mod.fields> }
 const { content: c } = Astro.props;
 const F = mod.fields;
 const S = F.before.fields;
-const states = [c.before, c.after];
+const states = [["before", c.before], ["after", c.after]] as const;
+const editPath = (path: string) => Astro.locals.mode === "draft" ? path : undefined;
 ---
 <section class="ss" data-switch>
   <div class="wrap">
     <Head dark heading={c.heading} headingField={F.heading} body={c.body} bodyField={F.body} linkLabel={c.linkLabel} linkUrl={c.linkUrl} />
     <div class="ss-stage" data-stage>
-      {states.map((s, i) => (
+      {states.map(([key, s], i) => (
         <figure class="ss-state" data-state={i}>
-          <Img v={s.image} f={S.image} sizes="(max-width: 900px) 92vw, 1200px" class="ss-img" />
+          <Img v={s.image} f={S.image} sizes="(max-width: 900px) 92vw, 1200px" class="ss-img" editPath={`${key}.image`} />
           <figcaption>
-            <T v={s.title} f={S.title} as="p" class="ss-title" />
-            <T v={s.note} f={S.note} class="ss-note" />
+            <T v={s.title} f={S.title} as="p" class="ss-title" editPath={`${key}.title`} />
+            <T v={s.note} f={S.note} class="ss-note" editPath={`${key}.note`} />
           </figcaption>
         </figure>
       ))}
     </div>
     <div class="ss-actions" data-actions hidden>
-      <button type="button" class="btn btn-light" data-go>{c.goLabel.value}<span class="ss-arrow" aria-hidden="true"></span></button>
-      <button type="button" class="btn btn-light-outline" data-replay hidden>{c.replayLabel.value}</button>
+      <button type="button" class="btn btn-light" data-go data-edit-path={editPath("goLabel")}>{c.goLabel.value}<span class="ss-arrow" aria-hidden="true"></span></button>
+      <button type="button" class="btn btn-light-outline" data-replay hidden data-edit-path={editPath("replayLabel")}>{c.replayLabel.value}</button>
     </div>
     <p class="sr-only" role="status" data-status></p>
     {c.steps.length > 0 && (
       <ol class="ss-steps" style={`--n:${c.steps.length}`}>
-        {c.steps.map((s) => (
-          <li><T v={s.title} f={F.steps.of.title} as="strong" class="ss-step-title" /><span>{s.body.value}</span></li>
+        {c.steps.map((s, i) => (
+          <li><T v={s.title} f={F.steps.of.title} as="strong" class="ss-step-title" editPath={`steps[${i}].title`} /><span data-edit-path={editPath(`steps[${i}].body`)}>{s.body.value}</span></li>
         ))}
       </ol>
     )}
-    <T v={c.footnote} f={F.footnote} class="ss-foot" />
+    <T v={c.footnote} f={F.footnote} class="ss-foot" editPath="footnote" />
   </div>
 </section>
 <script>

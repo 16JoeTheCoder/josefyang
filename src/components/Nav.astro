@@ -12,7 +12,7 @@ const links = [
   { href: "#contact", label: site.navContact.value, id: "contact" },
 ];
 ---
-<header class="nav">
+<header class:list={["nav", ["home", "projects", "failures", "devlog", "about"].includes(active ?? "") && "nav-dark"]}>
   <nav aria-label={site.navLabel.value} class="nav-pill">
     <a href="/" class="nav-logo" aria-current={active === "home" ? "page" : undefined}><span class="nav-mark" aria-hidden="true"></span>{site.logo.value}</a>
     <ul class="nav-links">
@@ -45,6 +45,10 @@ const links = [
   .nav-sheet a { display: block; font-family: var(--font-display); font-weight: 900; font-size: clamp(2.5rem, 12vw, 4rem); line-height: 1.05; letter-spacing: var(--track-display); padding: 6px 0; text-decoration: none; }
   .nav-sheet a[aria-current="page"] { color: var(--sun); }
   .nav-close { position: absolute; top: 22px; right: var(--gutter); width: 48px; height: 48px; display: grid; place-items: center; background: transparent; border: 1.5px solid var(--white); color: var(--white); border-radius: var(--pill); cursor: pointer; }
+  .nav-dark .nav-pill { width: min(100%, var(--container)); justify-content: space-between; padding: 0; border-radius: 0; border-bottom: 1px solid var(--workbench-rule); background: var(--workbench); color: var(--workbench-ink); box-shadow: none; }
+  .nav-dark .nav-links li:last-child a { background: transparent; color: var(--workbench-ink); border: 1px solid var(--workbench-rule); padding: 0 14px; border-radius: 4px; }
+  .nav-dark .nav-links li:last-child a:hover, .nav-dark .nav-menu-btn:hover { border-color: var(--sun); }
+  .nav-dark .nav-menu-btn { background: transparent; color: var(--workbench-ink); border: 1px solid var(--workbench-rule); border-radius: 4px; min-height: 44px; }
   @media (max-width: 860px) {
     .nav { justify-content: stretch; padding-top: 14px; }
     .nav-pill { width: 100%; justify-content: space-between; padding: 0 6px 0 20px; }

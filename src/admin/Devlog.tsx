@@ -3,9 +3,10 @@ import { Editor, type JSONContent } from "@tiptap/core";
 import { Placeholder } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
 import { strToU8, zipSync } from "fflate";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { parseBlocks, plainText, type ImageAttrs } from "../core/blocks";
 import { noImage, type ImageField, type ImageValue } from "../core/fields";
+import { FAILURE_CATEGORY_ID, type TaxonomyTerm } from "../core/taxonomy";
 import { slugify } from "../lib/dates";
 import { api, isApiError } from "./api";
 import { useAutosave } from "./autosave";
@@ -15,22 +16,24 @@ import { ImageControl } from "./Fields";
 import { uploadFile } from "./Library";
 import { ago, useAdmin, type MediaItem } from "./state";
 import "../styles/blog-prose.css";
+import "./devlog-workspace.css";
 
 export type PostType = "note" | "article";
 export type Site = "main" | "games";
 export interface Entry {
   id: string; slug: string; title: string; excerpt: string; body: string; buildId: string | null; hero: ImageValue | null; images: ImageValue[];
-  fuseUrl: string; readMinutes: number | null; date: string; status: "draft" | "published"; updatedAt: number;
-  blocks: JSONContent | null; type: PostType; tags: string[]; sites: Site[]; gameSlug: string | null; publishAt: string | null; seoDescription: string;
+  readMinutes: number | null; date: string; status: "draft" | "published"; updatedAt: number;
+  blocks: JSONContent | null; type: PostType; tags: string[]; tagIds: string[]; sites: Site[]; gameSlug: string | null; publishAt: string | null; seoDescription: string; categories?: string[]; seoTitle?: string; hasDraft?: boolean; livePublishAt?: string | null; publishedAt?: number | null;
 }
 
 const COVER: ImageField = { kind: "image", label: "Cover image", ratio: "16 / 10", modes: ["fill"], empty: "Cover" };
 const LINK_OK = /^(https?:\/\/|mailto:|\/(?![/\\]))/;
 
 type PostState = "draft" | "scheduled" | "published";
-export function postState(e: Pick<Entry, "status" | "publishAt">): PostState {
+export function postState(e: Pick<Entry, "status" | "publishAt" | "livePublishAt">): PostState {
   if (e.status !== "published") return "draft";
-  return e.publishAt && Date.parse(e.publishAt) > Date.now() ? "scheduled" : "published";
+  const scheduledAt = e.livePublishAt === undefined ? e.publishAt : e.livePublishAt;
+  return scheduledAt && Date.parse(scheduledAt) > Date.now() ? "scheduled" : "published";
 }
 const STATE_LABEL: Record<PostState, string> = { draft: "Draft", scheduled: "Scheduled", published: "Published" };
 const toLocalInput = (iso: string | null) => {
@@ -39,69 +42,215 @@ const toLocalInput = (iso: string | null) => {
   return Number.isNaN(+d) ? "" : new Date(+d - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 };
 const localDate = (d: Date) => new Date(+d - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+const cleanSlug = (slug: string) => slug.replace(/-+/g, "-").replace(/^-|-$/g, "");
 
-/* ---------- list ---------- */
+/* ---------- taxonomy ---------- */
 
-export function DevlogList({ entries, builds, onOpen, onChanged }: { entries: Entry[]; builds: BuildRec[]; onOpen: (id: string) => void; onChanged: () => void }) {
-  const { toast } = useAdmin();
-  const [q, setQ] = useState("");
-  const [type, setType] = useState<"" | PostType>("");
-  const [state, setState] = useState<"" | PostState>("");
-  const bench = builds.find((b) => b.meta.status === "bench");
-  const create = async (t: PostType) => {
+type TermKind = TaxonomyTerm["kind"];
+
+
+function useTaxonomy() {
+  const [terms, setTerms] = useState<TaxonomyTerm[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const r = await api<{ id: string }>("POST", "devlog", { title: t === "note" ? "Untitled note" : "Untitled article", buildId: bench?.id ?? null, type: t });
+      const response = await api<TaxonomyTerm[] | { terms: TaxonomyTerm[] }>("GET", "taxonomy");
+      setTerms(Array.isArray(response) ? response : response.terms ?? []);
+      return true;
+    } catch (e) {
+      setError(isApiError(e) ? e.error : "Could not load categories and tags.");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+  return { terms, error, loading, load };
+}
+
+function TaxonomyManager({ taxonomy, onChanged }: { taxonomy: ReturnType<typeof useTaxonomy>; onChanged: () => Promise<void> }) {
+  const [kind, setKind] = useState<TermKind>("category");
+  const [editingId, setEditingId] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState(false);
+  const noun = kind === "category" ? "category" : "tag";
+  const matching = taxonomy.terms.filter((term) => term.kind === kind);
+  const reset = () => { setEditingId(""); setName(""); setDescription(""); };
+  const submit = async (event: Event) => {
+    event.preventDefault();
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    setFeedback("");
+    setError(false);
+    try {
+      const data = { kind, name: name.trim(), description: description.trim() };
+      await api(editingId ? "PATCH" : "POST", editingId ? "taxonomy/" + encodeURIComponent(editingId) : "taxonomy", data);
+      setFeedback(editingId ? "Changes saved." : (kind === "category" ? "Category" : "Tag") + " created.");
+      reset();
+      await taxonomy.load();
       await onChanged();
-      onOpen(r.id);
-    } catch (x) { toast(isApiError(x) ? x.error : "Could not create the post"); }
+    } catch (e) { setError(true); setFeedback(isApiError(e) ? e.error : "Could not save the " + noun + "."); }
+    finally { setBusy(false); }
   };
-  const needle = q.trim().toLowerCase();
-  const list = entries.filter((e) =>
-    (!type || e.type === type) && (!state || postState(e) === state) &&
-    (!needle || e.title.toLowerCase().includes(needle) || e.tags.some((t) => t.toLowerCase().includes(needle)) || e.excerpt.toLowerCase().includes(needle)));
+  const remove = async (term: TaxonomyTerm) => {
+    if (busy || !window.confirm(`Delete ${term.name}? This removes it from any posts that use it.`)) return;
+    setBusy(true);
+    setFeedback("");
+    setError(false);
+    try {
+      await api("DELETE", "taxonomy/" + encodeURIComponent(term.id));
+      if (editingId === term.id) reset();
+      setFeedback(`${term.name} deleted.`);
+      await taxonomy.load();
+      await onChanged();
+    } catch (e) { setError(true); setFeedback(isApiError(e) ? e.error : "Could not delete the " + noun + "."); }
+    finally { setBusy(false); }
+  };
   return (
-    <div class="page-pad narrow blog-list">
-      <div class="blog-list-head">
-        <h1>Blog</h1>
-        <div class="blog-new">
-          <button type="button" class="primary" onClick={() => create("note")}>New note</button>
-          <button type="button" class="primary" onClick={() => create("article")}>New article</button>
+    <section class="taxonomy-manager" aria-label="Manage categories and tags">
+      <div class="blog-subtabs" aria-label="Term type">
+        <button type="button" aria-pressed={kind === "category"} onClick={() => { setKind("category"); reset(); setFeedback(""); }}>Categories</button>
+        <button type="button" aria-pressed={kind === "tag"} onClick={() => { setKind("tag"); reset(); setFeedback(""); }}>Tags</button>
+      </div>
+      <div class="taxonomy-layout">
+        <form class="taxonomy-form fields" onSubmit={submit}>
+          <h2>{editingId ? "Edit " + noun : kind === "category" ? "New category" : "New tag"}</h2>
+          <label class="field">Name<input required maxLength={kind === "tag" ? 30 : 60} value={name} onInput={(e) => setName(e.currentTarget.value)} /></label>
+          <label class="field">Description <span class="muted small">Optional</span><textarea rows={3} maxLength={240} value={description} onInput={(e) => setDescription(e.currentTarget.value)} /></label>
+          <div class="blog-action-row">
+            <button class="primary" type="submit" disabled={!name.trim() || busy}>{busy ? "Working…" : editingId ? "Save changes" : "Create " + noun}</button>
+            {editingId && <button type="button" onClick={reset} disabled={busy}>Cancel</button>}
+          </div>
+          {feedback && <p class={error ? "warn" : "muted"} role={error ? "alert" : "status"}>{feedback}</p>}
+        </form>
+        <div class="taxonomy-list">
+          {taxonomy.error && <p class="warn" role="alert">{taxonomy.error} <button type="button" onClick={taxonomy.load}>Try again</button></p>}
+          {taxonomy.loading && <p class="muted" role="status">Loading {kind === "category" ? "categories" : "tags"}…</p>}
+          {!taxonomy.loading && !taxonomy.error && !matching.length && <p class="muted">{kind === "category" ? "No categories yet." : "No tags yet."}</p>}
+          <ul>
+            {matching.map((term) => (
+              <li key={term.id}>
+                <div><strong>{term.name}</strong><span class="muted small">{term.slug}</span>{term.description && <p>{term.description}</p>}</div>
+                {term.id === FAILURE_CATEGORY_ID ? <div class="blog-action-row"><span class="muted small">Built in</span><button type="button" class="mini" disabled={busy} onClick={() => { setEditingId(term.id); setName(term.name); setDescription(term.description); setFeedback(""); }}>Edit</button></div> : (
+                  <div class="blog-action-row">
+                    <button type="button" class="mini" disabled={busy} onClick={() => { setEditingId(term.id); setName(term.name); setDescription(term.description); setFeedback(""); }}>Edit</button>
+                    <button type="button" class="mini danger" disabled={busy} onClick={() => void remove(term)} aria-label={"Delete " + term.name}>Delete</button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
-      <p class="muted">Notes are quick and text-first. Articles get a cover and a headline. On the bench: <strong>{bench?.meta.title.value ?? "nothing yet"}</strong>.</p>
-      <div class="blog-filters">
-        <label class="sr-only" for="bq">Search posts</label>
-        <input id="bq" type="search" placeholder="Search posts" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />
-        <label class="sr-only" for="bt">Type</label>
-        <select id="bt" value={type} onChange={(e) => setType((e.target as HTMLSelectElement).value as "" | PostType)}>
-          <option value="">All types</option><option value="note">Notes</option><option value="article">Articles</option>
-        </select>
-        <label class="sr-only" for="bs">Status</label>
-        <select id="bs" value={state} onChange={(e) => setState((e.target as HTMLSelectElement).value as "" | PostState)}>
-          <option value="">All statuses</option><option value="draft">Draft</option><option value="scheduled">Scheduled</option><option value="published">Published</option>
-        </select>
-      </div>
-      {list.length === 0 && <p class="muted">{entries.length ? "Nothing matches." : "No posts yet. Start with a note."}</p>}
-      <ul class="cards-list">
-        {list.map((e) => {
-          const s = postState(e);
-          return (
-            <li><button type="button" class="card-btn" onClick={() => onOpen(e.id)}>
-              <span class="row-top">
-                <span class={`state state-${s}`}>{STATE_LABEL[s]}</span>
-                <span class="state state-type">{e.type === "article" ? "Article" : "Note"}</span>
-                {e.sites.includes("games") && <span class="state state-type">Game hub</span>}
-              </span>
-              <strong>{e.title}</strong>
-              <span class="muted small">{s === "scheduled" ? `Goes live ${new Date(e.publishAt!).toLocaleString()}` : e.date}, edited {ago(e.updatedAt)}</span>
-            </button></li>
-          );
-        })}
-      </ul>
-    </div>
+    </section>
   );
 }
 
+/* ---------- catalog ---------- */
+
+interface PostFilters { q: string; type: "" | PostType; state: "" | PostState; build: string; category: string }
+const NO_FILTERS: PostFilters = { q: "", type: "", state: "", build: "", category: "" };
+const FILTER_KEY = "josefyang-admin-post-filters";
+function readPostFilters(): PostFilters {
+  try { return { ...NO_FILTERS, ...JSON.parse(sessionStorage.getItem(FILTER_KEY) ?? "{}") }; }
+  catch { return NO_FILTERS; }
+}
+
+export function DevlogList({ entries, builds, onOpen, onChanged }: { entries: Entry[]; builds: BuildRec[]; onOpen: (id: string) => void; onChanged: () => Promise<void> }) {
+  const [filters, setFilters] = useState(readPostFilters);
+  const [view, setView] = useState<"posts" | "taxonomy">("posts");
+  const [newType, setNewType] = useState<PostType>("article");
+  const [creating, setCreating] = useState(false);
+  const taxonomy = useTaxonomy();
+  const { toast } = useAdmin();
+  const titles = new Map(builds.map((build) => [build.id, build.meta.title.value]));
+  const categories = taxonomy.terms.filter((term) => term.kind === "category");
+  const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
+  const setFilter = (change: Partial<PostFilters>) => setFilters((old) => ({ ...old, ...change }));
+
+  useEffect(() => {
+    try { sessionStorage.setItem(FILTER_KEY, JSON.stringify(filters)); }
+    catch { /* The catalog still works if browser storage is unavailable. */ }
+  }, [filters]);
+
+  const create = async () => {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const r = await api<{ id: string }>("POST", "devlog", { title: newType === "note" ? "Untitled note" : "Untitled article", type: newType });
+      await onChanged();
+      onOpen(r.id);
+    } catch (e) { toast(isApiError(e) ? e.error : "Could not create the post."); }
+    finally { setCreating(false); }
+  };
+  const needle = filters.q.trim().toLowerCase();
+  const list = entries.filter((e) =>
+    (!filters.type || e.type === filters.type) && (!filters.state || postState(e) === filters.state) &&
+    (!filters.build || (filters.build === "unlinked" ? !e.buildId : filters.build === e.buildId)) &&
+    (!filters.category || (e.categories ?? []).includes(filters.category)) &&
+    (!needle || [e.title, e.excerpt, ...(e.tags ?? []), titles.get(e.buildId ?? "") ?? "", ...(e.categories ?? []).map((id) => categoryNames.get(id) ?? "")]
+      .some((text) => text.toLowerCase().includes(needle))));
+  const statuses = Object.keys(STATE_LABEL) as PostState[];
+  const counts = new Map(statuses.map((status) => [status, entries.filter((e) => postState(e) === status).length]));
+  return (
+    <div class="blog-workspace blog-catalog">
+      <header class="blog-catalog-heading">
+        <div><h1>Posts</h1><p class="muted">Write, organize and publish your devlog.</p></div>
+        <div class="blog-create">
+          <label class="sr-only" for="new-post-type">New post format</label>
+          <select id="new-post-type" value={newType} onChange={(e) => setNewType(e.currentTarget.value === "note" ? "note" : "article")}><option value="article">Article</option><option value="note">Note</option></select>
+          <button type="button" class="primary" disabled={creating} onClick={() => void create()}>{creating ? "Creating…" : "New post"}</button>
+        </div>
+      </header>
+      <div class="blog-subtabs" aria-label="Blog workspace">
+        <button type="button" aria-pressed={view === "posts"} onClick={() => setView("posts")}>All posts</button>
+        <button type="button" aria-pressed={view === "taxonomy"} onClick={() => setView("taxonomy")}>Categories &amp; tags</button>
+      </div>
+      {view === "taxonomy" ? <TaxonomyManager taxonomy={taxonomy} onChanged={onChanged} /> : (
+        <>
+          <nav class="blog-status-filters" aria-label="Filter by status">
+            <button type="button" aria-pressed={!filters.state} onClick={() => setFilter({ state: "" })}>All <span>{entries.length}</span></button>
+            {statuses.map((status) => <button type="button" key={status} aria-pressed={filters.state === status} onClick={() => setFilter({ state: status })}>{STATE_LABEL[status]} <span>{counts.get(status)}</span></button>)}
+          </nav>
+          <div class="blog-catalog-filters">
+            <label class="field">Search <input type="search" placeholder="Title, excerpt, tag or build" value={filters.q} onInput={(e) => setFilter({ q: e.currentTarget.value })} /></label>
+            <label class="field">Format <select value={filters.type} onChange={(e) => setFilter({ type: e.currentTarget.value as PostFilters["type"] })}><option value="">All formats</option><option value="note">Notes</option><option value="article">Articles</option></select></label>
+            <label class="field">Project <select value={filters.build} onChange={(e) => setFilter({ build: e.currentTarget.value })}><option value="">All projects</option><option value="unlinked">No project</option>{builds.map((b) => <option key={b.id} value={b.id}>{b.meta.title.value}</option>)}</select></label>
+            <label class="field">Category <select value={filters.category} onChange={(e) => setFilter({ category: e.currentTarget.value })}><option value="">All categories</option>{categories.map((term) => <option key={term.id} value={term.id}>{term.name}</option>)}</select></label>
+            {Object.values(filters).some(Boolean) && <button class="blog-clear" type="button" onClick={() => setFilters(NO_FILTERS)}>Clear</button>}
+          </div>
+          {taxonomy.error && <p class="warn small" role="status">Category filter unavailable. <button type="button" class="mini" onClick={taxonomy.load}>Retry</button></p>}
+          <p class="blog-result muted small" role="status">{list.length} {list.length === 1 ? "post" : "posts"}</p>
+          {list.length ? <div class="blog-catalog-scroll">
+            <table class="blog-post-table">
+              <thead><tr><th scope="col">Post</th><th scope="col">Status</th><th scope="col">Project / category</th><th scope="col">Date</th></tr></thead>
+              <tbody>{list.map((e) => {
+                const state = postState(e);
+                const assigned = (e.categories ?? []).map((id) => categoryNames.get(id)).filter(Boolean);
+                const project = titles.get(e.buildId ?? "");
+                const schedule = state === "scheduled" ? e.livePublishAt ?? e.publishAt : null;
+                return (
+                  <tr key={e.id}>
+                    <td><button type="button" class="blog-post-title" onClick={() => onOpen(e.id)}>{e.title.trim() || "Untitled post"}</button><div class="muted small">{e.type === "article" ? "Article" : "Note"}{e.sites.includes("games") ? " · Game hub" : ""}</div></td>
+                    <td><span class={"state state-" + state}>{STATE_LABEL[state]}</span>{e.hasDraft && <div class="small muted">Unpublished changes</div>}</td>
+                    <td>{project ?? <span class="muted">—</span>}{assigned.length > 0 && <div class="muted small">{assigned.join(", ")}</div>}</td>
+                    <td><time dateTime={schedule ?? e.date}>{schedule ? new Date(schedule).toLocaleString() : e.date}</time><div class="muted small">Edited {ago(e.updatedAt)}</div></td>
+                  </tr>
+                );
+              })}</tbody>
+            </table>
+          </div> : <p class="blog-empty">{entries.length ? "No posts match the current filters." : "Your first draft will appear here."}</p>}
+        </>
+      )}
+    </div>
+  );
+}
 /* ---------- helpers ---------- */
 
 const bodyToDoc = (body: string): JSONContent => ({
@@ -139,7 +288,7 @@ async function exportPack(e: Entry, buildTitle: string) {
   const files: Record<string, Uint8Array> = {};
   const doc = parseBlocks(e.blocks);
   const text = doc ? plainText(doc) : e.body;
-  const fm = ["---", `title: ${JSON.stringify(e.title)}`, `type: ${e.type}`, `build: ${JSON.stringify(buildTitle)}`, `date: ${e.date}`, `status: ${e.status}`, `tags: ${JSON.stringify(e.tags)}`, `fuse: ${e.fuseUrl || ""}`, "---", "", e.excerpt, "", text, ""].join("\n");
+  const fm = ["---", `title: ${JSON.stringify(e.title)}`, `type: ${e.type}`, `build: ${JSON.stringify(buildTitle)}`, `date: ${e.date}`, `status: ${e.status}`, `tags: ${JSON.stringify(e.tags)}`, `categories: ${JSON.stringify(e.categories ?? [])}`, "---", "", e.excerpt, "", text, ""].join("\n");
   files["post.md"] = strToU8(fm);
   files["post.json"] = strToU8(JSON.stringify(e.blocks ?? {}, null, 2));
   const imgs = [e.hero, ...e.images].filter((x): x is ImageValue => !!x?.mediaId && !!x.key).map((x) => ({ key: x.key!, original: x.original! })).concat(mediaIn(e.blocks));
@@ -294,11 +443,21 @@ function BodyEditor({ initial, onDoc, initialMissing }: BodyProps) {
   };
 
   const c = () => edRef.current!.chain().focus();
+  const words = ed?.getText().match(/\S+/g)?.length ?? 0;
+  const headingLevel = on("heading", { level: 2 }) ? "2" : on("heading", { level: 3 }) ? "3" : "0";
   return (
     <div class="ed-wrap">
       <div class="ed-toolbar" role="toolbar" aria-label="Formatting">
-        <T label="H2" title="Heading" act="h2" active={on("heading", { level: 2 })} run={() => c().toggleHeading({ level: 2 }).run()} />
-        <T label="H3" title="Subheading" act="h3" active={on("heading", { level: 3 })} run={() => c().toggleHeading({ level: 3 }).run()} />
+        <T label="Undo" title="Undo (Ctrl+Z)" act="undo" run={() => { if (edRef.current) c().undo().run(); }} />
+        <T label="Redo" title="Redo (Ctrl+Shift+Z)" act="redo" run={() => { if (edRef.current) c().redo().run(); }} />
+        <span class="tb-sep" aria-hidden="true" />
+        <label class="sr-only" for="blog-text-style">Text style</label>
+        <select id="blog-text-style" class="blog-text-style" value={headingLevel} onChange={(event) => {
+          const level = event.currentTarget.value;
+          if (!edRef.current) return;
+          if (level === "2" || level === "3") c().setHeading({ level: level === "2" ? 2 : 3 }).run();
+          else c().setParagraph().run();
+        }}><option value="0">Normal text</option><option value="2">Heading</option><option value="3">Subheading</option></select>
         <span class="tb-sep" aria-hidden="true" />
         <T label="B" title="Bold" act="bold" active={on("bold")} run={() => c().toggleBold().run()} />
         <T label="I" title="Italic" act="italic" active={on("italic")} run={() => c().toggleItalic().run()} />
@@ -328,130 +487,224 @@ function BodyEditor({ initial, onDoc, initialMissing }: BodyProps) {
         </form>
       )}
       <div ref={host} class="ed-host" onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openLink(); } }} />
+      <p class="blog-document-count muted small">{words} {words === 1 ? "word" : "words"}</p>
     </div>
   );
 }
 
-/* ---------- tags ---------- */
+/* ---------- post settings ---------- */
 
-function Tags({ value, onChange }: { value: string[]; onChange: (t: string[]) => void }) {
-  const [text, setText] = useState("");
-  const add = () => {
-    const t = text.trim().replace(/,+$/, "").trim().slice(0, 30);
-    setText("");
-    if (t && !value.some((x) => x.toLowerCase() === t.toLowerCase()) && value.length < 8) onChange([...value, t]);
+function AssignedTerms({ terms, value, onChange, kind }: { terms: TaxonomyTerm[]; value: string[]; onChange: (selected: string[]) => void; kind: TermKind }) {
+  const isCategory = kind === "category";
+  const limit = isCategory ? 12 : 8;
+  const available = terms.filter((term) => term.kind === kind);
+  const labels = new Map(available.map((term) => [term.id, term.name]));
+  const heading = isCategory ? "Categories" : "Tags";
+  const add = (event: Event) => {
+    const input = event.currentTarget as HTMLSelectElement;
+    const selected = input.value;
+    if (selected && !value.includes(selected) && value.length < limit) onChange([...value, selected]);
+    input.value = "";
   };
   return (
     <div class="field">
-      <label for="etag">Tags (up to 8)</label>
-      {value.length > 0 && <ul class="tag-row">{value.map((t) => <li class="tag">{t}<button type="button" class="mini" aria-label={`Remove tag ${t}`} onClick={() => onChange(value.filter((x) => x !== t))}>×</button></li>)}</ul>}
-      <input id="etag" value={text} placeholder="Type a tag, press Enter" maxLength={30}
-        onInput={(e) => { const v = (e.target as HTMLInputElement).value; if (v.endsWith(",")) { setText(v); add(); } else setText(v); }}
-        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } else if (e.key === "Backspace" && !text && value.length) onChange(value.slice(0, -1)); }}
-        onBlur={add} />
+      <label for={"post-term-" + kind}>{heading}</label>
+      {value.length > 0 && <ul class="post-terms">{value.map((selected) => (
+        <li key={selected}>{labels.get(selected) ?? selected}<button type="button" class="mini" aria-label={"Remove " + (labels.get(selected) ?? selected)} onClick={() => onChange(value.filter((x) => x !== selected))}>Remove</button></li>
+      ))}</ul>}
+      <select id={"post-term-" + kind} disabled={value.length >= limit || !available.some((term) => !value.includes(term.id))} onChange={add}>
+        <option value="">{value.length >= limit ? "Limit reached" : isCategory ? "Add a category" : "Add a tag"}</option>
+        {available.filter((term) => !value.includes(term.id)).map((term) => <option key={term.id} value={term.id}>{term.name}</option>)}
+      </select>
+      {available.length === 0 && <p class="muted small">Manage {heading.toLowerCase()} in the posts catalog.</p>}
     </div>
   );
 }
 
-/* ---------- the editor screen ---------- */
+type PublishIntent = "save" | "publish" | "unpublish";
+type PostPanel = "content" | "seo" | "publishing";
+const POST_PANELS: { id: PostPanel; label: string }[] = [
+  { id: "content", label: "Content" },
+  { id: "seo", label: "SEO" },
+  { id: "publishing", label: "Publishing" },
+];
 
-export function DevlogEditor({ entry, builds, onBack, onChanged }: { entry: Entry; builds: BuildRec[]; onBack: () => void; onChanged: () => void }) {
+export function DevlogEditor({ entry, builds, onBack, onChanged }: { entry: Entry; builds: BuildRec[]; onBack: () => void; onChanged: () => Promise<void> }) {
   const { toast } = useAdmin();
+  const taxonomy = useTaxonomy();
+  const pendingIntent = useRef<PublishIntent>("save");
+  const [publication, setPublication] = useState(() => ({
+    status: entry.status,
+    hasDraft: entry.hasDraft ?? false,
+    livePublishAt: entry.livePublishAt === undefined ? entry.publishAt : entry.livePublishAt,
+  }));
   const a = useAutosave<Entry>(entry, entry.updatedAt, async (v, updatedAt, keepalive) => {
-    const { id: _id, updatedAt: _u, ...rest } = v;
-    return api("PATCH", `devlog/${entry.id}`, { ...rest, updatedAt }, { keepalive });
+    const intent = pendingIntent.current;
+    pendingIntent.current = "save";
+    const response = await api<{ updatedAt: number; hasDraft?: boolean; status?: Entry["status"]; livePublishAt?: string | null }>(
+      "PATCH", "devlog/" + entry.id, {
+        slug: cleanSlug(v.slug), title: v.title, excerpt: v.excerpt, body: v.body, buildId: v.buildId, hero: v.hero, images: v.images,
+        readMinutes: v.readMinutes, date: v.date, status: publication.status, updatedAt, blocks: v.blocks, type: v.type,
+        tagIds: v.tagIds, categories: v.categories ?? [], seoTitle: v.seoTitle ?? "", seoDescription: v.seoDescription,
+        sites: v.sites, gameSlug: v.gameSlug, publishAt: v.publishAt, intent,
+      }, { keepalive }
+    );
+    setPublication((previous) => ({
+      status: response.status ?? (intent === "publish" ? "published" : intent === "unpublish" ? "draft" : previous.status),
+      hasDraft: response.hasDraft ?? (intent === "save" && previous.status === "published"),
+      livePublishAt: response.livePublishAt === undefined
+        ? intent === "publish" ? v.publishAt : intent === "unpublish" ? null : previous.livePublishAt
+        : response.livePublishAt,
+    }));
+    return response;
   });
   const e = a.value;
+  const previewUrl = "/preview/devlog/" + entry.id;
   const latest = useRef(e);
   latest.current = e;
   const set = (patch: Partial<Entry>) => { const next = { ...latest.current, ...patch }; latest.current = next; a.setValue(next); };
   const [missing, setMissing] = useState(0);
-  const [panel, setPanel] = useState(false);
+  const [panel, setPanel] = useState<PostPanel>("content");
+  const [panelOpen, setPanelOpen] = useState(() => matchMedia("(min-width: 901px)").matches);
+  const [operation, setOperation] = useState<"publishing" | "unpublishing" | "deleting" | null>(null);
   const bodyDoc = useRef<JSONContent>(e.blocks ?? bodyToDoc(e.body));
-  const state = postState(e);
+  const writing = useRef<HTMLDivElement>(null);
+  const state = postState({ ...e, ...publication });
   const future = !!e.publishAt && Date.parse(e.publishAt) > Date.now();
+  const missingAlt = missing + Number(!!e.hero?.mediaId && !e.hero.alt.trim()) + e.images.filter((image) => image.mediaId && !image.alt.trim()).length;
+  const publishLabel = state !== "draft" ? state === "scheduled" ? "Update schedule" : future ? "Reschedule" : "Publish changes" : future ? "Schedule" : "Publish";
+  const statusLine = a.status === "saving" ? "Saving draft…" : a.status === "offline" ? "Offline, draft pending" : a.status === "conflict" || a.status === "error"
+    ? a.error || "Could not save draft"
+    : publication.hasDraft || (publication.status === "published" && a.isDirty()) ? "Unpublished changes"
+    : state === "draft" && a.status === "saved" ? "Draft saved" : STATE_LABEL[state];
 
-  const publish = async () => {
-    if (e.status === "published") { set({ status: "draft" }); }
-    else {
-      if (missing > 0) { toast(`Add alt text to ${missing} image${missing === 1 ? "" : "s"} first.`); return; }
-      if (!e.title.trim()) { toast("Add a title first."); return; }
-      set({ status: "published" });
-    }
-    await a.flush();
-    onChanged();
-  };
-  const del = async () => { if (!confirm("Delete this post?")) return; try { await api("DELETE", `devlog/${entry.id}`); onChanged(); onBack(); } catch (x) { toast(isApiError(x) ? x.error : "Failed"); } };
-  const buildTitle = builds.find((b) => b.id === e.buildId)?.meta.title.value ?? "";
   const onTitle = (title: string) => {
-    const auto = e.status !== "published" && (e.slug === slugify(e.title) || e.slug === "" || /^untitled-(note|article)/.test(e.slug));
-    set({ title, ...(auto ? { slug: slugify(title) || "untitled" } : {}) });
+    const auto = publication.status !== "published" && (e.slug === slugify(e.title) || e.slug === "" || e.slug === entry.id || /^untitled-(note|article)/.test(e.slug));
+    set({ title, ...(auto ? { slug: cleanSlug(slugify(title)) } : {}) });
   };
   const toggleSite = (s: Site) => {
     const has = e.sites.includes(s);
     if (has && e.sites.length === 1) { toast("Show the post on at least one site."); return; }
     set({ sites: has ? e.sites.filter((x) => x !== s) : [...e.sites, s] });
   };
-  const publishLabel = state === "published" ? "Unpublish" : state === "scheduled" ? "Unschedule" : future ? "Schedule" : "Publish";
-  const statusLine = a.status === "saving" ? "Saving…" : a.status === "offline" ? "Offline, will retry" : a.status === "conflict" || a.status === "error" ? a.error : `${STATE_LABEL[state]}${a.status === "saved" ? ", saved" : ""}`;
+  const changePublication = async (intent: "publish" | "unpublish") => {
+    if (operation) return;
+    if (intent === "publish") {
+      if (missingAlt) { toast("Add alt text to every image and video first."); return; }
+      if (!e.title.trim() || !cleanSlug(e.slug)) { toast("Add a title and web address first."); return; }
+    }
+    setOperation(intent === "publish" ? "publishing" : "unpublishing");
+    try {
+      await a.flush();
+      pendingIntent.current = intent;
+      a.setValue({ ...latest.current });
+      await a.flush();
+      await onChanged();
+    } catch (error) {
+      pendingIntent.current = "save";
+      toast(isApiError(error) ? error.error : error instanceof Error ? error.message : "The publication change did not save.");
+    } finally { setOperation(null); }
+  };
+  const goBack = async () => {
+    try { await a.flush(); await onChanged(); onBack(); }
+    catch (error) { toast(isApiError(error) ? error.error : "The draft could not be saved."); }
+  };
+  const preview = async (event: MouseEvent) => {
+    if (!a.isDirty()) return;
+    event.preventDefault();
+    const tab = window.open("about:blank", "_blank");
+    if (tab) tab.opener = null;
+    try { await a.flush(); if (tab) tab.location.href = previewUrl; else toast("Allow pop-ups to open the preview."); }
+    catch (error) { tab?.close(); toast(isApiError(error) ? error.error : "Save the draft to open the preview."); }
+  };
+  const del = async () => {
+    if (operation || !confirm("Delete this post?")) return;
+    setOperation("deleting");
+    try { await a.flush(); await api("DELETE", "devlog/" + entry.id); await onChanged(); onBack(); }
+    catch (error) { toast(isApiError(error) ? error.error : "Could not delete the post."); }
+    finally { setOperation(null); }
+  };
+  const buildTitle = builds.find((b) => b.id === e.buildId)?.meta.title.value ?? "";
+  const openPanel = (id: PostPanel) => { setPanel(id); setPanelOpen(true); };
+  const resizeTitle = (target: HTMLTextAreaElement) => { target.style.height = "auto"; target.style.height = target.scrollHeight + "px"; };
 
   return (
-    <div class="blog-ed" onFocusOut={() => void a.flush()}>
-      <div class="statusbar blog-bar">
-        <button type="button" class="linkish" onClick={onBack}>All posts</button>
-        <span class={`status status-${a.status}`} role="status">{statusLine}</span>
-        {missing > 0 && <span class="warn small" id="alt-warn">{missing} image{missing === 1 ? " needs" : "s need"} alt text</span>}
-        <button type="button" class="panel-toggle" aria-expanded={panel} aria-controls="post-panel" onClick={() => setPanel(!panel)}>Details</button>
-        <a href={`/preview/devlog/${e.slug}`} target="_blank" rel="noopener">Preview</a>
-        <button type="button" class={state === "draft" ? "primary" : ""} disabled={state === "draft" && missing > 0} aria-describedby={missing > 0 ? "alt-warn" : undefined} onClick={publish}>{publishLabel}</button>
-      </div>
-      <div class="blog-grid">
-        <div class="blog-main">
-          <label class="sr-only" for="et">Title</label>
-          <textarea id="et" class={`ed-title ${e.type === "note" ? "is-note" : ""}`} rows={1} maxLength={90} value={e.title} placeholder={e.type === "note" ? "Title of the note" : "Article headline"}
-            onInput={(x) => { const t = x.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = `${t.scrollHeight}px`; onTitle(t.value.replace(/\n/g, " ")); }}
-            onKeyDown={(x) => { if (x.key === "Enter") { x.preventDefault(); (document.querySelector(".ed-prose") as HTMLElement | null)?.focus(); } }}
-            ref={(el) => { if (el) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; } }} />
-          <BodyEditor initial={bodyDoc.current} initialMissing={setMissing}
-            onDoc={(doc, m) => { setMissing(m); set({ blocks: doc }); }} />
+    <div class="blog-ed blog-workspace">
+      <header class="statusbar blog-bar blog-workspace-bar">
+        <button type="button" class="linkish blog-back" onClick={() => void goBack()}>All posts</button>
+        <div class="blog-save-state"><span class={"status status-" + a.status} role="status">{statusLine}</span>
+          {missingAlt > 0 && <span class="warn small" id="alt-warn">{missingAlt} media {missingAlt === 1 ? "item needs" : "items need"} alt text</span>}
         </div>
-        <aside id="post-panel" class={`blog-panel ${panel ? "open" : ""}`} aria-label="Post details">
-          <div class="fields">
-            <div class="field"><span class="lbl" id="ety">Type</span>
-              <div class="seg" role="group" aria-labelledby="ety">
-                {(["note", "article"] as PostType[]).map((t) => <button type="button" class={e.type === t ? "on" : ""} aria-pressed={e.type === t} onClick={() => set({ type: t })}>{t === "note" ? "Note" : "Article"}</button>)}
-              </div>
-            </div>
-            <div class="field"><span class="lbl" id="esite">Show on</span>
-              <div role="group" aria-labelledby="esite" class="checks">
-                <label class="switch"><input type="checkbox" checked={e.sites.includes("main")} onChange={() => toggleSite("main")} /><span>josefyang.com</span></label>
+        <div class="blog-action-row">
+          <button type="button" disabled={!!operation} onClick={() => void a.flush().catch((error) => toast(isApiError(error) ? error.error : "The draft could not be saved."))}>Save</button>
+          <a class="blog-preview" href={previewUrl} target="_blank" rel="noopener" onClick={(event) => void preview(event)}>Preview</a>
+          <button type="button" class="blog-panel-toggle" aria-expanded={panelOpen} aria-controls="post-panel" onClick={() => setPanelOpen(!panelOpen)}>Settings</button>
+          <button type="button" class="primary" disabled={!!operation || missingAlt > 0 || !e.title.trim() || !cleanSlug(e.slug)} aria-describedby={missingAlt > 0 ? "alt-warn" : undefined} onClick={() => void changePublication("publish")}>
+            {operation === "publishing" ? "Updating…" : publishLabel}
+          </button>
+        </div>
+      </header>
+      <div class={"blog-grid blog-writing-grid" + (panelOpen ? "" : " writing-wide")}>
+        <div class="blog-main blog-writing" ref={writing}>
+          <div class="blog-document">
+            <label class="sr-only" for="et">Post title</label>
+            <textarea id="et" class={"ed-title" + (e.type === "note" ? " is-note" : "")} rows={1} maxLength={90} value={e.title} placeholder={e.type === "note" ? "Title of the note" : "Article headline"}
+              onInput={(event) => { resizeTitle(event.currentTarget); onTitle(event.currentTarget.value.replace(/\n/g, " ")); }}
+              onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); writing.current?.querySelector<HTMLElement>(".ed-prose")?.focus(); } }}
+              ref={(element) => { if (element) resizeTitle(element); }} />
+            <BodyEditor initial={bodyDoc.current} initialMissing={setMissing}
+              onDoc={(doc, missingMedia) => { setMissing(missingMedia); set({ blocks: doc }); }} />
+          </div>
+        </div>
+        {panelOpen && <aside id="post-panel" class="blog-panel blog-post-inspector open" aria-label="Post settings">
+          <div class="blog-panel-head"><h2>Post settings</h2><button type="button" class="mini" onClick={() => setPanelOpen(false)}>Close</button></div>
+          <div class="blog-panel-tabs" aria-label="Settings views">
+            {POST_PANELS.map((tab) => <button type="button" key={tab.id} aria-pressed={panel === tab.id} onClick={() => openPanel(tab.id)}>{tab.label}</button>)}
+          </div>
+          {panel === "content" && <section class="fields post-panel-fields" aria-label="Content settings">
+            <label class="field">Format<select value={e.type} onChange={(event) => set({ type: event.currentTarget.value === "note" ? "note" : "article" })}><option value="article">Article</option><option value="note">Note</option></select></label>
+            <label class="field">Linked project<select value={e.buildId ?? ""} onChange={(event) => set({ buildId: event.currentTarget.value || null })}><option value="">None</option>{builds.map((b) => <option key={b.id} value={b.id}>{b.meta.title.value}</option>)}</select></label>
+            <label class="field">Excerpt <span class="muted small">{e.excerpt.length} / 220</span><textarea rows={3} maxLength={220} value={e.excerpt} onInput={(event) => set({ excerpt: event.currentTarget.value })} /></label>
+            <ImageControl id="hero" field={COVER} value={e.hero ?? noImage("fill")} onChange={(v) => set({ hero: v.mediaId ? v : null })} />
+            {taxonomy.error && <p class="warn small" role="alert">{taxonomy.error} <button type="button" class="mini" onClick={taxonomy.load}>Retry</button></p>}
+            <AssignedTerms kind="category" terms={taxonomy.terms} value={e.categories ?? []} onChange={(categories) => set({ categories })} />
+            {(e.categories ?? []).includes(FAILURE_CATEGORY_ID) && <p class="muted small">This post appears in Failures when published to the portfolio.</p>}
+            <AssignedTerms kind="tag" terms={taxonomy.terms} value={e.tagIds} onChange={(tagIds) => {
+              const tags = taxonomy.terms.filter((term) => tagIds.includes(term.id)).map((term) => term.name);
+              set({ tagIds, tags });
+            }} />
+          </section>}
+          {panel === "seo" && <section class="fields post-panel-fields" aria-label="SEO settings">
+            <div class="post-search-preview"><span class="muted small">Search preview</span><strong>{e.seoTitle || e.title || "Post title"}</strong><span class="post-preview-url">josefyang.com/devlog/{e.slug || "post-address"}</span>{(e.seoDescription || e.excerpt) && <p>{e.seoDescription || e.excerpt}</p>}</div>
+            <label class="field">SEO title <span class="muted small">{(e.seoTitle ?? "").length} / 90</span><input value={e.seoTitle ?? ""} maxLength={90} placeholder={e.title} onInput={(event) => set({ seoTitle: event.currentTarget.value })} /></label>
+            <label class="field">SEO description <span class="muted small">{e.seoDescription.length} / 200</span><textarea rows={4} maxLength={200} value={e.seoDescription} placeholder={e.excerpt || "Short description for search and sharing."} onInput={(event) => set({ seoDescription: event.currentTarget.value })} /></label>
+            <label class="field">Web address <span class="muted small">/devlog/</span><input value={e.slug} maxLength={60} onInput={(event) => set({ slug: event.currentTarget.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })} /></label>
+            {publication.status === "published" && <p class="muted small">Changing this address updates the public URL when you publish changes.</p>}
+          </section>}
+          {panel === "publishing" && <section class="fields post-panel-fields" aria-label="Publishing settings">
+            <fieldset class="group"><legend>Show on</legend>
+              <div class="checks">
+                <label class="switch"><input type="checkbox" checked={e.sites.includes("main")} onChange={() => toggleSite("main")} /><span>Portfolio</span></label>
                 <label class="switch"><input type="checkbox" checked={e.sites.includes("games")} onChange={() => toggleSite("games")} /><span>Game hub</span></label>
               </div>
+            </fieldset>
+            {e.sites.includes("games") && <label class="field">Linked game slug<input value={e.gameSlug ?? ""} maxLength={60} placeholder="my-game" onInput={(event) => set({ gameSlug: event.currentTarget.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") || null })} /></label>}
+            <label class="field">Entry date<input type="date" value={e.date} onInput={(event) => { if (event.currentTarget.value) set({ date: event.currentTarget.value }); }} /></label>
+            <label class="field">Schedule <span class="muted small">Leave empty to publish immediately</span>
+              <input type="datetime-local" value={toLocalInput(e.publishAt)} onInput={(event) => {
+                const value = event.currentTarget.value;
+                if (!value) set({ publishAt: null });
+                else { const date = new Date(value); if (Number.isFinite(+date)) set({ publishAt: date.toISOString(), date: localDate(date) }); }
+              }} />
+            </label>
+            {publication.livePublishAt && state === "scheduled" && <p class="muted small">Live schedule: {new Date(publication.livePublishAt).toLocaleString()}</p>}
+            <div class="panel-actions blog-action-row">
+              {state !== "draft" && <button type="button" disabled={!!operation} onClick={() => void changePublication("unpublish")}>{operation === "unpublishing" ? "Updating…" : "Return to draft"}</button>}
+              <button type="button" disabled={!!operation} onClick={() => exportPack(e, buildTitle).catch(() => toast("Export failed."))}>Export post pack</button>
+              <button type="button" class="danger" disabled={!!operation} onClick={() => void del()}>Delete post</button>
             </div>
-            <div class="field"><label for="eat">Schedule (leave empty to publish right away)</label>
-              <input id="eat" type="datetime-local" value={toLocalInput(e.publishAt)}
-                onInput={(x) => { const v = (x.target as HTMLInputElement).value; set(v ? { publishAt: new Date(v).toISOString(), date: localDate(new Date(v)) } : { publishAt: null }); }} />
-              {future && <p class="small muted">{state === "scheduled" ? "Scheduled for " : "Will go live on "}{new Date(e.publishAt!).toLocaleString()}.</p>}
-            </div>
-            <div class="field"><label for="ex">Excerpt ({e.excerpt.length} / 220)</label><textarea id="ex" rows={3} maxLength={220} value={e.excerpt} onInput={(x) => set({ excerpt: (x.target as HTMLTextAreaElement).value })} /></div>
-            <ImageControl id="hero" field={COVER} value={e.hero ?? noImage("fill")} onChange={(v) => set({ hero: v.mediaId ? v : null })} />
-            <Tags value={e.tags} onChange={(tags) => set({ tags })} />
-            <div class="field"><label for="eb">Linked build</label>
-              <select id="eb" value={e.buildId ?? ""} onChange={(x) => set({ buildId: (x.target as HTMLSelectElement).value || null })}>
-                <option value="">None</option>{builds.map((b) => <option value={b.id}>{b.meta.title.value}</option>)}
-              </select>
-            </div>
-            <div class="field"><label for="eg">Linked game (slug)</label><input id="eg" value={e.gameSlug ?? ""} maxLength={60} placeholder="e.g. my-game" onInput={(x) => set({ gameSlug: (x.target as HTMLInputElement).value.toLowerCase().replace(/[^a-z0-9-]/g, "-") || null })} /></div>
-            <div class="field"><label for="eseo">SEO description ({e.seoDescription.length} / 200)</label><textarea id="eseo" rows={2} maxLength={200} value={e.seoDescription} placeholder="Shown in search results. Falls back to the excerpt." onInput={(x) => set({ seoDescription: (x.target as HTMLTextAreaElement).value })} /></div>
-            <div class="field"><label for="es">Web address: /devlog/{e.slug}</label><input id="es" value={e.slug} onInput={(x) => set({ slug: (x.target as HTMLInputElement).value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })} /></div>
-            <div class="field"><label for="ed">Date</label><input id="ed" type="date" value={e.date} onInput={(x) => set({ date: (x.target as HTMLInputElement).value })} /></div>
-            <div class="field"><label for="ef">Rough note on Fuse (link)</label><input id="ef" type="url" value={e.fuseUrl} placeholder="https://fuse.josefyang.com/…" onInput={(x) => set({ fuseUrl: (x.target as HTMLInputElement).value.trim() })} /></div>
-            <div class="panel-actions">
-              <button type="button" onClick={() => exportPack(e, buildTitle).catch(() => toast("Export failed"))}>Export post pack</button>
-              <button type="button" class="danger" onClick={del}>Delete</button>
-            </div>
-          </div>
-        </aside>
+          </section>}
+        </aside>}
       </div>
     </div>
   );
