@@ -1,81 +1,124 @@
 ---
 import T from "../../components/T.astro";
 import Img from "../../components/Img.astro";
-import type { Content } from "../../core/fields";
+import Icon from "../../components/Icon.astro";
+import type { Content, ImageValue } from "../../core/fields";
+import { buildFields } from "../../core/build-fields";
 import type { PageData } from "../../core/types";
 import mod from "./module";
-interface Props { content: Content<typeof mod.fields>; data: PageData }
-const { content: c, data } = Astro.props;
+
+interface Props { content: Content<typeof mod.fields>; data: PageData; sectionId?: string }
+const { content: c, data, sectionId = "about-timeline" } = Astro.props;
 const F = mod.fields;
-const ms = data.milestones;
-const planned = Math.max(c.plannedLayers, ms.length, 1);
-const printed = ms.length;
+const text = (value?: string) => value?.trim() ?? "";
+const hasImage = (value?: ImageValue): value is ImageValue => Boolean(value?.mediaId && value?.key);
+const compare = (value: string) => value.trim().toLowerCase();
+const milestones = data.milestones.filter((item) => text(item.title) && !/^\[.*\]$/s.test(text(item.title)) && !/^filler$/i.test(text(item.label)));
+const entries = milestones.map((milestone, index) => {
+  const assets = c.evidence.find((item) => compare(item.milestone.value) === compare(milestone.title));
+  const build = data.builds.find((item) => compare(item.meta.title.value) === compare(milestone.title));
+  const image = hasImage(assets?.image) ? assets?.image : hasImage(build?.meta.selectorImage) ? build?.meta.selectorImage : undefined;
+  const href = assets?.url || (build ? "/builds/" + build.slug : "");
+  const linkLabel = assets?.linkLabel.value || (build ? build.meta.title.value : c.evidenceLink.value);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(milestone.date) ? milestone.date : undefined;
+  return { ...milestone, date, image, href, linkLabel, panelId: sectionId + "-evidence-" + index };
+});
+const showFigure = hasImage(c.figure);
 ---
-<section class="rig-sec on-sun" data-rig style={`--layers:${planned};--printed:${printed};--p:${printed}`}>
-  <div class="wrap rig-grid">
-    <div class="rig" aria-hidden="true">
-      <div class="rig-top"></div>
-      <div class="rod rod-l"><span class="clamp"></span></div>
-      <div class="rod rod-r"><span class="clamp"></span></div>
-      <div class="figure">
-        <div class="ghost"></div>
-        <div class="printed">
-          <Img v={c.figure} f={F.figure} sizes="300px" emptyLabel={false} class="fig-img" />
-          <div class="lines"></div>
-        </div>
+{(entries.length > 0 || Astro.locals.mode === "draft") && (
+<section class="about-timeline" aria-labelledby={sectionId + "-heading"} data-about-timeline>
+  <div class="wrap">
+    <div class="timeline-header">
+      <div>
+        <T v={c.heading} f={F.heading} as="h2" class="timeline-title" id={sectionId + "-heading"} />
+        <T v={c.line} f={F.line} class="timeline-intro" />
       </div>
-      <div class="carriage"><span class="nozzle"></span></div>
-      <div class="bed"></div>
+      {showFigure && <figure class="timeline-cameo"><Img v={c.figure} f={F.figure} sizes="95px" /></figure>}
     </div>
-    <div class="rig-text">
-      <T v={c.heading} f={F.heading} as="h2" />
-      <T v={c.line} f={F.line} class="rig-line" />
-      <p class="rig-count"><strong data-rig-count>{printed}</strong> / {planned} {c.layersLabel.value}</p>
-      <ol class="ms">
-        {ms.map((m, i) => (
-          <li data-ms={i}>
-            <p class="ms-label">{m.label}</p>
-            <div><h3>{m.title}</h3>{m.body && <p>{m.body}</p>}</div>
-          </li>
-        ))}
-      </ol>
-    </div>
+    {entries.length > 0 && (
+      <div class="timeline-grid">
+        <ol class="timeline-list" data-timeline-list>
+          {entries.map((entry, index) => (
+            <li class="timeline-entry" data-timeline-item>
+              <div class="timeline-row">
+                {entry.date ? <time datetime={entry.date} class="timeline-date">{entry.label || entry.date}</time> : <span class="timeline-date">{entry.label}</span>}
+                <h3>
+                  <span class="timeline-static-title">{entry.title}</span>
+                  <button type="button" data-timeline-select aria-pressed={index === 0 ? "true" : "false"} aria-controls={entry.panelId}>
+                    {entry.title}<Icon name="arrow-right" size={17} />
+                  </button>
+                </h3>
+              </div>
+              <div class="timeline-inline">
+                {entry.body && <p>{entry.body}</p>}
+                {entry.image && <Img v={entry.image} f={buildFields.selectorImage} sizes="(max-width: 800px) 90vw, 590px" />}
+                {entry.href && <a class="timeline-link" href={entry.href}>{entry.linkLabel}<Icon name="arrow-right" size={16} /></a>}
+              </div>
+            </li>
+          ))}
+        </ol>
+        <aside class="timeline-evidence" data-timeline-evidence>
+          {entries.map((entry, index) => (
+            <article id={entry.panelId} data-timeline-panel hidden={index !== 0}>
+              {entry.image && <Img v={entry.image} f={buildFields.selectorImage} sizes="(max-width: 800px) 90vw, 500px" />}
+              <div class="timeline-evidence-copy">
+                <h3>{entry.title}</h3>
+                {entry.body && <p>{entry.body}</p>}
+                {entry.href && <a class="timeline-link" href={entry.href}>{entry.linkLabel}<Icon name="arrow-right" size={16} /></a>}
+                {entry.date ? <time datetime={entry.date}>{entry.label || entry.date}</time> : <span class="evidence-date">{entry.label}</span>}
+              </div>
+            </article>
+          ))}
+        </aside>
+      </div>
+    )}
   </div>
 </section>
+)}
 <script>
   import { onPage } from "../../core/island";
-  import { mountRig } from "./island";
-  onPage("[data-rig]", mountRig);
+  import { mountTimeline } from "./island";
+  onPage("[data-about-timeline]", mountTimeline);
 </script>
 <style>
-  .rig-sec { background: var(--sun); padding: var(--section-y) 0; }
-  .rig-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 64px; align-items: center; }
-  .rig { position: relative; width: min(100%, 380px); aspect-ratio: 3 / 4; margin-inline: auto; --frac: calc(var(--p) / var(--layers)); }
-  .rig-top { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--black); }
-  .rod { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--black); }
-  .rod-l { left: 8%; } .rod-r { right: 8%; }
-  .clamp { position: absolute; left: 50%; top: calc(88% - var(--frac) * 70%); width: 18px; height: 18px; translate: -50% -50%; border: 3px solid var(--black); background: var(--sun); transition: top 500ms var(--ease-out); }
-  .bed { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--black); }
-  .figure { position: absolute; left: 22%; right: 22%; top: 18%; bottom: 3px; }
-  .ghost { position: absolute; inset: 0; border: 2px dashed var(--black); border-bottom: 0; border-radius: 999px 999px 0 0; opacity: 0.55; }
-  .printed { position: absolute; inset: 0; clip-path: inset(calc((1 - var(--frac)) * 100%) 0 0 0); transition: clip-path 500ms var(--ease-out); }
-  .printed :global(.fig-img) { height: 100%; aspect-ratio: auto; border-radius: 999px 999px 0 0; }
-  .printed :global(.img-empty) { background: var(--black); color: var(--sun); }
-  .printed :global(.img-empty .icon) { display: none; }
-  .printed :global(.img-object img) { object-position: 50% 100%; filter: grayscale(1) contrast(1.1); }
-  .lines { position: absolute; inset: 0; background: repeating-linear-gradient(to top, transparent 0, transparent calc(100% / var(--layers) - 2px), var(--sun) calc(100% / var(--layers) - 2px), var(--sun) calc(100% / var(--layers))); opacity: 0.9; }
-  .carriage { position: absolute; left: 8%; right: 8%; top: calc(18% + (1 - var(--frac)) * (82% - 3px)); height: 3px; background: var(--black); transition: top 500ms var(--ease-out); }
-  .nozzle { position: absolute; left: 50%; top: -14px; width: 26px; height: 22px; translate: -50% 0; background: var(--black); clip-path: polygon(0 0, 100% 0, 100% 60%, 60% 100%, 40% 100%, 0 60%); }
-  .rig-text :global(h2) { font-size: var(--size-xl); }
-  .rig-text :global(.rig-line) { margin-top: 16px; max-width: 40ch; }
-  .rig-count { margin-top: 24px; font-family: var(--font-display); font-size: var(--size-s); font-variant-numeric: tabular-nums; }
-  .rig-count strong { font-weight: 900; font-size: 1.6em; }
-  .ms { margin-top: 24px; border-top: 1px solid var(--black); }
-  .ms li { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 5fr); gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--black); transition: opacity 400ms var(--ease-out); }
-  .ms li.is-pending { opacity: 0.72; translate: 8px 0; }
-  .ms li { transition: opacity 400ms var(--ease-out), translate 500ms var(--ease-out); }
-  .ms-label { font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); }
-  .ms h3 { font-family: var(--font-display); font-weight: 800; font-size: var(--size-l); line-height: 1.15; letter-spacing: -0.01em; }
-  .ms p:not(.ms-label) { margin-top: 4px; font-size: var(--size-s); color: var(--sun-ink); }
-  @media (max-width: 860px) { .rig-grid { grid-template-columns: 1fr; gap: 48px; } .rig { width: min(80%, 320px); } .ms li { grid-template-columns: 1fr; gap: 4px; } }
+  .about-timeline { background: var(--archive-paper); color: var(--workbench); padding-bottom: clamp(48px, 7vw, 92px); }
+  .timeline-header { display: flex; justify-content: space-between; gap: 24px; align-items: end; padding-block: clamp(26px, 4vw, 48px) clamp(24px, 3vw, 38px); border-top: 1px solid var(--archive-rule); }
+  .about-timeline :global(.timeline-title) { font-size: clamp(2.2rem, 5.1vw, 4.9rem); font-weight: 780; line-height: 1; letter-spacing: var(--track-tight); }
+  .about-timeline :global(.timeline-intro) { color: var(--muted); margin-top: 9px; }
+  .timeline-cameo { width: clamp(48px, 9vw, 94px); flex: none; }
+  .timeline-cameo :global(.img-slot) { border-radius: 3px; }
+  .timeline-grid { display: grid; gap: 24px; align-items: start; }
+  .timeline-list { border-top: 1px solid var(--archive-rule); }
+  .timeline-entry { border-bottom: 1px solid var(--archive-rule); }
+  .timeline-row { display: grid; grid-template-columns: minmax(86px, .31fr) minmax(0, 1fr); gap: 12px; min-height: 77px; align-items: center; }
+  .timeline-date { color: var(--muted); font-size: var(--size-s); font-variant-numeric: tabular-nums; }
+  .timeline-row h3 { min-width: 0; font-family: var(--font-display); font-size: clamp(1rem, 2vw, 1.5rem); font-weight: 710; line-height: 1.18; letter-spacing: var(--track-display); overflow-wrap: anywhere; }
+  .timeline-row button { display: none; }
+  .timeline-inline { padding: 0 0 21px; color: var(--muted); }
+  .timeline-inline > p { max-width: var(--measure); }
+  .timeline-inline :global(.img-slot) { max-width: 590px; margin-top: 13px; border-radius: 4px; }
+  .timeline-link { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; font: 650 var(--size-s) var(--font-display); text-decoration: underline; text-decoration-color: var(--sun); overflow-wrap: anywhere; }
+  .timeline-link :global(svg) { flex: none; }
+  .timeline-link:hover { text-decoration-color: currentColor; }
+  .timeline-evidence { display: none; }
+
+  @media (min-width: 801px) and (min-height: 600px) {
+    .about-timeline[data-ready] .timeline-grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(30px, 6vw, 82px); }
+    .about-timeline[data-ready] .timeline-inline, .about-timeline[data-ready] .timeline-static-title { display: none; }
+    .about-timeline[data-ready] .timeline-row button { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 12px 12px 12px 0; width: 100%; min-height: 66px; border: 0; background: transparent; text-align: left; cursor: pointer; }
+    .timeline-row button :global(svg) { color: var(--muted); flex: none; transition: transform var(--dur-fast) var(--ease-out); }
+    .timeline-row button:hover :global(svg), .timeline-row button[aria-pressed="true"] :global(svg) { color: var(--workbench); transform: translateX(4px); }
+    .about-timeline[data-ready] .timeline-entry:has(button[aria-pressed="true"]) { background: color-mix(in srgb, var(--white) 46%, var(--archive-paper)); box-shadow: inset 0 -1px var(--sun); }
+    .about-timeline[data-ready] .timeline-evidence { display: block; position: sticky; top: calc(var(--nav-h) + 24px); }
+    .timeline-evidence article { background: var(--workbench); color: var(--workbench-ink); padding: clamp(18px, 3vw, 32px); border-radius: 4px; }
+    .timeline-evidence article:not([hidden]) { animation: evidence-in 280ms var(--ease-out); }
+    .timeline-evidence article :global(.img-slot) { border-radius: 3px; margin-bottom: 20px; max-height: 245px; }
+    .timeline-evidence-copy { position: relative; padding-top: 14px; }
+    .timeline-evidence-copy::before { content: ""; position: absolute; width: 25px; height: 2px; background: var(--sun); top: 0; left: 0; }
+    .timeline-evidence h3 { font: 750 clamp(1.3rem, 2.2vw, 2rem)/1.07 var(--font-display); letter-spacing: var(--track-display); overflow-wrap: anywhere; }
+    .timeline-evidence p { margin-top: 10px; color: var(--workbench-subtle); }
+    .timeline-evidence time, .timeline-evidence .evidence-date { display: block; color: var(--workbench-subtle); margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--workbench-rule); font-size: var(--size-xs); }
+    .timeline-evidence time:empty, .timeline-evidence .evidence-date:empty { display: none; }
+    @keyframes evidence-in { from { opacity: .65; translate: 0 5px; } to { opacity: 1; translate: 0 0; } }
+  }
 </style>

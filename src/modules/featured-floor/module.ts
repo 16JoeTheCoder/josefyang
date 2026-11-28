@@ -5,7 +5,7 @@ export default defineModule({
   id: "featured-floor",
   name: "Featured builds floor",
   version: 1,
-  description: "The Home floor: featured builds scattered on granite; scrolling pans the camera from build to build. Vertical list on phones and with reduced motion.",
+  description: "The featured builds workbench. Scroll and arrow controls move the camera between builds. Reduced motion keeps the same controls with immediate changes.",
   island: true,
   pages: ["home"],
   fields: {
@@ -16,6 +16,8 @@ export default defineModule({
     skipLabel: f.label("Skip link", { max: 24, maxLines: 1 }),
     keysHint: f.label("Keyboard hint", { max: 60, maxLines: 1 }),
     emptyNote: f.body("Shown when no build is featured yet", { max: 120, maxLines: 2 }),
+    prevLabel: f.label("Previous project (screen readers)", { max: 24, maxLines: 1 }),
+    nextLabel: f.label("Next project (screen readers)", { max: 24, maxLines: 1 }),
     showWatch: f.toggle("Show the watch on the floor"),
     watchLabel: f.label("Watch description (screen readers)", { max: 60, maxLines: 1 }),
   },
@@ -27,7 +29,10 @@ export default defineModule({
     skipLabel: t("Skip to the rest"),
     keysHint: t("Scroll or use the arrow keys to move between builds."),
     emptyNote: t("Featured builds land here once they are published."),
+    prevLabel: t("Previous project"),
+    nextLabel: t("Next project"),
     showWatch: true,
     watchLabel: t("A wristwatch on the floor, showing the time"),
   },
 });
+

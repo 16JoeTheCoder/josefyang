@@ -13,7 +13,7 @@ const F = mod.fields;
     <Head heading={c.heading} headingField={F.heading} body={c.body} bodyField={F.body} linkLabel={c.linkLabel} linkUrl={c.linkUrl} />
     <figure class="sm-fig">
       <Video v={c.video} poster={c.poster} posterField={F.poster} playLabel={c.playLabel.value} failLabel={c.failLabel.value} />
-      <T v={c.caption} f={F.caption} as="figcaption" class="sm-cap" />
+      <T v={c.caption} f={F.caption} as="figcaption" class="sm-cap" editPath="caption" />
     </figure>
   </div>
 </section>

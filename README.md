@@ -11,6 +11,7 @@ npm install
 cp .dev.vars.example .dev.vars          # PowerShell: Copy-Item .dev.vars.example .dev.vars
 npm run db:migrate:local                 # creates the local D1 tables (and the default build template)
 npm run db:seed:local                    # optional: real facts + bracketed placeholder builds/devlog for testing layouts
+npx wrangler d1 execute josefyang-db --local --file=seed/dev-phase1.sql   # optional: fixture game + game updates for /games
 npm run dev                              # http://localhost:4321  and the admin at http://localhost:4321/admin
 ```
 

@@ -3,6 +3,7 @@ import type { BuildMeta } from "./build-fields";
 import type { ImageValue } from "./fields";
 import type { Section } from "./module";
 import type { SiteSettings } from "./settings";
+import type { TaxonomyTerm } from "./taxonomy";
 
 export type Mode = "draft" | "published";
 
@@ -26,7 +27,7 @@ export interface DevlogEntry {
   build: { slug: string; title: string; failed: boolean } | null;
   hero: ImageValue | null;
   images: ImageValue[];
-  fuseUrl: string;
+
   readMinutes: number | null;
   date: string;
   status: "draft" | "published";
@@ -35,10 +36,14 @@ export interface DevlogEntry {
   blocks: BlockDoc | null;
   type: "note" | "article";
   tags: string[];
+  tagTerms: TaxonomyTerm[];
+  categories: string[];
+  categoryTerms: TaxonomyTerm[];
   sites: ("main" | "games")[];
   gameSlug: string | null;
   /** ISO datetime; a published post stays hidden until this time. */
   publishAt: string | null;
+  seoTitle: string;
   seoDescription: string;
 }
 

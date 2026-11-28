@@ -1,0 +1,8 @@
+[
+  { "sectionId": "home-hero", "moduleId": "home-hero", "moduleVersion": 1, "content": { "headline": { "value": "BuiltByJosef Portfolio" }, "line": { "value": "Student engineer. Jakarta. Building since October 2026." }, "portrait": { "mediaId": null, "focal": { "x": 0.5, "y": 0.5 }, "zoom": 1, "mode": "object", "alt": "" }, "phoneTrack": { "value": "Late-night jazz" } } },
+  { "sectionId": "featured-floor", "moduleId": "featured-floor", "moduleVersion": 1, "content": {} },
+  { "sectionId": "about-me-grid", "moduleId": "about-me-grid", "moduleVersion": 1, "content": {} },
+  { "sectionId": "own-tools", "moduleId": "own-tools", "moduleVersion": 1, "content": {} },
+  { "sectionId": "custom-text", "moduleId": "text-band", "moduleVersion": 1, "hidden": true, "content": { "heading": { "value": "A custom section Josef added" } } },
+  { "sectionId": "devlog-strip", "moduleId": "devlog-strip", "moduleVersion": 2, "content": {} }
+]

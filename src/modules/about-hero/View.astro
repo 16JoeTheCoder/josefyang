@@ -1,31 +1,90 @@
 ---
 import T from "../../components/T.astro";
 import Img from "../../components/Img.astro";
+import Icon from "../../components/Icon.astro";
 import type { Content } from "../../core/fields";
 import mod from "./module";
 import type { PageData } from "../../core/types";
+
 interface Props { content: Content<typeof mod.fields>; data: PageData }
 const { content: c, data } = Astro.props;
-const hasCv = !!data.settings.cv.fileKey;
+const { site, cv } = data.settings;
 const F = mod.fields;
+const editMode = data.mode === "draft";
+const hasPortrait = Boolean(c.portrait.mediaId && c.portrait.key);
+const legacyHeading = c.heading.value.trim() === "About";
+const heading = legacyHeading ? mod.defaults.heading : c.heading;
+const samples = data.builds
+  .filter((build) => build.meta.status !== "failed" && !/\bfuse\b/i.test(build.meta.title.value))
+  .map((build) => ({ build, image: build.meta.selectorImage.key ? build.meta.selectorImage : build.meta.floorImage }))
+  .filter(({ build, image }) => build.meta.featured && Boolean(image.mediaId && image.key))
+  .sort((a, b) => a.build.meta.homeOrder - b.build.meta.homeOrder)
+  .slice(0, 3);
 ---
-<section class="ah on-sun">
-  <div class="wrap ah-grid">
-    <div>
-      <T v={c.heading} f={F.heading} as="h1" class="ah-title" />
-      <T v={c.bio} f={F.bio} class="ah-bio" />
-      {hasCv && c.cvLabel.value && <a class="btn btn-primary ah-cv" href="/cv" target="_blank" rel="noopener">{c.cvLabel.value}</a>}
+<section class="about-opening">
+  <div class:list={["wrap", "about-opening-grid", (hasPortrait || editMode) && "about-with-portrait"]}>
+    <div class="about-opening-copy">
+      <T v={heading} f={F.heading} as="h1" class="about-name" editPath="heading" />
+      <T v={c.introduction} f={F.introduction} class="about-introduction" editPath="introduction" />
+      <T v={c.bio} f={F.bio} class="about-bio" editPath="bio" />
+      <div class="about-opening-links">
+        <a class="about-opening-link" href="/projects">{site.footerProjectsButton.value}<Icon name="arrow-right" size={18} /></a>
+        {cv.fileKey && c.cvLabel.value && <a class="about-opening-link about-cv" href="/cv" target="_blank" rel="noopener" data-edit-path={editMode ? "cvLabel" : undefined}>{c.cvLabel.value}<Icon name="download" size={17} /></a>}
+      </div>
     </div>
-    <div class="ah-portrait"><Img v={c.portrait} f={F.portrait} eager sizes="(max-width: 860px) 90vw, 400px" /></div>
+    {(hasPortrait || editMode) && (
+      <figure class="about-portrait">
+        <Img v={c.portrait} f={F.portrait} eager editPath="portrait" sizes="(max-width: 720px) 90vw, 520px" />
+      </figure>
+    )}
   </div>
+  {samples.length > 0 && <div class="wrap about-samples">
+    <T v={c.samplesHeading} f={F.samplesHeading} as="h2" class="about-samples-heading" editPath="samplesHeading" />
+    <ul class="about-sample-list" role="list">
+      {samples.map(({ build, image }) => <li>
+        <a href={`/builds/${build.slug}`} class="about-sample">
+          <Img v={{ ...image, alt: "", mode: image.mode === "object" ? "fit" : image.mode }} f={{ ratio: "4 / 3", empty: "Project image" }} sizes="(max-width: 620px) 120px, 145px" />
+          <span class="about-sample-info">
+            <span class="about-sample-kind">{build.meta.kind === "software" ? "Software" : "Hardware"}</span>
+            <span class="about-sample-title">{build.meta.title.value}<Icon name="arrow-right" size={15} /></span>
+          </span>
+        </a>
+      </li>)}
+    </ul>
+  </div>}
 </section>
 <style>
-  .ah { background: var(--sun); padding: calc(var(--nav-h) + 72px) 0 var(--section-y); }
-  .ah-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 64px; align-items: center; }
-  .ah :global(.ah-title) { font-size: clamp(5rem, 2rem + 12vw, 13rem); line-height: 0.82; }
-  .ah :global(.ah-bio) { margin-top: 36px; font-size: var(--lead); max-width: 38ch; }
-  .ah-cv { margin-top: 28px; }
-  .ah-portrait :global(.img-slot) { box-shadow: 0 40px 60px -30px var(--shade-35); }
-  .ah-portrait :global(.img-empty) { background: var(--sun-tile); color: var(--sun-ink); }
-  @media (max-width: 860px) { .ah-grid { grid-template-columns: 1fr; gap: 40px; } .ah-portrait { max-width: 420px; } }
+  .about-opening { background: var(--workbench); color: var(--workbench-ink); padding: clamp(105px, 10vw, 160px) 0 clamp(60px, 7vw, 96px); }
+  .about-opening-grid { display: grid; align-items: center; gap: clamp(30px, 8vw, 125px); }
+  .about-with-portrait { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+  .about-opening-copy { min-width: 0; }
+  .about-opening :global(.about-name) { font-size: clamp(3.35rem, 7.25vw, 6rem); line-height: .94; font-weight: 790; letter-spacing: var(--track-tight); text-wrap: wrap; overflow-wrap: anywhere; }
+  .about-opening :global(.about-introduction) { margin-top: clamp(16px, 2.7vw, 26px); color: var(--workbench-ink); font-size: clamp(1.12rem, 2.15vw, 1.5rem); line-height: 1.42; max-width: 35ch; }
+  .about-opening :global(.about-bio) { margin-top: 14px; max-width: 43ch; font-size: clamp(1rem, 1.6vw, 1.2rem); line-height: 1.55; color: var(--workbench-subtle); }
+  .about-opening-links { display: flex; flex-wrap: wrap; align-items: center; column-gap: 21px; row-gap: 9px; margin-top: clamp(21px, 4vw, 40px); }
+  .about-opening-link { min-height: 48px; display: inline-flex; align-items: center; gap: 20px; padding-inline: 16px; border: 1px solid var(--workbench-rule); border-radius: 4px; font: 670 var(--size-s) var(--font-display); text-decoration: none; transition: border-color var(--dur-fast), background var(--dur-fast); }
+  .about-opening-link :global(svg) { color: var(--sun); flex: none; }
+  .about-opening-link:hover { border-color: var(--workbench-subtle); background: var(--workbench-mat); }
+  .about-portrait { position: relative; width: min(100%, 510px); justify-self: end; margin: 0; padding: 9px 9px 22px; background: var(--archive-paper); transform: rotate(2deg); }
+  .about-portrait::after { position: absolute; content: ""; inset: 9px -12px -13px 12px; border-right: 1px solid var(--workbench-rule); border-bottom: 1px solid var(--workbench-rule); pointer-events: none; }
+  .about-portrait :global(.img-slot) { max-height: 530px; border-radius: 0; background: var(--workbench-mat); }
+  .about-portrait :global(.img-empty) { color: var(--workbench-subtle); }
+  .about-samples { margin-top: clamp(50px, 8vw, 106px); padding-top: 20px; border-top: 1px solid var(--workbench-rule); }
+  .about-samples :global(.about-samples-heading) { font-size: var(--size-m); letter-spacing: -.02em; margin: 0 0 15px; }
+  .about-sample-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0; margin: 0; gap: 12px; list-style: none; }
+  .about-sample { display: grid; grid-template-columns: minmax(72px, .65fr) minmax(0, 1fr); align-items: center; gap: 14px; min-height: 100%; padding: 9px; border: 1px solid var(--workbench-rule); text-decoration: none; transition: border-color var(--dur-fast), background var(--dur-fast); }
+  .about-sample:hover { border-color: var(--workbench-subtle); background: var(--workbench-mat); }
+  .about-sample :global(.img-slot) { border-radius: 0; background: var(--workbench-mat); }
+  .about-sample-info, .about-sample-title { display: flex; gap: 5px; }
+  .about-sample-info { flex-direction: column; }
+  .about-sample-kind { color: var(--workbench-subtle); font-size: var(--size-xs); }
+  .about-sample-title { align-items: center; font-family: var(--font-display); font-weight: 650; line-height: 1.15; overflow-wrap: anywhere; }
+  .about-sample-title :global(svg) { color: var(--sun); flex: none; }
+  @media (max-width: 720px) {
+    .about-opening { padding-top: 116px; }
+    .about-with-portrait { grid-template-columns: 1fr; }
+    .about-portrait { justify-self: start; width: min(100%, 430px); transform: none; }
+    .about-portrait :global(.img-slot) { max-height: min(97vw, 450px); }
+  }
+  @media (max-width: 850px) { .about-sample-list { grid-template-columns: 1fr; } .about-sample { grid-template-columns: 100px minmax(0, 1fr); } }
 </style>

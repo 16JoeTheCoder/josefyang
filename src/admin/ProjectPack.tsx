@@ -45,7 +45,7 @@ function readZip(data: Uint8Array): { entries: { name: string; size: number }[];
   return { entries, files: unzipSync(data, { filter: (f) => !isJunkEntry(f.name) }) };
 }
 
-export function ImportProject({ builds, onOpen, onChanged }: { builds: BuildRec[]; onOpen: (id: string) => void; onChanged: () => void }) {
+export function ImportProject({ builds, onOpen, onChanged }: { builds: BuildRec[]; onOpen: (id: string) => void; onChanged: () => Promise<void> }) {
   const { toast, refreshMedia } = useAdmin();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [errs, setErrs] = useState<string[]>([]);
@@ -107,7 +107,7 @@ export function ImportProject({ builds, onOpen, onChanged }: { builds: BuildRec[
       const cur = await api<BuildRec>("GET", `builds/${id}`);
       const r = await api<{ problems: { label: string; message: string }[] }>("PATCH", `builds/${id}`, { doc: { slug: doc.slug, meta: doc.meta, sections: doc.sections }, updatedAt: cur.updatedAt });
       await refreshMedia();
-      onChanged();
+      await onChanged();
       toast(`${loaded.existing ? "Updated the draft of" : "Imported"} "${pack.slug}" as a draft.${r.problems.length ? ` ${r.problems.length} thing${r.problems.length === 1 ? "" : "s"} to fix before publishing.` : ""}`);
       setLoaded(null);
       onOpen(id);

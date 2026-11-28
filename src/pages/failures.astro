@@ -1,10 +1,11 @@
 ---
 import { env } from "cloudflare:workers";
 import Base from "../layouts/Base.astro";
+import { views } from "../core/views/failures";
 import RenderSections from "../core/RenderSections.astro";
 import { loadPageData } from "../core/db";
 const { data, sections } = await loadPageData(env.DB, Astro.locals.mode, "failures");
 ---
 <Base settings={data.settings} active="failures" title="Failures">
-  <RenderSections page="failures" sections={sections} data={data} />
+  <RenderSections page="failures" sections={sections} data={data} views={views} />
 </Base>

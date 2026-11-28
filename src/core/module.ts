@@ -1,6 +1,6 @@
 import type { Content, Fields } from "./fields";
 
-export type PageId = "home" | "projects" | "failures" | "devlog" | "about" | "build";
+export type PageId = "home" | "projects" | "failures" | "devlog" | "about" | "build" | "games";
 
 export interface ModuleDef<FS extends Fields = Fields> {
   id: string;

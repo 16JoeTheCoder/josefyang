@@ -4,6 +4,7 @@ import {
   parseBlocksJson, plainText, readMinutesFor,
   type Block, type BlockDoc, type ImageAttrs, type Inline, type VideoAttrs,
 } from "./blocks";
+import { assignedTerms, postDraft, stringList, TAXONOMY_SQL, type TaxonomyTerm } from "./taxonomy";
 
 export const SITE_URL = "https://josefyang.com";
 
@@ -105,24 +106,36 @@ interface Row {
   slug: string | null; id: string; title: string; excerpt: string; body: string; type: string; tags_json: string; sites_json: string;
   game_slug: string | null; blocks_json: string | null; hero_media_id: string | null; entry_date: string | null; created_at: number;
   read_minutes: number | null; build_slug: string | null; build_meta: string | null;
+  tag_ids_json: string | null; draft_json?: string | null;
 }
 
-const arr = (s: string | null | undefined): string[] => { try { const v = JSON.parse(s ?? "[]"); return Array.isArray(v) ? v.filter((x) => typeof x === "string") : []; } catch { return []; } };
-
 export async function listPosts(db: D1Database, o: ListPostsOpts): Promise<PublicPost[]> {
+  const isPublic = o.mode === "published";
   const where: string[] = [];
   const args: unknown[] = [];
-  if (o.mode === "published") { where.push("d.status = 'published' AND (d.publish_at IS NULL OR d.publish_at <= ?)"); args.push((o.now ?? new Date()).toISOString()); }
-  if (o.site) { where.push("d.sites_json LIKE ?"); args.push(`%"${o.site}"%`); }
-  if (o.game) { where.push("d.game_slug = ?"); args.push(o.game); }
-  if (o.type) { where.push("d.type = ?"); args.push(o.type); }
+  if (isPublic) {
+    where.push("d.status = 'published' AND (d.publish_at IS NULL OR d.publish_at <= ?)");
+    args.push((o.now ?? new Date()).toISOString());
+    if (o.site) { where.push("d.sites_json LIKE ?"); args.push(`%"${o.site}"%`); }
+    if (o.game) { where.push("d.game_slug = ?"); args.push(o.game); }
+    if (o.type) { where.push("d.type = ?"); args.push(o.type); }
+  }
   const limit = Math.min(100, Math.max(1, Math.floor(o.limit ?? 50)));
-  const sql = `SELECT d.*, b.slug AS build_slug, ${o.mode === "published" ? "b.published_json" : "b.draft_json"} AS build_meta FROM devlog d LEFT JOIN builds b ON b.id = d.build_id AND b.deleted_at IS NULL
-    ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY d.entry_date DESC, d.created_at DESC LIMIT ${limit}`;
-  const res = await db.prepare(sql).bind(...args).all<Row>();
+  const buildId = isPublic ? "d.build_id" : `CASE WHEN JSON_VALID(d.draft_json) THEN
+    CASE WHEN JSON_TYPE(d.draft_json, '$.build_id') IS NOT NULL THEN JSON_EXTRACT(d.draft_json, '$.build_id') ELSE d.build_id END
+    ELSE d.build_id END`;
+  const sql = `SELECT d.*, b.slug AS build_slug, ${isPublic ? "b.published_json" : "b.draft_json"} AS build_meta
+    FROM devlog d LEFT JOIN builds b ON b.id = ${buildId} AND b.deleted_at IS NULL
+    ${isPublic ? `WHERE ${where.join(" AND ")} ORDER BY d.entry_date DESC, d.created_at DESC LIMIT ${limit}` : ""}`;
+  const [postResult, terms] = await db.batch([db.prepare(sql).bind(...args), db.prepare(TAXONOMY_SQL)]);
+  const taxonomy = new Map(((terms?.results ?? []) as unknown as TaxonomyTerm[]).map((term) => [term.id, term]));
+  const rows = (postResult?.results ?? []) as unknown as Row[];
+  const posts = isPublic ? rows : rows.map(postDraft).filter((r) => (!o.site || stringList(r.sites_json).includes(o.site)) &&
+    (!o.game || r.game_slug === o.game) && (!o.type || r.type === o.type))
+    .sort((a, b) => (b.entry_date ?? "").localeCompare(a.entry_date ?? "") || b.created_at - a.created_at).slice(0, limit);
   const mb = o.mediaBase ?? "/media";
   const site = (o.siteUrl ?? SITE_URL).replace(/\/$/, "");
-  return res.results.map((r) => {
+  return posts.map((r) => {
     const doc = parseBlocksJson(r.blocks_json);
     const html = doc ? renderBlocksToHtml(doc, mb) : renderBodyToHtml(r.body ?? "");
     const text = doc ? plainText(doc) : r.body ?? "";
@@ -142,7 +155,8 @@ export async function listPosts(db: D1Database, o: ListPostsOpts): Promise<Publi
       slug, title: r.title, type: r.type === "article" ? "article" : "note",
       excerpt: r.excerpt || (text.length > 180 ? `${text.slice(0, 177).trimEnd()}…` : text),
       date: r.entry_date ?? new Date(r.created_at).toISOString().slice(0, 10),
-      tags: arr(r.tags_json), url: `${site}/devlog/${slug}`, cover,
+      tags: r.tag_ids_json == null ? stringList(r.tags_json) : assignedTerms(r.tag_ids_json, taxonomy, "tag").map((term) => term.name),
+      url: `${site}/devlog/${slug}`, cover,
       build: r.build_slug && r.build_meta ? { slug: r.build_slug, title: buildTitle } : null,
       game: r.game_slug, html, readMinutes: doc ? readMinutesFor(text) : r.read_minutes,
     };

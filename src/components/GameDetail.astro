@@ -1,17 +1,20 @@
 ---
+/** One game in the catalog (rendered by src/pages/hub/[slug].astro). */
 import { env } from "cloudflare:workers";
-import Hub from "../../layouts/Hub.astro";
-import Img from "../../components/Img.astro";
-import GameMeta from "../../components/GameMeta.astro";
-import DevlogList from "../../components/DevlogList.astro";
-import T from "../../components/T.astro";
-import { gameFields, hubFields } from "../../core/game-fields";
-import { hubPosts, isPlayUrl, loadHub, stepLines } from "../../core/games";
-import { mediaBase } from "../../core/media";
+import type { HubCopy } from "../core/game-fields";
+import type { GameRecord } from "../core/games";
+import type { SiteSettings } from "../core/settings";
+import Hub from "../layouts/Hub.astro";
+import Img from "../components/Img.astro";
+import GameMeta from "../components/GameMeta.astro";
+import DevlogList from "../components/DevlogList.astro";
+import T from "../components/T.astro";
+import { gameFields, hubFields } from "../core/game-fields";
+import { hubPosts, isPlayUrl, stepLines } from "../core/games";
+import { mediaBase } from "../core/media";
 const mode = Astro.locals.mode;
-const { settings, hub, games } = await loadHub(env.DB, mode);
-const rec = games.find((g) => g.slug === Astro.params.slug);
-if (!rec) return Astro.rewrite("/404");
+interface Props { settings: SiteSettings; hub: HubCopy; rec: GameRecord }
+const { settings, hub, rec } = Astro.props;
 const g = rec.game;
 const posts = await hubPosts(env.DB, mode, { game: rec.slug, limit: 20 });
 const play = isPlayUrl(g.url);

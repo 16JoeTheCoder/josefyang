@@ -1,60 +1,121 @@
 ---
 import T from "../../components/T.astro";
 import Img from "../../components/Img.astro";
+import Icon from "../../components/Icon.astro";
 import type { Content } from "../../core/fields";
 import type { PageData } from "../../core/types";
 import { shortDate } from "../../lib/dates";
 import mod from "./module";
+
 interface Props { content: Content<typeof mod.fields>; data: PageData; sectionId: string }
 const { content: c, data, sectionId } = Astro.props;
-const F = mod.fields;
-const entries = data.devlog.filter((e) => e.status === "published" || data.mode === "draft").slice(0, 5);
-const fuse = data.settings.contacts.fuseUrl;
-const slot = { ratio: "4 / 5", empty: c.photoEmpty.value };
+const entries = data.devlog.filter((entry) => entry.sites.includes("main") && (entry.status === "published" || data.mode === "draft")).slice(0, 10);
+const firstCover = entries.findIndex((entry) => entry.hero?.mediaId);
+const slot = { ratio: "3 / 2", empty: c.photoEmpty.value };
 ---
-<section class="strip">
-  <div class="wrap strip-head">
-    <div>
-      <T v={c.heading} f={F.heading} as="h2" id={`${sectionId}-h`} />
-      <T v={c.line} f={F.line} class="strip-line" />
-    </div>
-    <a class="btn btn-secondary" href="/devlog">{c.button.value}</a>
-  </div>
-  {entries.length === 0 ? (
-    <div class="wrap">
-      <T v={c.emptyNote} f={F.emptyNote} class="strip-empty" />
-      {fuse && <a class="link-u strip-fuse" href={fuse} target="_blank" rel="noopener">{c.emptyLink.value}</a>}
-    </div>
-  ) : (
-    <div class="strip-track" tabindex="0" role="region" aria-labelledby={`${sectionId}-h`}>
-      <ul class="strip-row">
-        {entries.map((e) => (
-          <li>
-            <a class="dl" href={`/devlog/${e.slug}`}>
-              <Img v={e.hero} f={slot} sizes="300px" />
-              <p class="dl-meta">{shortDate(e.date)}{e.build && <> {c.inLabel.value} {e.build.title}</>}</p>
-              <h3 class="dl-title">{e.title}</h3>
+<section class="journal" data-journal aria-labelledby={sectionId + "-h"}>
+  <div class="wrap journal-grid">
+    <header class="journal-head">
+      <T v={c.heading} f={mod.fields.heading} as="h2" id={sectionId + "-h"} editPath="heading" />
+      <T v={c.line} f={mod.fields.line} class="journal-intro" editPath="line" />
+      <a class="journal-link" href="/devlog" data-edit-path={Astro.locals.mode === "draft" ? "button" : undefined}>{c.button.value}<Icon name="arrow-right" size={17} /></a>
+      {firstCover >= 0 && <div class="journal-media" data-journal-media aria-hidden="true">
+        {entries.map((entry, i) => entry.hero?.mediaId && <figure data-journal-preview={i} class:list={["journal-photo", i === firstCover && "is-current"]}>
+          <Img v={entry.hero} f={slot} sizes="(max-width: 720px) 0px, 480px" />
+        </figure>)}
+      </div>}
+    </header>
+    {entries.length === 0 ? (
+      <div class="journal-empty">
+        <T v={c.emptyNote} f={mod.fields.emptyNote} />
+      </div>
+    ) : (
+      <ol class="journal-list">
+        {entries.map((entry) => (
+          <li data-journal-entry>
+            <a href={`/devlog/${entry.slug}`}>
+              <time datetime={entry.date}>{shortDate(entry.date)}</time>
+              <div>
+                <h3>{entry.title}</h3>
+                {entry.build && <p>{entry.build.title}</p>}
+              </div>
+              <Icon name="arrow-right" size={19} />
             </a>
           </li>
         ))}
-      </ul>
-    </div>
-  )}
+      </ol>
+    )}
+  </div>
 </section>
+<script>
+  import { onPage } from "../../core/island";
+
+  onPage("[data-journal]", (root) => {
+    const entries = [...root.querySelectorAll<HTMLElement>("[data-journal-entry]")];
+    const media = root.querySelector<HTMLElement>("[data-journal-media]");
+    if (!entries.length) return;
+    const previews = [...root.querySelectorAll<HTMLElement>("[data-journal-preview]")];
+
+    let frame = 0;
+    let current = -1;
+
+    function update() {
+      frame = 0;
+
+      const top = window.innerHeight * .42;
+      let index = 0;
+      entries.forEach((entry, i) => { if (entry.getBoundingClientRect().top <= top) index = i; });
+      if (current === index) return;
+      current = index;
+      const previewIndex = previews.findLastIndex((preview) => Number(preview.dataset.journalPreview) <= index);
+      if (media) media.hidden = previewIndex < 0;
+      previews.forEach((preview, i) => preview.classList.toggle("is-current", i === previewIndex));
+      entries.forEach((entry, i) => entry.toggleAttribute("data-current", i === index));
+    }
+
+    function schedule() { if (!frame) frame = requestAnimationFrame(update); }
+    update();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+    };
+  });
+</script>
 <style>
-  .strip { background: var(--white); padding: var(--section-y) 0; }
-  .strip-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; }
-  .strip :global(.strip-line) { margin-top: 14px; color: var(--muted); }
-  .strip :global(.strip-empty) { margin-top: 40px; color: var(--muted); }
-  .strip-fuse { display: inline-block; margin-top: 12px; font-family: var(--font-display); font-weight: 700; }
-  .strip-track { margin-top: var(--space-7); overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: max(var(--gutter), calc((100vw - var(--container)) / 2)); overscroll-behavior-x: contain; scrollbar-width: thin; padding-bottom: 16px; }
-  .strip-track:focus-visible { outline-offset: -2px; }
-  .strip-row { display: flex; gap: 20px; width: max-content; padding-inline: max(var(--gutter), calc((100vw - var(--container)) / 2)); }
-  .strip-row li { scroll-snap-align: start; width: clamp(240px, 22vw, 300px); }
-  .dl { display: block; text-decoration: none; }
-  .dl :global(.img-slot) { transition: transform var(--dur-fast) var(--ease-out); }
-  .dl:hover :global(.img-slot) { transform: translateY(-4px); }
-  .dl-meta { margin-top: 14px; font-size: var(--size-xs); color: var(--muted); }
-  .dl-title { margin-top: 4px; font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; line-height: 1.15; letter-spacing: -0.01em; }
-  .dl:hover .dl-title { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; }
+  .journal { background: var(--archive-paper); color: var(--workbench); padding-block: clamp(66px, 9vw, 132px); }
+  .journal-grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: clamp(40px, 8vw, 128px); align-items: start; }
+  .journal-head { align-self: start; }
+  .journal-head :global(h2) { font-size: clamp(2.4rem, 5.7vw, 5.7rem); font-weight: 780; letter-spacing: var(--track-tight); }
+  .journal-head :global(.journal-intro) { margin-top: 13px; color: var(--muted); line-height: 1.55; }
+  .journal-link { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; border-bottom: 1px solid var(--archive-rule); text-decoration: none; font: 680 var(--size-s) var(--font-display); margin-top: 10px; }
+  .journal-link:hover { border-color: var(--sun); }
+  .journal-media { display: grid; margin-top: 25px; aspect-ratio: 3 / 2; }
+  .journal-media[hidden] { display: none; }
+  .journal-photo { grid-area: 1 / 1; visibility: hidden; opacity: 0; }
+  .journal-photo.is-current { opacity: 1; visibility: visible; }
+  .journal-photo :global(.img-slot) { border-radius: var(--radius-s); }
+  .journal-list { border-top: 1px solid var(--archive-rule); }
+  .journal-list li { border-bottom: 1px solid var(--archive-rule); }
+  .journal-list a { min-height: 96px; padding: 18px 5px; display: grid; grid-template-columns: 11ch 1fr auto; gap: 16px; align-items: center; text-decoration: none; }
+  .journal-list li[data-current] a { background: color-mix(in srgb, var(--white), transparent 70%); }
+  .journal-list a:hover h3 { text-decoration: underline; text-decoration-color: var(--sun); text-underline-offset: 4px; }
+  .journal-list a :global(svg) { color: var(--muted); }
+  .journal-list li[data-current] a :global(svg), .journal-list a:hover :global(svg) { color: var(--workbench); }
+  .journal-list time, .journal-list p { font-size: var(--size-xs); color: var(--muted); line-height: 1.35; }
+  .journal-list time { font-variant-numeric: tabular-nums; }
+  .journal-list h3 { font-family: var(--font-display); font-weight: 720; font-size: clamp(1rem, 2vw, 1.4rem); line-height: 1.2; }
+  .journal-list p { margin-top: 4px; }
+  .journal-empty { color: var(--muted); }
+  @media (min-width: 721px) and (min-height: 620px) { .journal-head { position: sticky; top: 52px; } }
+  @media (max-width: 720px) {
+    .journal-grid { grid-template-columns: 1fr; gap: 25px; }
+    .journal-media { display: none; }
+    .journal-list a { min-height: 78px; grid-template-columns: 1fr auto; gap: 5px 12px; padding: 12px 0; }
+    .journal-list time { grid-column: 1; }
+    .journal-list a div { grid-column: 1; }
+    .journal-list a :global(svg) { grid-column: 2; grid-row: 1 / span 2; }
+  }
 </style>

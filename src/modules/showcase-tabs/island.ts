@@ -1,9 +1,10 @@
 /**
- * Showcase tabs: tablist with roving tabindex and arrow/Home/End keys, GSAP crossfade between panels.
+ * Showcase tabs: tablist with roving tabindex and arrow/Home/End keys, crossfade between panels.
+ * Hidden panels load their image only when a tab is hovered or focused.
  * Without JS the first panel and the notes list are shown. Reduced motion swaps instantly.
  */
 import { reducedMotion, type Unmount } from "../../core/island";
-import { showPanel, warmImages } from "../../components/showcase/fade";
+import { showPanel, warmOnIntent } from "../../components/showcase/fade";
 
 export function mountTabs(root: HTMLElement): Unmount | void {
   const bar = root.querySelector<HTMLElement>("[data-bar]");
@@ -14,7 +15,7 @@ export function mountTabs(root: HTMLElement): Unmount | void {
 
   bar.hidden = false;
   stage.dataset.ready = "true";
-  warmImages(stage);
+  const unwarm = warmOnIntent(tabs, (tab) => panels[tabs.indexOf(tab as HTMLButtonElement)]);
 
   const select = (i: number, focus: boolean) => {
     tabs.forEach((t, k) => { t.setAttribute("aria-selected", String(k === i)); t.tabIndex = k === i ? 0 : -1; });
@@ -31,5 +32,5 @@ export function mountTabs(root: HTMLElement): Unmount | void {
     select(next, true);
   };
   tabs.forEach((t) => { t.addEventListener("click", onClick); t.addEventListener("keydown", onKey); });
-  return () => tabs.forEach((t) => { t.removeEventListener("click", onClick); t.removeEventListener("keydown", onKey); });
+  return () => { unwarm(); tabs.forEach((t) => { t.removeEventListener("click", onClick); t.removeEventListener("keydown", onKey); }); };
 }

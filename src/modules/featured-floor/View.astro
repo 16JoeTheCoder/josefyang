@@ -1,139 +1,244 @@
 ---
 import T from "../../components/T.astro";
 import Img from "../../components/Img.astro";
-import type { Content } from "../../core/fields";
+import Icon from "../../components/Icon.astro";
+import type { Content, ImageValue } from "../../core/fields";
 import { buildFields } from "../../core/build-fields";
 import type { PageData } from "../../core/types";
+import heroModule from "../home-hero/module";
+import toolsModule from "../own-tools/module";
 import mod from "./module";
 import { scatter } from "./scatter";
-interface Props { content: Content<typeof mod.fields>; data: PageData; sectionId: string }
-const { content: c, data, sectionId } = Astro.props;
-const F = mod.fields;
-const BF = buildFields;
-const builds = data.builds
-  .filter((b) => b.meta.featured)
-  .sort((a, b) => a.meta.homeOrder - b.meta.homeOrder)
-  .slice(0, 6);
+
+interface Props {
+  content: Content<typeof mod.fields>;
+  data: PageData;
+  sectionId: string;
+  tools?: Content<typeof toolsModule.fields>;
+  hero?: { content: Content<typeof heroModule.fields>; sectionId: string };
+  /** First-screen skip link (to "On my bench"), from RenderSections. */
+  skip?: { href: string; label: string };
+}
+const { content: c, data, sectionId, hero, tools, skip } = Astro.props;
+const builds = data.builds.filter((b) => b.meta.featured).sort((a, b) => a.meta.homeOrder - b.meta.homeOrder).slice(0, 6);
 const stops = scatter(builds.map((b) => ({ slug: b.slug, nudgeX: b.meta.floorNudgeX, nudgeY: b.meta.floorNudgeY })));
 const n = builds.length;
-const watch = n > 1 ? { x: Math.round((stops[0]!.x + stops[1]!.x) / 2 + 380), y: Math.round((stops[0]!.y + stops[1]!.y) / 2 + 300) } : null;
-const skipId = `${sectionId}-after`;
+const after = sectionId + "-after";
+const number = (i: number) => String(i + 1).padStart(2, "0");
+const published = (value: string) => value.trim() && !value.match(/^\[.*\]$/) ? value : "";
+const hasImage = (image: ImageValue) => !!(image.mediaId && image.key);
+const scans = hero?.content.pages.flatMap(({ scan }, i) => scan.mediaId ? [{ scan, path: `pages[${i}].scan` }] : []) ?? [];
+const edit = data.mode === "draft";
+const artwork = builds.map((b) => {
+  const { floorImage, selectorImage, kind, title } = b.meta;
+  if (kind === "hardware") return { image: hasImage(floorImage) ? floorImage : selectorImage, device: null };
+  const name = title.value.toLowerCase();
+  const tool = tools && [tools.first, tools.second].find((item) => {
+    const label = item.name.value.toLowerCase();
+    return label && (name === label || name.startsWith(label + " ")) && hasImage(item.image);
+  });
+  const image = tool?.image ?? (hasImage(floorImage) ? floorImage : selectorImage);
+  return {
+    image: hasImage(image) ? { ...image, mode: "fit" as const } : image,
+    device: b.slug.includes("chronos") ? "laptop" : "tablet",
+  };
+});
 ---
 {n === 0 ? (
-  <section class="floor-empty ground-desk"><div class="wrap"><T v={c.emptyNote} f={F.emptyNote} /></div></section>
+  <section class="floor-empty ground-desk"><div class="wrap"><T v={c.emptyNote} f={mod.fields.emptyNote} editPath="emptyNote" /></div></section>
 ) : (
-  <section id="featured" class="floor ground-desk" data-floor style={`--n:${n}`} aria-label={c.stageLabel.value}>
-    <div class="floor-sticky" data-floor-stage tabindex="0" aria-roledescription="carousel" aria-label={c.stageLabel.value}>
-      <div class="floor-plane" data-floor-plane style={`--cx:${stops[0]!.x}px;--cy:${stops[0]!.y}px`}>
-        {builds.map((b, i) => (
-          <article
-            class:list={["stop", i === 0 && "is-current"]}
-            data-stop={i}
-            tabindex="-1"
-            data-x={stops[i]!.x}
-            data-y={stops[i]!.y}
-            style={`--x:${stops[i]!.x}px;--y:${stops[i]!.y}px`}
-            aria-label={`${i + 1} of ${n}: ${b.meta.title.value}`}
-          >
-            <a class="obj" href={`/builds/${b.slug}`} tabindex="-1" aria-hidden="true">
-              <Img v={b.meta.floorImage} f={BF.floorImage} sizes="(max-width: 860px) 90vw, 560px" eager={i === 0} />
-            </a>
-            <div class="stop-text">
-              <p class="stop-kind">{b.meta.kind === "software" ? c.software.value : c.hardware.value}</p>
-              <T v={b.meta.title} f={BF.title} as="h2" class="stop-title" />
-              <T v={b.meta.summary} f={BF.summary} class="stop-summary" />
-              {b.meta.skills.length > 0 && <ul class="stop-skills">{b.meta.skills.map((s) => <li class="pill">{s.name.value}</li>)}</ul>}
-              <a class="btn btn-primary" href={`/builds/${b.slug}`}>{c.viewButton.value}<span class="sr-only">: {b.meta.title.value}</span></a>
+  <section id="featured" class="workbench" data-workbench style={`--stops:${n}`} aria-label={c.stageLabel.value}>
+    <div class="stage" data-stage tabindex="-1">
+      {(hero || skip) && <div class="identity" data-edit-section={data.mode === "draft" && hero ? hero.sectionId : undefined}>
+        {hero && <T v={hero.content.headline} f={heroModule.fields.headline} as="h1" editPath="headline" />}
+        {hero && <T v={hero.content.line} f={heroModule.fields.line} editPath="line" />}
+        {skip && <a class="first-skip" href={skip.href} data-floor-skip>{skip.label}<Icon name="arrow-down" size={16} /></a>}
+      </div>}
+      <div class="scene" data-scene>
+        <div class="world" data-world>
+          <div class="mat"></div>
+          {scans.slice(0, 6).map(({ scan, path }, i) => <div class="work-scan" style={"--scan:" + i} data-edit-section={edit ? hero?.sectionId : undefined}>
+            <Img v={scan} f={heroModule.fields.pages.of.scan} sizes="180px" editPath={path} />
+          </div>)}
+          {c.showWatch && n > 1 && <div class="bench-watch" role="img" aria-label={c.watchLabel.value} data-watch data-edit-path={edit ? "watchLabel" : undefined} data-edit-attribute={edit ? "aria-label" : undefined}>
+            <span class="watch-hand watch-hour" data-hour></span>
+            <span class="watch-hand watch-minute" data-minute></span>
+          </div>}
+          {builds.map((b, i) => (
+            <div class:list={["piece", i === 0 && "is-current"]} data-piece data-x={stops[i]!.x * 0.53} data-y={stops[i]!.y * 0.59}
+              style={`--x:${stops[i]!.x * 0.53}px;--y:${stops[i]!.y * 0.59}px;--angle:${[-8, 11, -12, 7, -6, 12][i]}deg`}>
+              <button type="button" class="piece-target" data-floor-go={i} tabindex="-1" aria-label={b.meta.title.value}>
+                <div class:list={["piece-art", artwork[i]!.device, !hasImage(artwork[i]!.image) && "piece-missing"]}>
+                  <Img v={artwork[i]!.image} f={buildFields.floorImage} sizes="(max-width: 720px) 70vw, 430px" eager={i === 0} ratio={artwork[i]!.device ? "16 / 10" : "4 / 3"} />
+                </div>
+                <span aria-hidden="true" class="piece-tag">{number(i)}</span>
+              </button>
             </div>
-          </article>
-        ))}
-        {c.showWatch && watch && (
-          <svg class="floor-watch" style={`--x:${watch.x}px;--y:${watch.y}px`} viewBox="0 0 140 90" role="img" aria-label={c.watchLabel.value} data-watch>
-            <rect x="0" y="34" width="44" height="22" rx="6" fill="var(--obj-strap)" />
-            <rect x="96" y="34" width="44" height="22" rx="6" fill="var(--obj-strap)" />
-            <circle cx="70" cy="45" r="32" fill="var(--black)" />
-            <circle cx="70" cy="45" r="26" fill="var(--white)" />
-            <path data-h d="M70 45 V28" stroke="var(--black)" stroke-width="3.5" stroke-linecap="round" />
-            <path data-m d="M70 45 V22" stroke="var(--black)" stroke-width="2.5" stroke-linecap="round" />
-            <path data-s d="M70 50 V21" stroke="var(--sun)" stroke-width="1.2" />
-          </svg>
-        )}
+          ))}
+          {hero?.content.showCoffee && <div class="coffee" aria-hidden="true"></div>}
+        </div>
+        <span class="reticle" aria-hidden="true"></span>
       </div>
-      <div class="floor-hud">
-        <p class="floor-count" aria-live="polite"><strong data-floor-index>1</strong><span> / {n}</span></p>
-        <p class="sr-only">{c.keysHint.value}</p>
-        <a class="floor-skip" href={`#${skipId}`} data-floor-skip>{c.skipLabel.value}</a>
+
+      <div class="specs">
+        {builds.map((b) => {
+          const date = published(b.meta.built.value) || published(b.meta.year.value);
+          const facts = [published(b.meta.madeWith.value), ...b.meta.skills.map((skill) => skill.name.value)].filter(Boolean);
+          return <article class="spec" data-spec>
+            <p class="spec-type" data-edit-path={edit ? b.meta.kind === "software" ? "software" : "hardware" : undefined}>{b.meta.kind === "software" ? c.software.value : c.hardware.value}{date && <span>{date}</span>}</p>
+            <T v={b.meta.title} f={buildFields.title} as="h2" />
+            {published(b.meta.summary.value) && <T v={b.meta.summary} f={buildFields.summary} />}
+            {facts.length > 0 && <ul class="spec-facts">
+              {[...new Set(facts)].slice(0, 3).map((value) => <li>{value}</li>)}
+            </ul>}
+            <a class="project-link" href={`/builds/${b.slug}`} data-edit-path={edit ? "viewButton" : undefined}>{c.viewButton.value}<Icon name="arrow-right" size={16} /><span class="sr-only"> {b.meta.title.value}</span></a>
+          </article>;
+        })}
+      </div>
+
+      <div class="floor-controls" data-floor-controls hidden>
+        <div class="floor-navigation" role="group" aria-label={c.stageLabel.value}>
+          <button type="button" class="floor-arrow" data-floor-prev aria-label={c.prevLabel.value} aria-disabled="true" data-edit-path={edit ? "prevLabel" : undefined} data-edit-attribute={edit ? "aria-label" : undefined}><Icon name="arrow-left" size={18} /></button>
+          <ol class="stations">
+            {builds.map((b, i) => <li><button type="button" data-floor-go={i} aria-current={i === 0 ? "step" : undefined} aria-label={b.meta.title.value}>{number(i)}</button></li>)}
+          </ol>
+          <p class="floor-count" aria-hidden="true"><span data-floor-count>01</span> / {number(n - 1)}</p>
+          <button type="button" class="floor-arrow" data-floor-next aria-label={c.nextLabel.value} aria-disabled={n === 1 ? "true" : undefined} data-edit-path={edit ? "nextLabel" : undefined} data-edit-attribute={edit ? "aria-label" : undefined}><Icon name="arrow-right" size={18} /></button>
+        </div>
+        <p class="floor-hint" data-floor-hint data-edit-path={edit ? "keysHint" : undefined}>{c.keysHint.value}</p>
+        {!skip && <a class="floor-skip" href={`#${after}`} data-floor-skip data-edit-path={edit ? "skipLabel" : undefined}>{c.skipLabel.value}<Icon name="arrow-down" size={16} /></a>}
+        <p class="sr-only" data-floor-status aria-live="polite"></p>
       </div>
     </div>
   </section>
 )}
-<div id={skipId} tabindex="-1" class="floor-after"></div>
+<div id={after} tabindex="-1"></div>
 
 <script>
   import { onPage } from "../../core/island";
   import { mountFloor } from "./island";
-  onPage("[data-floor]", mountFloor);
+  onPage("[data-workbench]", mountFloor);
 </script>
 
 <style>
-  .floor-empty { padding: 48px 0 96px; color: var(--muted); }
-  .floor-after { height: 0; outline: none; }
-  .stop:focus { outline: none; }
-  .stop:focus-visible .stop-text { outline: 2px solid var(--sun); outline-offset: 12px; border-radius: 4px; }
+  .workbench { background: var(--workbench); color: var(--workbench-ink); position: relative; isolation: isolate; }
+  .stage { position: relative; min-height: 100svh; padding: 110px var(--gutter) var(--space-6); }
+  .identity, .specs, .floor-controls { position: relative; z-index: 2; }
+  /* The identity sets its own size, so it must also honour the text-fit steps (05 §1): one or two steps down. */
+  .identity :global(h1) { --hero-size: clamp(2.4rem, 4.9vw, 5rem); font-size: var(--hero-size); font-weight: 780; line-height: 0.95; letter-spacing: var(--track-tight); text-wrap: balance; overflow-wrap: break-word; }
+  .identity :global(h1[data-fit="1"]) { font-size: calc(var(--hero-size) * .84); }
+  .identity :global(h1[data-fit="2"]) { font-size: calc(var(--hero-size) * .7); }
+  .identity :global(p) { color: var(--workbench-subtle); margin-top: 12px; max-width: 33ch; line-height: 1.4; font-size: var(--size-s); }
+  .scene { position: relative; height: 300px; pointer-events: none; overflow: clip; isolation: isolate; }
+  .world { position: absolute; left: 50%; top: 52%; width: 0; height: 0; transform: translate3d(0, 0, 0) scale(.72); }
+  .mat { position: absolute; inset: -1800px; background-color: var(--workbench-mat); background-image: var(--granite-tex-fine); box-shadow: inset 0 0 120px var(--shade-45); }
+  .mat::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(to right, var(--workbench-grid) 1px, transparent 1px), linear-gradient(to bottom, var(--workbench-grid) 1px, transparent 1px); background-size: 88px 88px; }
+  .scene::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 57% 51%, transparent 15%, var(--workbench) 88%); pointer-events: none; }
+  .piece { position: absolute; left: var(--x); top: var(--y); width: 430px; translate: -50% -50%; rotate: var(--angle); opacity: .57; scale: .87; transition: opacity 360ms var(--ease-out), rotate 640ms var(--ease-out), scale 640ms var(--ease-out); }
+  .piece.is-current { opacity: 1; scale: 1; rotate: calc(var(--angle) * .45); z-index: 1; }
+  .piece-target { position: relative; display: block; width: 100%; background: none; border: 0; padding: 0; pointer-events: auto; cursor: pointer; }
+  .piece-art { filter: drop-shadow(3px 8px 4px var(--shade-35)) drop-shadow(18px 30px 20px var(--shade-45)); }
+  .piece-art :global(.img-fill), .piece-art :global(.img-fit) { border-radius: 7px; }
+  .piece-art.tablet :global(.img-fit), .piece-art.laptop :global(.img-fit) { background: var(--obj-device); }
+  .piece-art :global(.img-object img) { object-fit: contain; }
+  .piece-art.tablet, .piece-art.laptop { background: var(--obj-device); border: 1px solid var(--workbench-subtle); padding: 11px; border-radius: 15px; }
+  .piece-art.laptop::after { content: ""; position: absolute; left: -5%; width: 110%; height: 11px; top: calc(100% - 1px); background: var(--obj-shell-edge); border: 1px solid var(--workbench-subtle); border-radius: 2px 2px 12px 12px; }
+  .piece-art :global(.img-empty) { color: var(--workbench-subtle); background: var(--workbench); border: 1px dashed var(--workbench-subtle); }
+  .piece-tag { position: absolute; right: -19px; top: -18px; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--workbench-rule); background: var(--workbench); color: var(--workbench-ink); font: 650 14px var(--font-display); font-variant-numeric: tabular-nums; }
+  .piece.is-current .piece-tag { background: var(--sun); border-color: var(--sun); color: var(--black); }
+  .reticle { position: absolute; z-index: 1; left: 50%; top: 52%; translate: -50% -50%; width: min(460px, 87%); height: min(330px, 90%); pointer-events: none; background:
+    linear-gradient(var(--sun), var(--sun)) 0 0 / 18px 1px,
+    linear-gradient(var(--sun), var(--sun)) 0 0 / 1px 18px,
+    linear-gradient(var(--sun), var(--sun)) 100% 100% / 18px 1px,
+    linear-gradient(var(--sun), var(--sun)) 100% 100% / 1px 18px; background-repeat: no-repeat; }
+  .work-scan { position: absolute; width: 135px; left: calc(270px + var(--scan) * 100px); top: calc(-240px + var(--scan) * 28px); rotate: calc(-13deg + var(--scan) * 9deg); box-shadow: var(--shadow-object); pointer-events: none; }
+  .work-scan :global(.img-slot) { border-radius: 2px; }
+  .work-scan[data-edit-section] { pointer-events: auto; }
+  .bench-watch { position: absolute; top: 258px; left: 192px; width: 64px; aspect-ratio: 1; background: var(--obj-device); border-radius: 50%; border: 3px solid var(--workbench-subtle); rotate: -23deg; box-shadow: 4px 7px 12px var(--shade-45); }
+  .bench-watch::before { content: ""; position: absolute; z-index: -1; inset: -26px 12px; border-radius: 6px; background: var(--obj-strap); }
+  .watch-hand { position: absolute; width: 2px; height: 28%; left: 50%; bottom: 50%; transform-origin: center bottom; background: var(--workbench-ink); }
+  .watch-hour { height: 20%; background: var(--sun); }
+  .coffee { position: absolute; left: -340px; top: -154px; width: 82px; aspect-ratio: 1; border: 4px solid var(--obj-paper); border-radius: 50%; background: var(--obj-coffee); box-shadow: inset 0 0 0 5px var(--obj-espresso), 6px 10px 14px var(--shade-45); }
+  .coffee::after { content: ""; position: absolute; top: 49%; right: -17px; width: 16px; height: 16px; border: 4px solid var(--obj-paper); border-radius: 4px 9px 9px 4px; }
+  .specs { display: grid; gap: var(--space-7); }
+  .spec { max-width: 38ch; padding: 15px 0 0; border-top: 1px solid var(--workbench-rule); }
+  .spec[hidden] { display: none; }
+  .spec-type { display: flex; flex-wrap: wrap; gap: 3px 11px; color: var(--workbench-subtle); font-weight: 650; font-size: var(--size-xs); }
+  .spec-type span { padding-left: 11px; border-left: 1px solid var(--workbench-rule); font-variant-numeric: tabular-nums; }
+  .spec :global(h2) { margin-top: 7px; font-size: clamp(2rem, 3.4vw, 3.8rem); font-weight: 760; line-height: .96; letter-spacing: var(--track-tight); text-wrap: balance; overflow-wrap: anywhere; }
+  .spec :global(.r-body) { font-size: var(--size-s); line-height: 1.45; margin-top: 12px; color: var(--workbench-subtle); }
+  .spec-facts { display: grid; gap: 4px; margin-top: 11px; font-size: var(--size-xs); line-height: 1.35; }
+  .spec-facts li { display: flex; gap: 8px; align-items: baseline; }
+  .spec-facts li::before { content: ""; flex: 0 0 7px; border-top: 1px solid var(--sun); align-self: center; }
+  .first-skip { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; margin-top: 14px; color: var(--workbench-ink); font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 5px; pointer-events: auto; }
+  .first-skip :global(svg) { color: var(--sun); }
+  .first-skip:focus-visible { outline: 2px solid var(--sun); outline-offset: 4px; }
+  .project-link, .floor-skip { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; text-decoration: none; font-family: var(--font-display); font-weight: 650; font-size: var(--size-xs); }
+  .project-link { margin-top: 5px; color: var(--workbench-ink); }
+  .project-link:hover, .floor-skip:hover { text-decoration: underline; text-decoration-color: var(--sun); }
+  .project-link :global(svg) { color: var(--sun); }
+  .floor-controls { grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; border-top: 1px solid var(--workbench-rule); }
+  .floor-controls:not([hidden]) { display: grid; }
+  .floor-count { display: none; font: 650 var(--size-xs) var(--font-display); font-variant-numeric: tabular-nums; color: var(--workbench-subtle); }
+  .floor-count span { color: var(--sun); }
+  .floor-navigation, .stations { display: flex; align-items: center; }
+  .floor-navigation button { min-width: 44px; min-height: 44px; display: grid; place-items: center; border: 0; background: transparent; color: var(--workbench-subtle); cursor: pointer; font: 660 var(--size-xs) var(--font-display); font-variant-numeric: tabular-nums; }
+  .floor-navigation button:hover { color: var(--white); }
+  .floor-navigation button[aria-current] { color: var(--sun); box-shadow: inset 0 2px var(--sun); }
+  .floor-navigation button[aria-disabled="true"] { opacity: .42; cursor: default; }
+  .floor-hint, .floor-skip { color: var(--workbench-subtle); font-size: var(--size-xs); line-height: 1.25; }
+  .floor-skip { justify-self: end; }
+  .floor-empty { padding: 48px 0 72px; color: var(--muted); }
 
-  /* Default (no JS, phones, reduced motion): a vertical list of the same build cards. */
-  .floor { position: relative; padding: 24px 0 var(--section-y); }
-  .floor-sticky { outline: none; }
-  .floor-plane { display: grid; gap: 72px; width: 100%; max-width: calc(var(--container) + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter); }
-  .stop { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 64px; align-items: center; }
-  .floor-watch, .floor-hud { display: none; }
+  .workbench[data-ready] .stage { height: 100svh; min-height: 0; padding: 0; }
+  /* Camera travel is capped: at most 1.5 extra viewport heights beyond the stage (6 stops = 5 × 28 + 10). */
+  .workbench[data-pinned] { height: calc(100svh + min(150svh, (var(--stops) - 1) * 28svh + 10svh)); }
+  .workbench[data-pinned] .stage { position: sticky; top: 0; overflow: clip; }
+  .workbench[data-ready] .identity { position: absolute; top: clamp(92px, 15svh, 155px); left: max(var(--gutter), calc((100% - var(--container)) / 2)); max-width: 35vw; pointer-events: none; }
+  .workbench[data-ready] .identity[data-edit-section] { pointer-events: auto; }
+  .workbench[data-ready] .scene { position: absolute; inset: 65px 0 48px 27%; height: auto; mask-image: linear-gradient(to right, transparent, black 12%); }
+  .workbench[data-ready] .specs { position: absolute; left: max(var(--gutter), calc((100% - var(--container)) / 2)); bottom: clamp(78px, 15svh, 150px); width: min(32vw, 370px); }
+  .workbench[data-ready] .spec { position: relative; background: linear-gradient(to right, var(--workbench) 56%, transparent); }
+  .workbench[data-ready] .spec:not([hidden]) { animation: reveal-spec 320ms var(--ease-out); }
+  .workbench[data-ready] .spec::before { content: ""; position: absolute; top: -1px; left: 0; width: 28px; height: 1px; background: var(--sun); }
+  @keyframes reveal-spec { from { opacity: .65; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
+  .workbench[data-ready] .floor-controls { position: absolute; bottom: 14px; left: max(var(--gutter), calc((100% - var(--container)) / 2)); right: max(var(--gutter), calc((100% - var(--container)) / 2)); }
+  [data-ready] .world { will-change: transform; }
 
-  .obj { display: block; text-decoration: none; border-radius: var(--radius-l); transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out); outline: var(--outline-object) solid transparent; }
-  .obj :global(.img-slot) { border-radius: var(--radius-l); }
-  .obj :global(.img-empty), .obj :global(.img-fill), .obj :global(.img-fit) { box-shadow: var(--shadow-object); background: color-mix(in srgb, var(--hairline) 80%, var(--granite)); }
-  .obj :global(.img-object img) { filter: drop-shadow(0 3px 3px var(--shade-12)) drop-shadow(0 30px 28px var(--shade-28)); transition: filter var(--dur-fast) var(--ease-out); }
-  .stop:has(.stop-text a:hover, .stop-text a:focus-visible) .obj,
-  .obj:hover { transform: translateY(-10px); }
-  .stop:has(.stop-text a:hover, .stop-text a:focus-visible) .obj:not(:has(.img-object)),
-  .obj:not(:has(.img-object)):hover { outline-color: var(--white); box-shadow: var(--shadow-lift); }
-  .stop:has(.stop-text a:hover, .stop-text a:focus-visible) .obj :global(.img-object img),
-  .obj:hover :global(.img-object img) {
-    filter: drop-shadow(8px 0 0 var(--white)) drop-shadow(-8px 0 0 var(--white)) drop-shadow(0 8px 0 var(--white)) drop-shadow(0 -8px 0 var(--white)) drop-shadow(0 60px 40px var(--shade-32));
+  @media (max-width: 720px) {
+    .workbench[data-ready] .stage { display: grid; grid-template-rows: auto minmax(104px, 1fr) auto auto; padding: 84px var(--gutter) 6px; }
+    .workbench[data-ready] .identity, .workbench[data-ready] .specs, .workbench[data-ready] .floor-controls { position: relative; inset: auto; width: auto; max-width: none; }
+    .identity :global(h1) { --hero-size: clamp(2rem, 10vw, 3.5rem); }
+    .identity :global(p) { margin-top: 5px; max-width: 42ch; }
+    .workbench[data-ready] .scene { position: relative; inset: auto; min-height: 0; margin-inline: calc(-1 * var(--gutter)); mask-image: none; }
+    .workbench[data-ready] .spec { background: none; max-width: 100%; padding-top: 8px; }
+    .spec :global(h2) { font-size: clamp(1.68rem, 7.2vw, 2.5rem); margin-top: 3px; }
+    .spec :global(.r-body) { margin-top: 5px; font-size: var(--size-xs); }
+    .spec-facts { margin-top: 5px; }
+    .project-link { margin-top: 0; }
+    .floor-controls { gap: 0; grid-template-columns: 1fr auto; }
+    .floor-hint { display: none; }
+    .floor-navigation button { min-width: clamp(29px, 9vw, 40px); }
+    .floor-skip { max-width: 10ch; padding-left: 5px; }
+    .floor-skip :global(svg) { display: none; }
+    .reticle { width: 66%; height: 80%; }
   }
-  .stop-kind { font-size: var(--size-s); color: var(--muted); }
-  .stop-text :global(.stop-title) { margin-top: 10px; font-size: var(--size-xl); line-height: 0.95; }
-  .stop-text :global(.stop-title[data-fit="1"]) { font-size: calc(var(--size-xl) * 0.82); }
-  .stop-text :global(.stop-title[data-fit="2"]) { font-size: var(--size-l); }
-  .stop-text :global(.stop-summary) { margin-top: 18px; color: var(--muted); max-width: 40ch; }
-  .stop-skills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
-  .stop-skills .pill { background: var(--light-60); }
-  .stop-text .btn { margin-top: 28px; }
-
-  @media (max-width: 860px) {
-    .floor-plane { gap: 56px; }
-    .stop { grid-template-columns: 1fr; gap: 24px; }
+  @media (max-height: 690px) {
+    .workbench[data-ready] .identity :global(p) { max-width: 42ch; }
+    .workbench[data-ready] .spec-facts li:nth-child(n + 2) { display: none; }
   }
-
-  /* The pan: desktop with motion allowed and JS present. */
-  @media (min-width: 861px) and (prefers-reduced-motion: no-preference) {
-    :global(.js) .floor { height: calc(var(--n) * 100svh); padding: 0; }
-    :global(.js) .floor-sticky { position: sticky; top: 0; height: 100svh; overflow: hidden; }
-    :global(.js) .floor-plane {
-      position: absolute; left: 50%; top: 50%; width: 0; height: 0; padding: 0; display: block; max-width: none;
-      transform: translate3d(calc(var(--cx) * -1), calc(var(--cy) * -1), 0) scale(var(--s, 1));
-      will-change: transform;
-    }
-    :global(.js) .stop { position: absolute; left: var(--x); top: var(--y); width: min(1200px, 88vw); translate: -50% -50%; }
-    :global(.js) .stop-text { transition: opacity 500ms var(--ease-out), translate 700ms var(--ease-out); }
-    :global(.js) .stop:not(.is-current) .stop-text { opacity: 0; translate: 0 12px; pointer-events: none; }
-    :global(.js) .stop:not(.is-current) .obj { opacity: 0.92; }
-    :global(.js) .floor-watch { display: block; position: absolute; left: var(--x); top: var(--y); width: 140px; rotate: -20deg; filter: drop-shadow(0 3px 2px var(--shade-15)) drop-shadow(0 12px 12px var(--shade-20)); }
-    :global(.js) .floor-hud { display: flex; position: absolute; inset: auto var(--gutter) 28px var(--gutter); justify-content: space-between; align-items: end; pointer-events: none; }
-    :global(.js) .floor-hud a { pointer-events: auto; }
-    .floor-count { font-family: var(--font-display); font-size: var(--size-l); line-height: 1; font-variant-numeric: tabular-nums; }
-    .floor-count strong { font-weight: 900; font-size: 1.6em; }
-    .floor-count span { color: var(--muted); }
-    .floor-skip { font-family: var(--font-display); font-weight: 700; font-size: var(--size-s); text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 2px; text-underline-offset: 6px; min-height: 44px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: var(--pill); background: var(--light-60); box-shadow: var(--shadow-soft); }
-    .floor-sticky:focus-visible { outline: 2px solid var(--sun); outline-offset: -6px; }
+  @media (max-height: 580px) {
+    .workbench[data-ready] .stage { display: grid; height: auto; min-height: 100svh; padding: 84px var(--gutter) 12px; grid-template-rows: auto minmax(155px, 32svh) auto auto; }
+    .workbench[data-ready] .identity, .workbench[data-ready] .specs, .workbench[data-ready] .floor-controls { position: relative; inset: auto; width: auto; max-width: none; }
+    .workbench[data-ready] .scene { position: relative; inset: auto; min-height: 0; mask-image: none; }
+    .workbench[data-ready] .identity :global(h1) { --hero-size: 2rem; }
+    .workbench[data-ready] .identity :global(p) { font-size: var(--size-xs); }
+    .workbench[data-ready] .spec :global(h2) { font-size: 1.8rem; }
+    .workbench[data-ready] .spec { background: none; }
+  }
+  @media (max-width: 360px) {
+    .stations { display: none; }
+    .floor-count { display: block; min-width: 45px; text-align: center; }
+    .floor-navigation > button { min-width: 44px; }
   }
 </style>

@@ -2,15 +2,16 @@
 /** Renders one text field with its role size and auto-fit step (05-text-and-image-spec §1). */
 import { fitStep, type TextField, type TextValue } from "../core/fields";
 import type { HTMLTag } from "astro/types";
-interface Props { v: TextValue | undefined; f: TextField; as?: HTMLTag; class?: string; id?: string }
-const { v, f, as: Tag = "p", class: cls = "", id } = Astro.props;
+interface Props { v: TextValue | undefined; f: TextField; as?: HTMLTag; class?: string; id?: string; editPath?: string }
+const { v, f, as: Tag = "p", class: cls = "", id, editPath } = Astro.props;
 const value = v?.value ?? "";
 const step = fitStep(value, f);
 const preview = Astro.locals.mode === "draft";
+const path = preview ? editPath : undefined;
 const paragraphs = f.multiline ? value.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean) : [];
 const classes = [`r-${f.role}`, step === "over" && preview ? "r-over" : "", cls].filter(Boolean).join(" ");
 const fit = step === "over" ? "2" : String(step);
 ---
-{value && (f.multiline
-  ? <div class={classes} data-fit={fit} id={id}>{paragraphs.map((p) => <p>{p}</p>)}</div>
-  : <Tag class={classes} data-fit={fit} id={id}>{value}</Tag>)}
+{(value || path) && (f.multiline
+  ? <div class={classes} data-fit={fit} id={id} data-edit-path={path} data-edit-multiline={path ? "" : undefined} data-edit-text={path ? "" : undefined} hidden={!value}>{paragraphs.map((p) => <p>{p}</p>)}</div>
+  : <Tag class={classes} data-fit={fit} id={id} data-edit-path={path} data-edit-text={path ? "" : undefined} hidden={!value}>{value}</Tag>)}

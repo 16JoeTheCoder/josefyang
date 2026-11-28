@@ -8,14 +8,18 @@ import type { Section } from "./module";
 import { getModule, schemas } from "./registry";
 import type { PageData } from "./types";
 
-interface Props { page: string; sections: Section[]; data: PageData }
-const { page, sections, data } = Astro.props;
-const views = import.meta.glob<{ default: (props: Record<string, unknown>) => unknown }>("../modules/*/View.astro", { eager: true });
+import type { Views } from "./views/types";
+
+/** `views` = the route's own view group (src/core/views/<page>.ts), so each route ships only its modules' CSS/JS. */
+interface Props { page: string; sections: Section[]; data: PageData; views: Views }
+const { page, sections, data, views } = Astro.props;
+const byId = new Map(Object.entries(views).map(([path, mod]) => [path.split("/").at(-2)!, mod.default]));
 
 const prepared = sections.filter((s) => !s.hidden).map((s) => {
   const m = getModule(s.moduleId);
-  const View = views[`../modules/${s.moduleId}/View.astro`]?.default;
-  if (!m || !View) return { s, error: `unknown module "${s.moduleId}"` };
+  const View = byId.get(s.moduleId);
+  if (!m) return { s, error: `unknown module "${s.moduleId}"` };
+  if (!View) return { s, error: `module "${s.moduleId}" is not available on this page` };
   let content: unknown = s.content;
   if (s.moduleVersion < m.version && m.migrate) content = m.migrate(content, s.moduleVersion);
   content = withDefaults(m.defaults, content);
@@ -29,9 +33,31 @@ for (const p of prepared) {
     Astro.locals.cfContext?.waitUntil(logHealth(env.DB, page, p.s.sectionId, p.s.moduleId, p.error));
   }
 }
+const hasCaseDrawer = page === "failures" && prepared.some((entry) => entry.s.moduleId === "hopper" && "View" in entry);
+// The floor reuses the own-tools screenshots as device art. The Phase 1 layout upgrade keeps that section hidden
+// (not deleted) so chosen art survives; read it even when hidden.
+const toolsSection = page === "home" ? sections.find((s) => s.moduleId === "own-tools") : undefined;
+const toolsModule = toolsSection ? getModule("own-tools") : undefined;
+const toolsParsed = toolsSection && toolsModule
+  ? schemas[toolsModule.id]!.safeParse(withDefaults(toolsModule.defaults, toolsSection.moduleVersion < toolsModule.version && toolsModule.migrate ? toolsModule.migrate(toolsSection.content, toolsSection.moduleVersion) : toolsSection.content))
+  : undefined;
+const tools = toolsParsed?.success ? toolsParsed.data : undefined;
+// First-screen skip link to "On my bench" (its label lives in that module). Passed to the hero/floor that opens Home.
+const bench = page === "home" ? prepared.find((entry) => entry.s.moduleId === "on-my-bench" && "View" in entry) : undefined;
+const skip = bench && "content" in bench ? { href: `#${bench.s.sectionId}-heading`, label: (bench.content as { skipLabel: { value: string } }).skipLabel.value } : undefined;
+const heroIndex = page === "home" && data.builds.some((build) => build.meta.featured)
+  ? prepared.findIndex((entry, index) =>
+      entry.s.moduleId === "home-hero" && "View" in entry &&
+      prepared[index + 1]?.s.moduleId === "featured-floor" && "View" in prepared[index + 1]!)
+  : -1;
 ---
-{prepared.map((p) => "View" in p && p.View ? (
+{prepared.map((p, index) => index !== heroIndex && (!hasCaseDrawer || p.s.moduleId !== "failure-list") && "View" in p && p.View ? (
   <Boundary page={page} sectionId={p.s.sectionId} moduleId={p.s.moduleId}>
-    <p.View content={p.content} data={data} sectionId={p.s.sectionId} />
+    <p.View content={p.content} data={data} sectionId={p.s.sectionId}
+      tools={p.s.moduleId === "featured-floor" ? tools : undefined}
+      skip={p.s.moduleId === "featured-floor" || p.s.moduleId === "home-hero" ? skip : undefined}
+      hero={heroIndex >= 0 && index === heroIndex + 1
+        ? { content: prepared[heroIndex]!.content, sectionId: prepared[heroIndex]!.s.sectionId }
+        : undefined} />
   </Boundary>
 ) : null)}

@@ -3,87 +3,80 @@ import T from "../../components/T.astro";
 import Img from "../../components/Img.astro";
 import Icon from "../../components/Icon.astro";
 import type { Content } from "../../core/fields";
-import { buildFields } from "../../core/build-fields";
+import { buildFields as BF } from "../../core/build-fields";
 import type { PageData } from "../../core/types";
 import mod from "./module";
-interface Props { content: Content<typeof mod.fields>; data: PageData }
-const { content: c, data } = Astro.props;
+
+interface Props { content: Content<typeof mod.fields>; data: PageData; sectionId: string }
+const { content: c, data, sectionId } = Astro.props;
 const F = mod.fields;
 const builds = data.builds;
-const bench = builds.find((b) => b.meta.status === "bench");
 const n = builds.length;
-const one = n === 1 ? builds[0] : undefined;
+const bench = builds.find((build) => build.meta.status === "bench");
 const failed = data.settings.site.failedPill.value;
+const count = (i: number) => String(i).padStart(2, "0");
+const known = (value: string) => value.trim() && !/^\[.*\]$/.test(value) ? value : "";
+const kind = (type: string) => type === "software" ? c.software.value : c.hardware.value;
+const editPath = (path: string) => data.mode === "draft" ? path : undefined;
+const editKind = (type: string) => editPath(type === "software" ? "software" : "hardware");
+const detailId = (slug: string) => sectionId + "-detail-" + slug;
 ---
-<section class="sel" data-selector data-count={n}>
-  <div class="lamp" aria-hidden="true"></div>
-  <div class="wrap sel-head">
-    <T v={n >= 2 ? c.heading : c.plainHeading} f={n >= 2 ? F.heading : F.plainHeading} as="h1" />
-    {bench && (
-      <p class="sel-bench">{c.benchPrefix.value} {bench.meta.title.value}. <a class="link-u" href="/devlog">{c.benchLink.value}</a></p>
+<section class="selector" data-selector>
+  <div class="gallery" data-gallery>
+    <div class="wrap gallery-head">
+      <T v={n > 1 ? c.heading : c.plainHeading} f={n > 1 ? F.heading : F.plainHeading} as="h1" editPath={n > 1 ? "heading" : "plainHeading"} />
+      {bench && <p class="bench"><span data-edit-path={editPath("benchPrefix")}>{c.benchPrefix.value}</span> {bench.meta.title.value} <a href="/devlog" data-edit-path={editPath("benchLink")}>{c.benchLink.value}</a></p>}
+    </div>
+    {n === 0 ? <div class="wrap empty">
+      <T v={c.emptyNote} f={F.emptyNote} editPath="emptyNote" />
+      {c.emptyLink.value && <a class="gallery-link" href="/about" data-edit-path={editPath("emptyLink")}>{c.emptyLink.value}<Icon name="arrow-right" size={16} /></a>}
+    </div> : (
+      <>
+        <div class="track" data-track tabindex="0" role="region" aria-label={c.heading.value} aria-describedby={n > 1 ? sectionId + "-hint" : undefined}>
+          {builds.map((build, i) => {
+            const { slug, meta } = build;
+            const image = meta.selectorImage.mediaId ? meta.selectorImage : meta.floorImage;
+            return <article class="slide" data-card data-slug={slug} data-index={i} data-active={i === 0 ? "" : undefined} id={`b-${slug}`}>
+              <div class="slide-copy">
+                <p class="slide-meta" data-edit-path={editKind(meta.kind)}>{kind(meta.kind)}{known(meta.year.value) && <span>{meta.year.value}</span>}{meta.status === "failed" && <span>{failed}</span>}</p>
+                <h2>{meta.title.value}</h2>
+                {known(meta.summary.value) && <T v={meta.summary} f={BF.summary} class="slide-summary" />}
+                <a class="gallery-link" href={`#${detailId(slug)}`} data-select data-edit-path={editPath("selectButton")}>{c.selectButton.value}<Icon name="arrow-down" size={17} /></a>
+              </div>
+              <div class="slide-image">
+                <Img v={image} f={BF.selectorImage} sizes="(max-width: 720px) 86vw, 850px" eager={i < 2} />
+              </div>
+            </article>;
+          })}
+        </div>
+        {n > 1 && <div class="wrap gallery-controls" data-controls hidden>
+          <p id={sectionId + "-hint"} class="gallery-hint" data-edit-path={editPath("hint")}>{c.hint.value}</p>
+          <div class="gallery-navigation">
+            <button type="button" data-prev aria-label={c.prevLabel.value} aria-disabled="true" data-edit-path={editPath("prevLabel")} data-edit-attribute={editPath("aria-label")}><Icon name="arrow-left" size={19} /></button>
+            <p class="gallery-count" aria-live="polite"><strong data-pos>{count(1)}</strong> <span aria-hidden="true">/</span><span class="sr-only" data-edit-path={editPath("ofWord")}>{c.ofWord.value}</span> {count(n)}</p>
+            <button type="button" data-next aria-label={c.nextLabel.value} data-edit-path={editPath("nextLabel")} data-edit-attribute={editPath("aria-label")}><Icon name="arrow-right" size={19} /></button>
+          </div>
+        </div>}
+      </>
     )}
   </div>
-  {n === 0 && (
-    <div class="wrap sel-none">
-      <T v={c.emptyNote} f={F.emptyNote} class="sel-empty" />
-      {c.emptyLink.value && <a class="btn btn-sun btn-lg" href="/about">{c.emptyLink.value}</a>}
-    </div>
-  )}
-  {n === 1 && (
-    <div class="wrap sel-one">
-      <div class="one-text">
-        <h2 class="card-name one-name">{one!.meta.title.value}</h2>
-        <T v={one!.meta.summary} f={buildFields.summary} class="one-sum" />
-        <p class="card-meta">{one!.meta.kind === "software" ? c.software.value : c.hardware.value}, {one!.meta.year.value}</p>
-        <a class="btn btn-sun btn-lg one-link" href={`/builds/${one!.slug}`}>{c.openButton.value}</a>
-      </div>
-      <a class="card-img one-img" href={`/builds/${one!.slug}`} tabindex="-1" aria-hidden="true">
-        <Img v={one!.meta.selectorImage} f={buildFields.selectorImage} sizes="(max-width: 860px) 92vw, 1100px" eager />
-        {one!.meta.status === "failed" && <span class="pill pill-failed card-failed">{failed}</span>}
-      </a>
-    </div>
-  )}
-  {n >= 2 && (
-    <>
-      <div class="sel-stage">
-      <div class="sel-track" data-track tabindex="0" role="listbox" aria-label={c.heading.value} aria-describedby="sel-hint">
-        {builds.map((b, i) => (
-          <article class="card" id={`b-${b.slug}`} data-card data-slug={b.slug} data-index={i} role="option" aria-selected={i === 0 ? "true" : "false"}>
-            <a class="card-img" href={`/builds/${b.slug}`} tabindex="-1" data-open>
-              <Img v={b.meta.selectorImage} f={buildFields.selectorImage} sizes="(max-width: 860px) 84vw, 56vw" eager={i < 3} />
-              {b.meta.status === "failed" && <span class="pill pill-failed card-failed">{failed}</span>}
-            </a>
-            <div class="card-info">
-              <h2 class="card-name"><a href={`/builds/${b.slug}`} data-name-link>{b.meta.title.value}</a></h2>
-              <T v={b.meta.summary} f={buildFields.summary} class="card-sum" />
-              <p class="card-meta">{b.meta.kind === "software" ? c.software.value : c.hardware.value}, {b.meta.year.value}</p>
-            </div>
-          </article>
-        ))}
-      </div>
-      <div class="wrap sel-controls">
-        <button class="icon-btn" type="button" data-prev aria-label={c.prevLabel.value}><Icon name="arrow-left" /></button>
-        <a class="btn btn-sun btn-lg" data-lock href={`/builds/${builds[0]!.slug}`}>{c.openButton.value}</a>
-        <button class="icon-btn" type="button" data-next aria-label={c.nextLabel.value}><Icon name="arrow-right" /></button>
-      </div>
-      <p class="wrap sel-hint" id="sel-hint">{c.hint.value} <span aria-live="polite"><span data-pos>1</span> {c.ofWord.value} {n}</span></p>
-      </div>
-      <div class="wrap sel-listwrap"><ul class="sel-list">
-        {builds.map((b) => (
-          <li class="li">
-            <div class="li-top">
-              <h2 class="li-name"><a href={`/builds/${b.slug}`}>{b.meta.title.value}</a></h2>
-              {b.meta.status === "failed" && <span class="pill pill-failed">{failed}</span>}
-            </div>
-            <T v={b.meta.summary} f={buildFields.summary} class="li-sum" />
-            <p class="li-meta">{b.meta.kind === "software" ? c.software.value : c.hardware.value}, {b.meta.year.value}</p>
-            <a class="li-link link-u" href={`/builds/${b.slug}`}>{c.openButton.value}<span class="sr-only">: {b.meta.title.value}</span></a>
-          </li>
-        ))}
-      </ul></div>
-      <noscript><style is:global>{`.sel-stage{display:none!important}.sel-listwrap{display:block!important}`}</style></noscript>
-    </>
-  )}
+  {n > 0 && <div class="details">
+    {builds.map((b) => (
+      <article class="wrap detail" id={detailId(b.slug)} data-detail tabindex="-1">
+        <div>
+          <p class="detail-type" data-edit-path={editKind(b.meta.kind)}>{kind(b.meta.kind)}{known(b.meta.built.value) && <span>{b.meta.built.value}</span>}</p>
+          <h2>{b.meta.title.value}</h2>
+          {known(b.meta.summary.value) && <T v={b.meta.summary} f={BF.summary} class="detail-summary" />}
+        </div>
+        <div class="detail-actions">
+          {known(b.meta.madeWith.value) && <p>{b.meta.madeWith.value}</p>}
+          {b.meta.skills.length > 0 && <ul>{b.meta.skills.map((skill) => <li>{skill.name.value}</li>)}</ul>}
+          <a class="gallery-link" href={`/builds/${b.slug}`} data-edit-path={editPath("openButton")}>{c.openButton.value}<Icon name="arrow-right" size={17} /></a>
+          <a class="gallery-link detail-return" href={"#b-" + b.slug} data-return data-edit-path={editPath("returnButton")}><Icon name="arrow-up" size={17} />{c.returnButton.value}</a>
+        </div>
+      </article>
+    ))}
+  </div>}
 </section>
 <script>
   import { onPage } from "../../core/island";
@@ -91,70 +84,62 @@ const failed = data.settings.site.failedPill.value;
   onPage("[data-selector]", mountSelector);
 </script>
 <style>
-  .sel { position: relative; overflow: hidden; background: var(--black); color: var(--white); padding: calc(var(--nav-h) + 72px) 0 var(--section-y); min-height: 100svh; }
-  .lamp { position: absolute; left: 50%; top: 38%; width: 1400px; height: 1000px; translate: -50% -50%; background: radial-gradient(closest-side, var(--light-16), var(--light-05) 55%, transparent); pointer-events: none; }
-  .sel-head { position: relative; display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; }
-  .sel-head :global(h1) { font-size: var(--size-xxl); }
-  .sel-bench { color: var(--muted-dark); font-size: var(--size-s); }
-  .sel-bench a { color: var(--white); }
-  .sel :global(.sel-empty) { margin-top: 48px; color: var(--muted-dark); }
-  .sel-track {
-    position: relative; display: flex; gap: 2vw; margin-top: 48px; overflow-x: auto; scroll-snap-type: x mandatory;
-    padding-inline: 22vw; scrollbar-width: none; overscroll-behavior-x: contain; outline: none;
+  .selector { background: var(--workbench); color: var(--workbench-ink); }
+  .gallery { min-height: 100svh; padding: clamp(88px, 13vh, 132px) 0 22px; display: grid; align-content: center; gap: clamp(12px, 3vh, 31px); }
+  .gallery-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px; }
+  .gallery-head :global(h1) { font-size: clamp(2.25rem, 4.9vw, 4.7rem); font-weight: 780; letter-spacing: var(--track-tight); line-height: .95; }
+  .bench { color: var(--workbench-subtle); font-size: var(--size-s); }
+  .bench a { color: var(--workbench-ink); margin-left: 6px; text-decoration-color: var(--sun); }
+  .empty { display: grid; gap: 18px; justify-items: start; }
+  .track { display: grid; margin-inline: auto; width: 100%; padding-inline: var(--gutter); max-width: calc(var(--container) + 2 * var(--gutter)); gap: 24px; }
+  .slide { display: grid; position: relative; grid-template-columns: minmax(0, 3fr) minmax(0, 6fr); align-items: center; gap: clamp(24px, 4vw, 72px); min-width: 0; padding-block: 18px; border-block: 1px solid var(--workbench-rule); }
+  .slide-copy { min-width: 0; }
+  .slide-copy h2, .detail h2 { font-family: var(--font-display); font-weight: 785; font-size: clamp(2rem, 4.75vw, 4.75rem); letter-spacing: var(--track-tight); line-height: .98; overflow-wrap: anywhere; text-wrap: balance; margin-top: 5px; }
+  .slide-meta, .detail-type { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: var(--size-xs); line-height: 1.35; color: var(--workbench-subtle); }
+  .slide-meta span, .detail-type span { padding-left: 12px; border-left: 1px solid var(--workbench-rule); }
+  .slide-copy :global(.slide-summary) { margin-top: 13px; line-height: 1.45; color: var(--workbench-subtle); }
+  .slide-image { min-width: 0; overflow: hidden; background: var(--workbench-mat); border-radius: var(--radius-s); }
+  .slide-image :global(.img-slot) { height: clamp(175px, 48svh, 570px); aspect-ratio: auto; border-radius: 0; background: var(--workbench-mat); }
+  .slide-image :global(.img-slot img) { object-fit: contain; transform: none; }
+  .slide-image :global(.img-empty) { color: var(--workbench-subtle); }
+  .gallery-link { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; font: 700 var(--size-s) var(--font-display); text-decoration: none; }
+  .slide-copy .gallery-link { margin-top: 12px; }
+  .gallery-link :global(svg) { color: var(--sun); }
+  .gallery-link:hover { text-decoration: underline; text-decoration-color: var(--sun); }
+  .gallery-controls:not([hidden]) { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  .gallery-hint { color: var(--workbench-subtle); font-size: var(--size-xs); line-height: 1.35; }
+  .gallery-navigation { display: flex; gap: 10px; align-items: center; }
+  .gallery-navigation button { border: 1px solid var(--workbench-rule); background: transparent; width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; }
+  .gallery-navigation button:hover { border-color: var(--sun); }
+  .gallery-navigation button[aria-disabled="true"] { opacity: .42; cursor: default; }
+  .gallery-count { min-width: 7ch; text-align: center; font: 560 var(--size-xs) var(--font-display); font-variant-numeric: tabular-nums; color: var(--workbench-subtle); }
+  .gallery-count strong { color: var(--workbench-ink); }
+  .selector[data-ready] .track { display: flex; overflow-x: auto; justify-content: flex-start; max-width: none; padding-inline: max(var(--gutter), calc((100vw - var(--container)) / 2)); scroll-padding-inline: max(var(--gutter), calc((100vw - var(--container)) / 2)); gap: 24px; scrollbar-width: none; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; }
+  .selector[data-ready] .track:focus-visible { outline-offset: -2px; }
+  .selector[data-ready] .slide { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; transition: opacity var(--dur-fast) var(--ease-out); cursor: pointer; }
+  .selector[data-ready] .slide:not([data-active]) { opacity: .46; }
+  .details { background: var(--archive-paper); color: var(--workbench); }
+  .detail { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 3fr); gap: 32px; padding-block: clamp(52px, 9vw, 112px); }
+  .detail[hidden] { display: none; }
+  .detail:focus { outline: none; }
+  .detail :global(.detail-summary), .detail-actions p { margin-top: 15px; color: var(--muted); }
+  .detail-type { color: var(--muted); }
+  .detail-actions ul { display: flex; flex-wrap: wrap; gap: 7px 16px; margin-top: 10px; font-size: var(--size-s); color: var(--muted); }
+  .detail-actions .gallery-link { width: fit-content; display: flex; margin-top: 11px; border-bottom: 1px solid var(--archive-rule); }
+  @media (max-width: 720px) {
+    .gallery { padding-top: 88px; gap: 13px; }
+    .gallery-head .bench { display: none; }
+    .slide { grid-template-columns: 1fr; gap: 11px; padding-block: 10px; }
+    .slide-image { order: -1; }
+    .slide-image :global(.img-slot) { height: clamp(125px, 34svh, 330px); }
+    .slide-copy h2 { font-size: clamp(1.8rem, 8vw, 3.6rem); }
+    .slide-copy :global(.slide-summary) { margin-top: 5px; font-size: var(--size-xs); }
+    .slide-copy .gallery-link { margin-top: 2px; }
+    .detail { grid-template-columns: 1fr; gap: 12px; }
   }
-  .sel-track::-webkit-scrollbar { display: none; }
-  .sel-track:focus-visible .card[aria-selected="true"] .card-img { outline: 2px solid var(--sun); outline-offset: 6px; }
-  .card { flex: 0 0 56vw; scroll-snap-align: center; transition: opacity 500ms var(--ease-out), transform 600ms var(--ease-out); }
-  .card[aria-selected="false"] { opacity: 0.35; transform: scale(0.82); }
-  .card-img { position: relative; display: block; border-radius: var(--radius-m); text-decoration: none; }
-  .card-img :global(.img-empty) { background: var(--granite); }
-  .card[aria-selected="true"] .card-img :global(.img-slot) { box-shadow: 0 40px 80px -30px var(--light-18); }
-  .card-failed { position: absolute; top: 14px; left: 14px; background: var(--black); border-color: var(--muted-dark); }
-  .card-info { text-align: center; margin-top: 32px; transition: opacity 400ms var(--ease-out); }
-  .card[aria-selected="false"] .card-info { opacity: 0; }
-  .card-name a { text-decoration: none; }
-  .card-name { font-family: var(--font-display); font-weight: 900; font-stretch: 72%; font-size: var(--size-giant); line-height: 0.9; letter-spacing: var(--track-display); overflow-wrap: anywhere; text-wrap: balance; }
-  .card :global(.card-sum) { margin: 16px auto 0; color: var(--muted-dark); max-width: 48ch; }
-  .card-meta { margin-top: 10px; font-size: var(--size-s); }
-  .sel-controls { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 36px; }
-  .icon-btn { width: 56px; height: 56px; display: grid; place-items: center; border-radius: var(--pill); border: 1.5px solid var(--muted-dark); background: transparent; color: var(--white); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
-  .icon-btn:hover { background: var(--white); color: var(--black); }
-  .icon-btn:disabled { opacity: 0.3; cursor: default; background: transparent; color: var(--white); }
-  .btn-sun { background: var(--sun); color: var(--black); }
-  .btn-sun:hover { background: var(--white); }
-  .sel-hint { margin-top: 18px; text-align: center; font-size: var(--size-s); color: var(--muted-dark); }
-
-  @media (max-width: 860px) {
-    .sel-track { padding-inline: 8vw; gap: 4vw; }
-    .card { flex-basis: 84vw; }
-    .card[aria-selected="false"] { transform: scale(0.92); }
-    .card-name { font-size: var(--size-xxl); }
-  }
-  .sel-none { display: grid; justify-items: start; gap: 28px; margin-top: 48px; }
-  .sel :global(.sel-none .sel-empty) { margin-top: 0; }
-  .sel-one { display: grid; gap: var(--space-7); margin-top: var(--space-7); position: relative; }
-  .one-text { display: grid; justify-items: start; gap: 16px; max-width: 60ch; }
-  .one-name { font-size: var(--size-xxl); }
-  .sel :global(.one-sum) { color: var(--muted-dark); }
-  .one-link { margin-top: 12px; }
-  .one-img { max-width: 1100px; }
-  .sel-listwrap { display: none; margin-top: var(--space-7); position: relative; }
-  .sel-list { list-style: none; padding: 0; border-top: 1px solid var(--rule-dark); }
-  .li { padding: var(--space-6) 0; border-bottom: 1px solid var(--rule-dark); display: grid; justify-items: start; gap: 10px; }
-  .li-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  .li-name { font-family: var(--font-display); font-weight: 900; font-stretch: 72%; font-size: var(--size-xl); line-height: 0.95; letter-spacing: var(--track-display); overflow-wrap: anywhere; }
-  .li-name a { text-decoration: none; }
-  .sel :global(.li-sum) { color: var(--muted-dark); max-width: 52ch; }
-  .li-meta { font-size: var(--size-s); color: var(--muted-dark); }
-  .li-link { display: inline-flex; align-items: center; min-height: 44px; font-family: var(--font-display); font-weight: 700; }
-
-  /* Text-first list: small screens, reduced motion (and, via <noscript>, no JavaScript). */
-  @media (max-width: 860px) {
-    .sel-stage { display: none; }
-    .sel-listwrap { display: block; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .sel-stage { display: none; }
-    .sel-listwrap { display: block; }
+  @media (max-height: 700px) and (min-width: 721px) {
+    .gallery { padding-top: 86px; }
+    .slide-image :global(.img-slot) { height: clamp(150px, 43svh, 440px); }
+    .slide-copy h2 { font-size: clamp(1.7rem, 4.1vw, 3.4rem); }
   }
 </style>

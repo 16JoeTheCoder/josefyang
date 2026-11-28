@@ -1,46 +1,144 @@
 ---
-/**
- * Draft-only bridge between the preview iframe and the admin (click-to-edit + live text).
- * Inert unless the page is a draft AND framed by the admin on the same origin. Never ships to the public site.
- */
+/** Same-origin draft preview bridge. Editing controls are available only inside the admin canvas. */
 ---
 <script is:inline>
 (() => {
   if (window.parent === window) return;
   const origin = location.origin;
+  const root = document.documentElement;
   const css = document.createElement("style");
-  css.textContent = "[data-edit-section] :is(h1,h2,h3,h4,p,li,a,span,figcaption,strong,img,.img-slot){cursor:pointer}" +
-    ".jy-hover{outline:2px dashed var(--sun) !important;outline-offset:4px !important}" +
-    ".jy-flash{animation:jy-flash 900ms ease-out}@keyframes jy-flash{0%{background:color-mix(in srgb,var(--sun) 35%,transparent)}100%{background:transparent}}";
+  css.textContent =
+    "[data-edit-text][hidden]{display:none !important}" +
+    ".jy-editing :is([data-edit-path],.jy-hover){cursor:crosshair}" +
+    ".jy-editing .jy-hover{outline:1px dashed var(--sun) !important;outline-offset:4px !important}" +
+    ".jy-editing .jy-selected{outline:2px solid var(--sun) !important;outline-offset:4px !important}" +
+    ".jy-editing .jy-section-selected{outline:1px dashed var(--sun) !important;outline-offset:-3px !important}";
   document.head.appendChild(css);
-  const pick = (t) => t.closest("img, .img-slot, .img-empty") || t.closest("h1,h2,h3,h4,p,li,a,figcaption,strong,span,button");
-  let last = null;
-  document.addEventListener("mouseover", (e) => {
-    const el = e.target instanceof Element && e.target.closest("[data-edit-section]") ? pick(e.target) : null;
-    if (last && last !== el) last.classList.remove("jy-hover");
-    if (el) el.classList.add("jy-hover");
-    last = el;
+  root.classList.add("jy-editing");
+
+  const sectionFor = (target) => target.closest("[data-edit-section]");
+  const targetFor = (target) => {
+    const section = sectionFor(target);
+    const field = target.closest("[data-edit-path]");
+    if (field && sectionFor(field) === section) return field;
+    return target.closest(".img-slot, video, h1, h2, h3, h4, p, li, a, button, figcaption, strong, span");
+  };
+  const bySection = (id) => [...document.querySelectorAll('[data-edit-section="' + CSS.escape(id) + '"]')];
+  const exactTargets = (sections, path) => {
+    const selector = '[data-edit-path="' + CSS.escape(path) + '"]';
+    return sections.flatMap((section) => [section, ...section.querySelectorAll(selector)]
+      .filter((target) => target.matches(selector) && sectionFor(target) === section));
+  };
+  const visible = (el) => !!el && el.getClientRects().length > 0 && !el.closest("[hidden]");
+  const prefersLess = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  let hover = null;
+  let active = null;
+  let editing = true;
+  const highlight = (element, sectionOnly = false) => {
+    active?.classList.remove("jy-selected", "jy-section-selected");
+    active = element;
+    active?.classList.add(sectionOnly ? "jy-section-selected" : "jy-selected");
+  };
+
+  function openInDraft(event, target) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = target.closest("a[href]:not([download])");
+    if (!link || (link.target && link.target !== "_self")) return;
+    const url = new URL(link.href, location.href);
+    if (url.origin !== origin || /^\/(admin|api|media|preview)(\/|$)/.test(url.pathname)) return;
+    event.preventDefault();
+    location.assign("/preview" + url.pathname + url.search + url.hash);
+  }
+
+  function onSelect(event) {
+    if (!(event.target instanceof Element)) return;
+    if (!editing) { openInDraft(event, event.target); return; }
+    const section = sectionFor(event.target);
+    if (!section) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const el = targetFor(event.target);
+    const target = el && sectionFor(el) === section ? el : null;
+    highlight(target ?? section, !target);
+    const media = target && (target.matches("img,video") ? target : target.querySelector("img,video"));
+    const key = media ? (media.currentSrc || media.src).match(/\/(m\/[a-z0-9]+)\//)?.[1] ?? null : null;
+    parent.postMessage({
+      type: "jy-pick",
+      section: section.dataset.editSection,
+      path: target?.dataset.editPath ?? null,
+      text: target && !media ? (target.textContent || "").trim().slice(0, 600) : "",
+      mediaKey: key,
+      image: !!(target && (media?.matches("img") || target.matches(".img-slot, .img-empty"))),
+    }, origin);
+  }
+
+  document.addEventListener("click", onSelect, true);
+  document.addEventListener("pointerover", (event) => {
+    const section = editing && event.target instanceof Element && sectionFor(event.target);
+    const el = section ? targetFor(event.target) : null;
+    if (hover && hover !== el) hover.classList.remove("jy-hover");
+    if (el && sectionFor(el) === section) el.classList.add("jy-hover");
+    hover = el;
   });
-  document.addEventListener("click", (e) => {
-    if (!(e.target instanceof Element)) return;
-    const sec = e.target.closest("[data-edit-section]");
-    if (!sec) return;
-    e.preventDefault(); e.stopPropagation();
-    const el = pick(e.target);
-    const img = el && (el.matches("img") ? el : el.querySelector("img"));
-    const key = img ? (img.currentSrc || img.src).match(/\/(m\/[a-z0-9]+)\//)?.[1] ?? null : null;
-    parent.postMessage({ type: "jy-pick", section: sec.dataset.editSection, text: el && !img ? (el.textContent || "").trim().slice(0, 600) : "", mediaKey: key, image: !!(el && (img || el.matches(".img-slot, .img-empty"))) }, origin);
-  }, true);
-  window.addEventListener("message", (e) => {
-    if (e.origin !== origin || !e.data || e.data.type !== "jy-live") return;
-    const sec = e.data.section ? document.querySelector('[data-edit-section="' + CSS.escape(e.data.section) + '"]') : document.body;
-    if (!sec) return;
-    const old = String(e.data.old).trim();
-    if (!old) return;
-    const walker = document.createTreeWalker(sec, NodeFilter.SHOW_ELEMENT);
-    for (let n = walker.currentNode; n; n = walker.nextNode()) {
-      if (n.children.length === 0 && (n.textContent || "").trim() === old) { n.textContent = e.data.next; n.classList.remove("jy-flash"); void n.offsetWidth; n.classList.add("jy-flash"); }
+  document.addEventListener("pointerout", (event) => {
+    if (hover && (!(event.relatedTarget instanceof Node) || !hover.contains(event.relatedTarget))) {
+      hover.classList.remove("jy-hover");
+      hover = null;
     }
+  });
+
+  const normalize = (value) => value.replace(/\s+/g, " ").trim();
+  const replaceText = (target, value) => {
+    if (target.dataset.editAttribute === "aria-label") {
+      target.setAttribute("aria-label", value);
+      return;
+    }
+    if (target.hasAttribute("data-edit-text")) target.hidden = !value;
+    if (target.hasAttribute("data-edit-multiline")) {
+      target.replaceChildren(...value.split(/\n\s*\n/).map((part) => {
+        const p = document.createElement("p");
+        p.textContent = part.trim();
+        return p;
+      }).filter((p) => p.textContent));
+      return;
+    }
+    const nodes = [...target.childNodes].filter((child) => child.nodeType === Node.TEXT_NODE);
+    const node = nodes.find((child) => child.textContent?.trim()) ?? nodes[0];
+    if (node) node.textContent = value;
+    else if (!target.children.length) target.textContent = value;
+    else target.prepend(document.createTextNode(value));
+  };
+
+  window.addEventListener("message", (event) => {
+    if (event.origin !== origin || event.source !== window.parent || !event.data) return;
+    const data = event.data;
+    if (data.type === "jy-mode") {
+      editing = data.editing === true;
+      root.classList.toggle("jy-editing", editing);
+      if (!editing) { hover?.classList.remove("jy-hover"); hover = null; highlight(null); }
+      return;
+    }
+    const sections = typeof data.section === "string" && data.section ? bySection(data.section) : [];
+    if (data.type === "jy-select") {
+      if (!editing || !sections.length) { highlight(null); return; }
+      const section = sections.find(visible) ?? sections[0];
+      const target = typeof data.path === "string" ? exactTargets(sections, data.path).find(visible) : null;
+      if (target || data.scroll || !active || sectionFor(active)?.dataset.editSection !== data.section) highlight(target ?? section, !target);
+      if (data.scroll) (target ?? section).scrollIntoView({ block: target ? "center" : "start", behavior: prefersLess() ? "instant" : "smooth" });
+      return;
+    }
+    if (data.type !== "jy-live" || typeof data.next !== "string") return;
+    if (data.path) {
+      const targets = exactTargets(sections, data.path);
+      if (targets.length) { targets.forEach((target) => replaceText(target, data.next)); return; }
+    }
+    const old = normalize(String(data.old ?? ""));
+    if (!old) return;
+    const roots = sections.length ? sections : (data.section ? [] : [document.body]);
+    const matches = roots.flatMap((section) => [...section.querySelectorAll("h1,h2,h3,h4,p,li,span,a,button,figcaption")].filter((node) =>
+      (!data.section || sectionFor(node) === section) && !node.children.length && normalize(node.textContent ?? "") === old));
+    if (matches.length === 1) matches[0].textContent = data.next;
   });
 })();
 </script>

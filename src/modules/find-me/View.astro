@@ -4,26 +4,40 @@ import Icon from "../../components/Icon.astro";
 import type { Content } from "../../core/fields";
 import type { PageData } from "../../core/types";
 import mod from "./module";
+
 interface Props { content: Content<typeof mod.fields>; data: PageData }
 const { content: c, data } = Astro.props;
 const ct = data.settings.contacts;
-const primary = [{ url: ct.instagram, label: ct.instagramLabel.value, icon: "instagram" }, { url: ct.github, label: ct.githubLabel.value, icon: "github" }].filter((l) => l.url);
-const secondary = [{ url: ct.youtube, label: ct.youtubeLabel.value, icon: "youtube" }, { url: ct.linkedin, label: ct.linkedinLabel.value, icon: "linkedin" }].filter((l) => l.url);
+const links = [
+  { url: ct.instagram, label: ct.instagramLabel.value, icon: "instagram" },
+  { url: ct.github, label: ct.githubLabel.value, icon: "github" },
+  { url: ct.youtube, label: ct.youtubeLabel.value, icon: "youtube" },
+  { url: ct.linkedin, label: ct.linkedinLabel.value, icon: "linkedin" },
+].filter((link) => link.url);
 ---
-{(primary.length > 0 || secondary.length > 0) && (
-  <section class="fm on-sun">
-    <div class="wrap">
-      <T v={c.heading} f={mod.fields.heading} as="h2" />
-      <ul class="fm-row">
-        {primary.map((l) => <li><a class="btn btn-primary btn-lg" href={l.url} target="_blank" rel="noopener me"><Icon name={l.icon} size={20} />{l.label}</a></li>)}
-        {secondary.map((l) => <li><a class="btn btn-secondary" href={l.url} target="_blank" rel="noopener me"><Icon name={l.icon} size={18} />{l.label}</a></li>)}
+{links.length > 0 && (
+<section class="about-social">
+  <div class="wrap">
+    <div class="social-line">
+      <T v={c.heading} f={mod.fields.heading} as="h2" class="social-title" />
+      <ul class="social-links">
+        {links.map((link) => (
+          <li><a href={link.url} target="_blank" rel="noopener me"><Icon name={link.icon} size={18} />{link.label}</a></li>
+        ))}
       </ul>
-      {secondary.some((l) => l.icon === "youtube") && <T v={c.note} f={mod.fields.note} class="fm-note" />}
+      {links.some((link) => link.icon === "youtube") && <T v={c.note} f={mod.fields.note} class="social-note" />}
     </div>
-  </section>
+  </div>
+</section>
 )}
 <style>
-  .fm { background: var(--sun); padding: 48px 0 var(--section-y); }
-  .fm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 28px; }
-  .fm :global(.fm-note) { margin-top: 16px; color: var(--sun-ink); }
+  .about-social { background: var(--workbench-mat); color: var(--workbench-ink); padding-bottom: clamp(26px, 5vw, 60px); }
+  .social-line { display: flex; align-items: baseline; gap: 0 25px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--workbench-rule); }
+  .about-social :global(.social-title) { font-size: var(--size-m); font-weight: 670; letter-spacing: 0; color: var(--workbench-subtle); line-height: 1.2; }
+  .social-links { display: flex; flex-wrap: wrap; gap: 0 17px; align-items: center; min-width: 0; }
+  .social-links a { display: inline-flex; align-items: center; min-height: 44px; gap: 8px; font: 660 var(--size-s) var(--font-display); text-decoration: none; }
+  .social-links a:hover { text-decoration: underline; text-decoration-color: var(--sun); }
+  .social-links :global(svg) { color: var(--workbench-subtle); flex: none; }
+  .about-social :global(.social-note) { flex: 1 1 100%; color: var(--workbench-subtle); font-size: var(--size-xs); }
 </style>
+

@@ -4,8 +4,8 @@ import { f, t } from "../../core/fields";
 export default defineModule({
   id: "showcase-end",
   name: "Showcase end",
-  version: 1,
-  description: "Dark closing band: one heading and two link buttons.",
+  version: 2,
+  description: "Dark closing band: one heading, two link buttons and a link to the next published project.",
   island: false,
   pages: ["build"],
   fields: {
@@ -14,6 +14,7 @@ export default defineModule({
     primaryUrl: f.url("First button link"),
     secondaryLabel: f.button("Second button label", 30),
     secondaryUrl: f.url("Second button link"),
+    nextLabel: f.label("Words before the next project's name", { max: 24, maxLines: 1 }),
   },
   defaults: {
     heading: t("Explore the build."),
@@ -21,5 +22,7 @@ export default defineModule({
     primaryUrl: "",
     secondaryLabel: t("Back to projects"),
     secondaryUrl: "/projects",
+    nextLabel: t("Next project:"),
   },
+  migrate: (old) => old,
 });

@@ -79,7 +79,7 @@ function GamesList({ games, onOpen, onHub, onChanged }: { games: GameRec[]; onOp
           </ol>
         )}
       </div>
-      <Preview route="/games" reloadKey={games.reduce((n, g) => n + g.updatedAt, 0) % 100000} />
+      <Preview route="/hub" reloadKey={games.reduce((n, g) => n + g.updatedAt, 0) % 100000} />
     </div>
   );
 }
@@ -108,7 +108,7 @@ function GameEditor({ game, onBack, onChanged }: { game: GameRec; onBack: () => 
   const problems = a.problems.length ? a.problems : serverProblems;
   return (
     <div class="split">
-      <div class="editor" onFocusOut={() => void a.flush()}>
+      <div class="editor" onFocusOut={() => void a.flush().catch(() => {})}>
         <header class="ed-head">
           <button type="button" class="linkish" onClick={onBack}>All games</button>
           <h1>{doc.game.name.value || "Untitled game"}</h1>
@@ -121,7 +121,7 @@ function GameEditor({ game, onBack, onChanged }: { game: GameRec; onBack: () => 
         </div>
         <FieldsForm fields={gameFields as Fields} value={doc.game as unknown as Record<string, unknown>} onChange={(g) => a.setValue({ ...doc, game: g as unknown as GameFields })} path="game" />
       </div>
-      <Preview route={`/games/${doc.slug}`} reloadKey={reloadKey} />
+      <Preview route={`/hub/${doc.slug}`} reloadKey={reloadKey} />
     </div>
   );
 }
@@ -153,13 +153,13 @@ function HubForm({ init, toast }: { init: { value: Record<string, unknown>; upda
   const problems = a.problems.length ? a.problems : serverProblems;
   return (
     <div class="split">
-      <div class="editor" onFocusOut={() => void a.flush()}>
+      <div class="editor" onFocusOut={() => void a.flush().catch(() => {})}>
         <h1>Game hub text</h1>
         <p class="muted">Every line on the hub and on each game page that is not about one game: headings, install notes, labels.</p>
         <StatusBar status={a.status} savedAt={a.savedAt} error={a.error} problems={problems} onPublish={publish} publishing={publishing} dirty={dirty} />
         <FieldsForm fields={hubFields as Fields} value={a.value} onChange={a.setValue} path="hub" />
       </div>
-      <Preview route="/games" reloadKey={reloadKey} />
+      <Preview route="/hub" reloadKey={reloadKey} />
     </div>
   );
 }

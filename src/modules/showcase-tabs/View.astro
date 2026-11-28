@@ -8,25 +8,26 @@ const { content: c, sectionId } = Astro.props;
 const F = mod.fields;
 const TF = F.tabs.of;
 const id = (i: number, part: string) => `${sectionId}-${part}-${i}`;
+const editPath = (path: string) => Astro.locals.mode === "draft" ? path : undefined;
 ---
 <section class="st" data-tabs>
   <div class="wrap">
     <Head heading={c.heading} headingField={F.heading} body={c.body} bodyField={F.body} />
     <div class="st-bar" role="tablist" aria-label={c.tabsLabel.value} data-bar hidden>
       {c.tabs.map((tb, i) => (
-        <button type="button" role="tab" class="st-tab" id={id(i, "tab")} aria-controls={id(i, "panel")} aria-selected={i === 0 ? "true" : "false"} tabindex={i === 0 ? 0 : -1} data-tab>{tb.name.value}</button>
+        <button type="button" role="tab" class="st-tab" id={id(i, "tab")} aria-controls={id(i, "panel")} aria-selected={i === 0 ? "true" : "false"} tabindex={i === 0 ? 0 : -1} data-tab data-edit-path={editPath(`tabs[${i}].name`)}>{tb.name.value}</button>
       ))}
     </div>
     <div class="st-stage" data-stage>
       {c.tabs.map((tb, i) => (
         <figure class="st-panel" role="tabpanel" id={id(i, "panel")} aria-labelledby={id(i, "tab")} data-panel hidden={i !== 0}>
-          <Img v={tb.image} f={TF.image} sizes="(max-width: 900px) 92vw, 1200px" class="st-img" />
-          <figcaption><strong class="st-name">{tb.name.value}</strong><span class="st-note">{tb.note.value}</span></figcaption>
+          <Img v={tb.image} f={TF.image} sizes="(max-width: 900px) 92vw, 1200px" class="st-img" editPath={`tabs[${i}].image`} />
+          <figcaption><strong class="st-name" data-edit-path={editPath(`tabs[${i}].name`)}>{tb.name.value}</strong><span class="st-note" data-edit-path={editPath(`tabs[${i}].note`)}>{tb.note.value}</span></figcaption>
         </figure>
       ))}
     </div>
     <ul class="st-list" data-list>
-      {c.tabs.map((tb) => <li><strong>{tb.name.value}</strong> <span>{tb.note.value}</span></li>)}
+      {c.tabs.map((tb, i) => <li><strong data-edit-path={editPath(`tabs[${i}].name`)}>{tb.name.value}</strong> <span data-edit-path={editPath(`tabs[${i}].note`)}>{tb.note.value}</span></li>)}
     </ul>
   </div>
 </section>

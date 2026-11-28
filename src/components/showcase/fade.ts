@@ -1,26 +1,32 @@
 /**
- * Crossfade between stacked panels (GSAP). Panels share one grid cell while the island is mounted;
- * the inactive ones carry `hidden`. With `instant` (reduced motion) panels just swap.
+ * Crossfade between stacked panels with the Web Animations API (no GSAP: keeps ~70 KB off project pages).
+ * Panels share one grid cell while the island is mounted; the inactive ones carry `hidden`.
+ * With `instant` (reduced motion) panels just swap.
  */
-import { gsap } from "gsap";
+const EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
 
 export function showPanel(panels: HTMLElement[], index: number, instant: boolean): void {
   const next = panels[index];
   if (!next) return;
-  gsap.killTweensOf(panels);
+  for (const p of panels) p.getAnimations().forEach((a) => a.cancel());
   for (const p of panels) {
     if (p === next) continue;
-    if (instant || p.hidden) { p.hidden = true; gsap.set(p, { clearProps: "opacity" }); continue; }
-    gsap.to(p, { opacity: 0, duration: 0.28, ease: "power2.out", onComplete: () => { p.hidden = true; gsap.set(p, { clearProps: "opacity" }); } });
+    if (instant || p.hidden || !p.animate) { p.hidden = true; continue; }
+    const out = p.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 280, easing: EASE });
+    out.onfinish = () => { p.hidden = true; };
   }
   const wasHidden = next.hidden;
   next.hidden = false;
-  if (instant || !wasHidden) { gsap.set(next, { clearProps: "opacity" }); return; }
-  gsap.fromTo(next, { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out", clearProps: "opacity" });
+  if (instant || !wasHidden || !next.animate) return;
+  next.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: EASE });
 }
 
-/** Start loading hidden images once the browser is idle, so the first swap is not blank. */
-export function warmImages(root: HTMLElement): void {
-  const run = () => root.querySelectorAll<HTMLImageElement>("img").forEach((i) => { i.loading = "eager"; });
-  if ("requestIdleCallback" in window) window.requestIdleCallback(run); else setTimeout(run, 600);
+/**
+ * Load the hidden panels' images only on intent (pointer over or focus on the controls), never all upfront.
+ * Returns a cleanup function.
+ */
+export function warmOnIntent(controls: Element[], panelFor: (control: Element) => HTMLElement | undefined): () => void {
+  const warm = (event: Event) => panelFor(event.currentTarget as Element)?.querySelectorAll("img").forEach((img) => { img.loading = "eager"; });
+  for (const c of controls) { c.addEventListener("pointerenter", warm); c.addEventListener("focus", warm); }
+  return () => { for (const c of controls) { c.removeEventListener("pointerenter", warm); c.removeEventListener("focus", warm); } };
 }

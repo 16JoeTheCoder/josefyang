@@ -19,6 +19,7 @@ export const ICONS = {
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   "arrow-left": '<path d="M15 5l-7 7 7 7"/>',
   "arrow-right": '<path d="M9 5l7 7-7 7"/>',
+  "arrow-up": '<path d="M5 15l7-7 7 7"/>',
   "arrow-down": '<path d="M5 9l7 7 7-7"/>',
   menu: '<path d="M4 8h16M4 16h16"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',

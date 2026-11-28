@@ -7,17 +7,19 @@ import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { MAX_DOC_BYTES, blockDocSchema, emptyDoc, mediaRefs as blockMediaRefs, plainText, readMinutesFor } from "../../../core/blocks";
 import { buildMetaDefaults } from "../../../core/build-fields";
-import { purgeEverything } from "../../../core/purge";
+import { purgeAffected } from "../../../core/purge";
+import { upgradeHomeLayout } from "../../../core/layout-upgrade";
 import {
   buildDocShape, buildMedia, buildMetaSchema, buildProblems, sectionMedia, sectionProblems, sectionsShape, slugSchema,
   validateSections, validateSettings,
 } from "../../../core/content";
-import { BUILD_LAYOUT, PAGE_IDS, defaultSections, now, sectionsFromModules, uid } from "../../../core/db";
+import { BUILD_LAYOUT, PAGE_IDS, defaultSections, devlogFromRow, now, sectionsFromModules, uid, type DevlogRow } from "../../../core/db";
 import { mediaRefs, publishProblems, withDefaults } from "../../../core/fields";
 import type { Section } from "../../../core/module";
 import { getModule, modules } from "../../../core/registry";
 import { settingsDefaults, settingsFields, type SettingsKey } from "../../../core/settings";
 import { slugify } from "../../../lib/dates";
+import { postDraft, FAILURE_CATEGORY_ID, TAXONOMY_SQL, type TaxonomyTerm } from "../../../core/taxonomy";
 
 type Ctx = APIContext;
 const db = () => env.DB;
@@ -58,10 +60,10 @@ async function setUsage(ownerType: string, ownerId: string, refs: { mediaId: str
   await db().batch(stmts);
 }
 
-/** Publishing anything purges every public page on both hosts and warms it again (few pages, so this stays cheap). */
+/** Publishing purges a bounded set of affected paths in this data centre; the 60 s TTL bounds everything else (src/core/purge.ts). */
 function purge(ctx: Ctx, extra: string[] = []) {
   if (env.CACHE_PAGES !== "1") return;
-  ctx.locals.cfContext.waitUntil(purgeEverything(db(), ctx.url.origin, env.GAME_HOST, extra));
+  ctx.locals.cfContext.waitUntil(purgeAffected(ctx.url.origin, env.GAME_HOST, extra));
 }
 
 /* ---------- pages ---------- */
@@ -88,8 +90,28 @@ async function savePage(ctx: Ctx, id: string) {
   return json({ updatedAt: t, problems: sectionProblems(v.sections) });
 }
 
-async function publishPage(ctx: Ctx, id: string) {
+/** Opt-in Phase 1 Home layout upgrade: rewrites the draft only (idempotent); publishing stays a separate step. */
+async function upgradePageLayout(_ctx: Ctx, id: string) {
+  if (id !== "home") return fail(404, "No layout upgrade for this page");
   const p = await getPage(id);
+  const v = validateSections(p.sections);
+  if (!v.ok) return fail(422, v.error);
+  const up = upgradeHomeLayout(v.sections);
+  if (!up.changed) return json({ changed: false, notes: [], updatedAt: p.updatedAt, sections: v.sections });
+  const t = Math.max(now(), p.updatedAt + 1);
+  const js = JSON.stringify(up.sections);
+  await db().prepare("INSERT INTO pages (id, draft_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET draft_json = excluded.draft_json, updated_at = excluded.updated_at").bind(id, js, t).run();
+  await snapshot("page", id, up.sections, "layout upgrade");
+  await setUsage("page", id, sectionMedia(up.sections));
+  return json({ changed: true, notes: up.notes, updatedAt: t, sections: up.sections });
+}
+
+async function publishPage(ctx: Ctx, id: string) {
+  const raw = await getPage(id);
+  // Publish the migrated sections (older saved modules, e.g. a v1 hero, are upgraded the same way the renderer does).
+  const v = validateSections(raw.sections);
+  if (!v.ok) return fail(422, v.error);
+  const p = { ...raw, sections: v.sections };
   const problems = sectionProblems(p.sections);
   if (problems.length) return fail(422, "Fix these before publishing", { problems });
   const js = JSON.stringify(p.sections);
@@ -185,7 +207,7 @@ async function publishBuild(ctx: Ctx, id: string) {
       summary = ?, skills_json = ?, title = ?, started_on = ? WHERE id = ?`)
     .bind(t, doc.slug, m.kind, m.status, m.featured ? 1 : 0, m.homeOrder, m.summary.value, JSON.stringify(m.skills.map((s) => s.name.value)), m.title.value, m.startedOn || null, id).run();
   await snapshot("build", id, { slug: doc.slug, meta: doc.meta, sections: doc.sections }, "publish");
-  purge(ctx);
+  purge(ctx, [`/builds/${doc.slug}`]);
   return json({ publishedAt: t });
 }
 
@@ -198,7 +220,10 @@ async function unpublishBuild(ctx: Ctx, id: string) {
 async function deleteBuild(ctx: Ctx, id: string) {
   await db().batch([
     db().prepare("UPDATE builds SET deleted_at = ?, published_json = NULL, slug = slug || '-deleted-' || ? WHERE id = ?").bind(now(), now(), id),
-    db().prepare("UPDATE devlog SET build_id = NULL WHERE build_id = ?").bind(id),
+    db().prepare("UPDATE devlog SET build_id = CASE WHEN build_id = ? THEN NULL ELSE build_id END, " +
+      "draft_json = CASE WHEN JSON_EXTRACT(draft_json, '$.build_id') = ? THEN JSON_SET(draft_json, '$.build_id', NULL) ELSE draft_json END, " +
+      "updated_at = MAX(?, updated_at + 1) WHERE build_id = ? OR JSON_EXTRACT(draft_json, '$.build_id') = ?")
+      .bind(id, id, now(), id, id),
     db().prepare("DELETE FROM media_usage WHERE owner_type = 'build' AND owner_id = ?").bind(id),
   ]);
   purge(ctx);
@@ -304,54 +329,131 @@ async function publishSettings(ctx: Ctx) {
 
 /* ---------- devlog ---------- */
 
-const imageShape = z.object({
+const taxonomies = z.enum(["category", "tag"]);
+const taxonomyFields = z.object({
+  name: z.string().trim().min(1).max(60),
+  slug: slugSchema.optional(),
+  description: z.string().trim().max(280).default(""),
+});
+const taxonomyCreate = taxonomyFields.extend({ kind: taxonomies });
+const taxonomyUpdate = taxonomyFields.partial();
+
+async function listTaxonomy() {
+  return (await db().prepare(TAXONOMY_SQL).all<TaxonomyTerm>()).results;
+}
+
+async function saveTaxonomy(ctx: Ctx, id?: string) {
+  const fields = id ? await body(ctx, taxonomyUpdate) : await body(ctx, taxonomyCreate);
+  if (isResp(fields)) return fields;
+  const previous = id ? await db().prepare("SELECT id, kind, name, slug, description FROM devlog_taxonomy WHERE id = ?").bind(id).first<TaxonomyTerm>() : null;
+  if (id && !previous) return fail(404, "Term not found");
+  const termId = id ?? uid();
+  const kind = previous?.kind ?? (fields as z.infer<typeof taxonomyCreate>).kind;
+  const name = fields.name ?? previous!.name;
+  if (kind === "tag" && name.length > 30) return fail(422, "Tag names can be at most 30 characters");
+  const slug = id === FAILURE_CATEGORY_ID
+    ? previous!.slug
+    : (fields.slug ?? previous?.slug ?? slugify(name).replace(/-$/, "")) || kind + "-" + termId.slice(0, 8);
+  const description = fields.description ?? previous?.description ?? "";
+  const clash = await db().prepare("SELECT 1 FROM devlog_taxonomy WHERE kind = ? AND (name = ? OR slug = ?) AND id != ?")
+    .bind(kind, name, slug, termId).first();
+  if (clash) return fail(422, "This name or slug is already used by another " + kind);
+  try {
+    if (id) {
+      await db().prepare("UPDATE devlog_taxonomy SET name = ?, slug = ?, description = ? WHERE id = ?")
+        .bind(name, slug, description, id).run();
+      purge(ctx);
+    } else {
+      await db().prepare("INSERT INTO devlog_taxonomy (id, kind, name, slug, description) VALUES (?, ?, ?, ?, ?)")
+        .bind(termId, kind, name, slug, description).run();
+    }
+  } catch (error) {
+    if (/UNIQUE constraint failed/i.test(String(error))) return fail(422, "This name or slug is already used by another " + kind);
+    throw error;
+  }
+  return json({ id: termId, kind, name, slug, description } satisfies TaxonomyTerm, id ? 200 : 201);
+}
+
+async function deleteTaxonomy(ctx: Ctx, id: string) {
+  if (id === FAILURE_CATEGORY_ID) return fail(422, "The Failure category is built into the archive");
+  const result = await db().prepare("DELETE FROM devlog_taxonomy WHERE id = ?").bind(id).run();
+  if (!result.meta.changes) return fail(404, "Term not found");
+  purge(ctx);
+  return json({ ok: true });
+}
+
+const postMediaShape = z.object({
   mediaId: z.string().nullable(), key: z.string().optional(), widths: z.array(z.number()).optional(), original: z.string().optional(),
   w: z.number().optional(), h: z.number().optional(), transparent: z.boolean().optional(),
   focal: z.object({ x: z.number(), y: z.number() }), zoom: z.number(), mode: z.enum(["fill", "fit", "object"]), alt: z.string().max(200),
 });
 const devlogShape = z.object({
-  slug: slugSchema,
-  title: z.string().min(1).max(90),
+  slug: slugSchema.or(z.literal("")),
+  title: z.string().max(90),
   excerpt: z.string().max(220),
   body: z.string().max(20000),
   buildId: z.string().nullable(),
-  hero: imageShape.nullable(),
-  images: z.array(imageShape).max(12),
-  fuseUrl: z.string().max(300).refine((v) => v === "" || v.startsWith("https://"), "Fuse link must start with https://"),
+  hero: postMediaShape.nullable(),
+  images: z.array(postMediaShape).max(12),
   readMinutes: z.number().int().min(1).max(60).nullable(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  status: z.enum(["draft", "published"]),
+  // Accept the existing body shape, but change visibility only when explicitly asked.
+  status: z.enum(["draft", "published"]).optional(),
+  intent: z.enum(["save", "publish", "unpublish"]).default("save"),
   updatedAt: z.number(),
   blocks: blockDocSchema.nullable().optional(),
   type: z.enum(["note", "article"]).default("note"),
   tags: z.array(z.string().trim().min(1).max(30)).max(8).default([]),
+  tagIds: z.array(z.string().min(1).max(300)).max(8).optional(),
+  categories: z.array(z.string().min(1).max(140)).max(12).default([]),
   sites: z.array(z.enum(["main", "games"])).min(1, "Show the post on at least one site").default(["main"]),
   gameSlug: z.string().trim().max(60).regex(/^[a-z0-9-]*$/, "Game slug: lowercase letters, numbers and dashes").nullable().default(null),
   publishAt: z.string().max(40).nullable().default(null).refine((v) => v === null || !Number.isNaN(Date.parse(v)), "Bad schedule date"),
+  seoTitle: z.string().trim().max(90).default(""),
   seoDescription: z.string().max(200).default(""),
 });
 
-function devlogRefs(d: z.infer<typeof devlogShape>) {
-  return [...blockMediaRefs(d.blocks ?? null).map((m) => ({ mediaId: m.mediaId, path: m.path })),...(d.hero?.mediaId ? [{ mediaId: d.hero.mediaId, path: "hero" }] : []), ...d.images.flatMap((im, i) => (im.mediaId ? [{ mediaId: im.mediaId, path: `images[${i}]` }] : []))];
+function devlogRefs(d: Pick<z.infer<typeof devlogShape>, "blocks" | "hero" | "images">, prefix = "") {
+  return [
+    ...blockMediaRefs(d.blocks ?? null).map((m) => ({ mediaId: m.mediaId, path: prefix + m.path })),
+    ...(d.hero?.mediaId ? [{ mediaId: d.hero.mediaId, path: prefix + "hero" }] : []),
+    ...d.images.flatMap((im, i) => im.mediaId ? [{ mediaId: im.mediaId, path: prefix + "images[" + i + "]" }] : []),
+  ];
+}
+
+function devlogUsage(id: string, refs: ReturnType<typeof devlogRefs>, token: string): D1PreparedStatement[] {
+  const current = "EXISTS (SELECT 1 FROM devlog WHERE id = ? AND save_token = ?)";
+  return [
+    db().prepare("DELETE FROM media_usage WHERE owner_type = 'devlog' AND owner_id = ? AND " + current).bind(id, id, token),
+    db().prepare("INSERT OR IGNORE INTO media_usage (media_id, owner_type, owner_id, field_path) " +
+      "SELECT media.id, 'devlog', ?, JSON_EXTRACT(ref.value, '$.path') FROM JSON_EACH(?) ref " +
+      "JOIN media ON media.id = JSON_EXTRACT(ref.value, '$.mediaId') WHERE " + current)
+      .bind(id, JSON.stringify(refs), id, token),
+  ];
 }
 
 async function listDevlog() {
-  const r = await db().prepare("SELECT * FROM devlog ORDER BY entry_date DESC, created_at DESC").all<Record<string, unknown>>();
-  return r.results.map((x) => ({
-    id: x.id, slug: x.slug, title: x.title, excerpt: x.excerpt, body: x.body, buildId: x.build_id,
-    hero: parse(x.hero_media_id as string, null), images: parse(x.media_ids as string, []), fuseUrl: x.fuse_url ?? "",
-    readMinutes: x.read_minutes, date: x.entry_date, status: x.status, updatedAt: x.updated_at,
-    blocks: parse(x.blocks_json as string, null), type: x.type === "article" ? "article" : "note", tags: parse(x.tags_json as string, []),
-    sites: parse(x.sites_json as string, ["main"]), gameSlug: x.game_slug ?? null, publishAt: x.publish_at ?? null, seoDescription: x.seo_description ?? "",
-  }));
+  const [posts, terms] = await db().batch([db().prepare("SELECT * FROM devlog ORDER BY entry_date DESC, created_at DESC"), db().prepare(TAXONOMY_SQL)]);
+  const taxonomy = new Map((terms!.results as unknown as TaxonomyTerm[]).map((term) => [term.id, term]));
+  return (posts!.results as unknown as DevlogRow[]).map((r) => {
+    const entry = devlogFromRow(postDraft(r), [], taxonomy);
+    return {
+      ...entry,
+      tagIds: entry.tagTerms.map((term) => term.id),
+      hasDraft: !!r.draft_json,
+      liveSlug: r.status === "published" ? r.slug : null,
+      livePublishAt: r.status === "published" ? r.publish_at ?? null : null,
+      publishedAt: r.published_at ?? null,
+    };
+  }).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 async function createDevlog(ctx: Ctx) {
-  const b = await body(ctx, z.object({ title: z.string().min(1).max(90), buildId: z.string().nullable().optional(), type: z.enum(["note", "article"]).optional() }));
+  const b = await body(ctx, z.object({ title: z.string().trim().min(1).max(90), buildId: z.string().nullable().optional(), type: z.enum(["note", "article"]).optional() }));
   if (isResp(b)) return b;
   const id = uid();
-  let slug = slugify(b.title) || "entry";
-  if (await db().prepare("SELECT 1 FROM devlog WHERE slug = ?").bind(slug).first()) slug = `${slug}-${id.slice(0, 4)}`;
+  let slug = slugify(b.title).replace(/-$/, "") || "entry";
+  if (await db().prepare("SELECT 1 FROM devlog WHERE slug = ?").bind(slug).first()) slug = slug.slice(0, 51).replace(/-$/, "") + "-" + id.slice(0, 8);
   const t = now();
   await db().prepare("INSERT INTO devlog (id, slug, title, excerpt, body, build_id, status, created_at, entry_date, updated_at, type, blocks_json) VALUES (?, ?, ?, '', '', ?, 'draft', ?, ?, ?, ?, ?)")
     .bind(id, slug, b.title, b.buildId ?? null, t, new Date(t).toISOString().slice(0, 10), t, b.type ?? "note", JSON.stringify(emptyDoc())).run();
@@ -361,30 +463,83 @@ async function createDevlog(ctx: Ctx) {
 async function saveDevlog(ctx: Ctx, id: string) {
   const b = await body(ctx, devlogShape);
   if (isResp(b)) return b;
-  const row = await db().prepare("SELECT updated_at, status FROM devlog WHERE id = ?").bind(id).first<{ updated_at: number; status: string }>();
+  const [row, terms] = await Promise.all([
+    db().prepare("SELECT * FROM devlog WHERE id = ?").bind(id).first<DevlogRow>(),
+    listTaxonomy(),
+  ]);
   if (!row) return fail(404, "Entry not found");
-  if (row.updated_at > b.updatedAt) return fail(409, "Changed in another tab. Reload?");
-  if (b.status === "published") {
+  if (row.updated_at !== b.updatedAt) return fail(409, "Changed in another tab. Reload?");
+  if (b.blocks && new TextEncoder().encode(JSON.stringify(b.blocks)).length > MAX_DOC_BYTES) return fail(413, "This post is too long");
+
+  const categoryIds = [...new Set(b.categories)];
+  if (categoryIds.some((category) => !terms.some((term) => term.kind === "category" && term.id === category))) return fail(422, "A selected category was removed. Reopen this post and select a category.");
+  const tags = terms.filter((term) => term.kind === "tag");
+  const tagIds = [...new Set(b.tagIds ?? [])];
+  if (b.tagIds) {
+    if (tagIds.some((id) => !tags.some((term) => term.id === id))) return fail(422, "A selected tag was removed. Reopen this post and select a tag.");
+  } else {
+    for (const name of b.tags) {
+      const tag = tags.find((term) => term.name.toLowerCase() === name.toLowerCase());
+      if (!tag) return fail(422, "This tag is missing from the catalog: " + name);
+      if (!tagIds.includes(tag.id)) tagIds.push(tag.id);
+    }
+  }
+
+  if (b.intent === "publish") {
     const missingAlt = [b.hero, ...b.images].some((im) => im?.mediaId && !im.alt.trim()) || blockMediaRefs(b.blocks ?? null).some((m) => !m.alt.trim());
     if (missingAlt) return fail(422, "Add alt text to every photo before publishing");
+    if (!b.title.trim()) return fail(422, "Give the post a title before publishing");
+    if (!b.slug) return fail(422, "Give the post a web address before publishing");
   }
-  if (b.blocks && JSON.stringify(b.blocks).length > MAX_DOC_BYTES) return fail(413, "This post is too long");
-  // With a block document the plain-text body and the read time are derived from it.
+
+  const isStaged = b.intent === "save" && row.status === "published";
+  if (!isStaged) {
+    const clash = await db().prepare("SELECT 1 FROM devlog WHERE slug = ? AND id != ?").bind(b.slug, id).first();
+    if (clash) return fail(422, "Another entry already uses this slug");
+  }
+  if (b.buildId && !await db().prepare("SELECT 1 FROM builds WHERE id = ? AND deleted_at IS NULL").bind(b.buildId).first()) {
+    return fail(422, "The selected build is no longer available");
+  }
+
   const text = b.blocks ? plainText(b.blocks) : b.body;
-  const readMinutes = b.blocks ? readMinutesFor(text) : b.readMinutes;
-  const publishAt = b.publishAt ? new Date(b.publishAt).toISOString() : null;
-  const clash = await db().prepare("SELECT 1 FROM devlog WHERE slug = ? AND id != ?").bind(b.slug, id).first();
-  if (clash) return fail(422, "Another entry already uses this slug");
+  const doc = {
+    slug: b.slug || null, title: b.title, excerpt: b.excerpt, body: text, build_id: b.buildId,
+    hero_media_id: b.hero ? JSON.stringify(b.hero) : null, media_ids: JSON.stringify(b.images),
+    read_minutes: b.blocks ? readMinutesFor(text) : b.readMinutes, entry_date: b.date,
+    blocks_json: b.blocks ? JSON.stringify(b.blocks) : null, type: b.type, tags_json: "[]", tag_ids_json: JSON.stringify(tagIds),
+    categories_json: JSON.stringify(categoryIds), sites_json: JSON.stringify([...new Set(b.sites)]),
+    game_slug: b.gameSlug || null, publish_at: b.publishAt ? new Date(b.publishAt).toISOString() : null,
+    seo_title: b.seoTitle || null, seo_description: b.seoDescription || null,
+  };
   const t = Math.max(now(), row.updated_at + 1);
-  await db().prepare(`UPDATE devlog SET slug = ?, title = ?, excerpt = ?, body = ?, build_id = ?, hero_media_id = ?, media_ids = ?, fuse_url = ?,
-      read_minutes = ?, entry_date = ?, status = ?, updated_at = ?, published_at = CASE WHEN ? = 'published' THEN COALESCE(published_at, ?) ELSE NULL END,
-      blocks_json = ?, type = ?, tags_json = ?, sites_json = ?, game_slug = ?, publish_at = ?, seo_description = ? WHERE id = ?`)
-    .bind(b.slug, b.title, b.excerpt, text, b.buildId, b.hero ? JSON.stringify(b.hero) : null, JSON.stringify(b.images), b.fuseUrl || null,
-      readMinutes, b.date, b.status, t, b.status, t,
-      b.blocks ? JSON.stringify(b.blocks) : null, b.type, JSON.stringify(b.tags), JSON.stringify([...new Set(b.sites)]), b.gameSlug || null, publishAt, b.seoDescription || null, id).run();
-  await setUsage("devlog", id, devlogRefs(b));
-  if (b.status === "published" || row.status === "published") purge(ctx);
-  return json({ updatedAt: t });
+  const token = uid();
+  const status = b.intent === "publish" ? "published" : "draft";
+  const publishedAt = status === "published" ? row.published_at ?? t : null;
+  const update = isStaged
+    ? db().prepare("UPDATE devlog SET draft_json = ?, updated_at = ?, save_token = ? WHERE id = ? AND updated_at = ?")
+      .bind(JSON.stringify(doc), t, token, id, row.updated_at)
+    : db().prepare("UPDATE devlog SET " + Object.keys(doc).map((column) => column + " = ?").join(", ") +
+        ", draft_json = NULL, status = ?, published_at = ?, updated_at = ?, save_token = ? WHERE id = ? AND updated_at = ?")
+      .bind(...Object.values(doc), status, publishedAt, t, token, id, row.updated_at);
+
+  // A stale writer must leave both the document and its media references alone.
+  const refs = isStaged ? [...devlogRefs(devlogFromRow(row, [], new Map())), ...devlogRefs(b, "draft.")] : devlogRefs(b);
+  const statements = [update, ...devlogUsage(id, refs, token)];
+  let result: D1Result | undefined;
+  try { [result] = await db().batch(statements); } catch (error) {
+    if (/UNIQUE constraint failed: devlog.slug/i.test(String(error))) return fail(422, "Another entry already uses this slug");
+    throw error;
+  }
+  if (!result?.meta.changes) return fail(409, "Changed in another tab. Reload?");
+
+  if (!isStaged && (status === "published" || row.status === "published")) purge(ctx, row.slug ? ["/devlog/" + row.slug] : []);
+  return json({
+    updatedAt: t, hasDraft: isStaged,
+    status: isStaged ? row.status : status,
+    liveSlug: isStaged ? row.slug : status === "published" ? doc.slug : null,
+    livePublishAt: isStaged ? row.publish_at ?? null : status === "published" ? doc.publish_at : null,
+    publishedAt: isStaged ? row.published_at ?? null : publishedAt,
+  });
 }
 
 /* ---------- milestones ---------- */
@@ -521,11 +676,28 @@ async function replaceEverywhere(ctx: Ctx, id: string) {
     } else if (type !== "devlog") {
       continue; // unknown owner: leave its usage rows alone so the old media stays protected
     } else if (type === "devlog") {
-      const r = await db().prepare("SELECT hero_media_id, media_ids, blocks_json FROM devlog WHERE id = ?").bind(oid).first<{ hero_media_id: string | null; media_ids: string; blocks_json: string | null }>();
-      if (!r) continue;
-      // Images inside the post body (image/gallery/video nodes keep mediaId in attrs) are swapped too.
-      stmts.push(db().prepare("UPDATE devlog SET hero_media_id = ?, media_ids = ?, blocks_json = ?, updated_at = ? WHERE id = ?")
-        .bind(r.hero_media_id ? JSON.stringify(swap(parse(r.hero_media_id, null))) : null, JSON.stringify(swap(parse(r.media_ids, []))), r.blocks_json ? JSON.stringify(swap(parse(r.blocks_json, null))) : null, t, oid));
+      const row = await db().prepare("SELECT * FROM devlog WHERE id = ?").bind(oid).first<DevlogRow>();
+      if (!row) continue;
+      const current = postDraft(row);
+      const changes = {
+        hero_media_id: current.hero_media_id ? JSON.stringify(swap(parse(current.hero_media_id, null))) : null,
+        media_ids: JSON.stringify(swap(parse(current.media_ids, []))),
+        blocks_json: current.blocks_json ? JSON.stringify(swap(parse(current.blocks_json, null))) : null,
+      };
+      const token = uid();
+      const stamp = Math.max(t, row.updated_at + 1);
+      const edited = devlogFromRow({ ...current, ...changes }, [], new Map());
+      if (row.status === "published") {
+        const draft = { ...parse<Record<string, unknown>>(row.draft_json, {}), ...changes };
+        stmts.push(db().prepare("UPDATE devlog SET draft_json = ?, updated_at = ?, save_token = ? WHERE id = ? AND updated_at = ?")
+          .bind(JSON.stringify(draft), stamp, token, oid, row.updated_at));
+        stmts.push(...devlogUsage(oid, [...devlogRefs(devlogFromRow(row, [], new Map())), ...devlogRefs(edited, "draft.")], token));
+      } else {
+        stmts.push(db().prepare("UPDATE devlog SET hero_media_id = ?, media_ids = ?, blocks_json = ?, updated_at = ?, save_token = ? WHERE id = ? AND updated_at = ?")
+          .bind(changes.hero_media_id, changes.media_ids, changes.blocks_json, stamp, token, oid, row.updated_at));
+        stmts.push(...devlogUsage(oid, devlogRefs(edited), token));
+      }
+      continue;
     }
     for (const p of paths) {
       stmts.push(db().prepare("DELETE FROM media_usage WHERE media_id = ? AND owner_type = ? AND owner_id = ? AND field_path = ?").bind(id, type, oid, p));
@@ -604,6 +776,7 @@ const routes: [string, RegExp, Handler][] = [
     builds: await listBuilds(),
     settings: await getSettings(),
     devlog: await listDevlog(),
+    taxonomy: await listTaxonomy(),
     milestones: (await db().prepare("SELECT * FROM milestones ORDER BY date ASC").all()).results,
     templates: (await db().prepare("SELECT id, version, name, sections_json, created_at, (SELECT COUNT(*) FROM builds b WHERE b.template_id = t.id AND b.template_ver = t.version AND b.deleted_at IS NULL) AS used FROM templates t ORDER BY id, version").all()).results,
     media: await listMedia(),
@@ -611,6 +784,7 @@ const routes: [string, RegExp, Handler][] = [
   })],
   ["GET", /^pages\/([a-z-]+)$/, (_c, m) => PAGE_IDS.includes(m[1]!) ? getPage(m[1]!).then(json) : fail(404, "Unknown page")],
   ["PATCH", /^pages\/([a-z-]+)$/, (c, m) => PAGE_IDS.includes(m[1]!) ? savePage(c, m[1]!) : fail(404, "Unknown page")],
+  ["POST", /^pages\/([a-z-]+)\/upgrade-layout$/, (c, m) => PAGE_IDS.includes(m[1]!) ? upgradePageLayout(c, m[1]!) : fail(404, "Unknown page")],
   ["POST", /^pages\/([a-z-]+)\/publish$/, (c, m) => PAGE_IDS.includes(m[1]!) ? publishPage(c, m[1]!) : fail(404, "Unknown page")],
   ["GET", /^builds$/, async () => json(await listBuilds())],
   ["POST", /^builds$/, (c) => createBuild(c)],
@@ -626,12 +800,18 @@ const routes: [string, RegExp, Handler][] = [
   ["PATCH", /^settings\/(\w+)$/, (c, m) => saveSetting(c, m[1]!)],
   ["POST", /^settings\/publish$/, (c) => publishSettings(c)],
   ["POST", /^cv$/, (c) => uploadCv(c)],
+  ["GET", /^taxonomy$/, async () => json(await listTaxonomy())],
+  ["POST", /^taxonomy$/, (c) => saveTaxonomy(c)],
+  ["PATCH", /^taxonomy\/([\w-]+)$/, (c, m) => saveTaxonomy(c, m[1]!)],
+  ["DELETE", /^taxonomy\/([\w-]+)$/, (c, m) => deleteTaxonomy(c, m[1]!)],
   ["GET", /^devlog$/, async () => json(await listDevlog())],
   ["POST", /^devlog$/, (c) => createDevlog(c)],
   ["PATCH", /^devlog\/([\w-]+)$/, (c, m) => saveDevlog(c, m[1]!)],
   ["DELETE", /^devlog\/([\w-]+)$/, async (c, m) => {
+    const entry = await db().prepare("SELECT slug FROM devlog WHERE id = ?").bind(m[1]!).first<{ slug: string | null }>();
+    if (!entry) return fail(404, "Entry not found");
     await db().batch([db().prepare("DELETE FROM devlog WHERE id = ?").bind(m[1]!), db().prepare("DELETE FROM media_usage WHERE owner_type = 'devlog' AND owner_id = ?").bind(m[1]!)]);
-    purge(c);
+    purge(c, entry.slug ? ["/devlog/" + entry.slug] : []);
     return json({ ok: true });
   }],
   ["GET", /^milestones$/, async () => json((await db().prepare("SELECT * FROM milestones ORDER BY date ASC").all()).results)],

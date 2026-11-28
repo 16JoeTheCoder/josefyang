@@ -4,6 +4,7 @@ import type { SiteSettings } from "../core/settings";
 interface Props { settings: SiteSettings }
 const { site, contacts, cv } = Astro.props.settings;
 const email = contacts.email.value;
+const emailMeasure = Math.max(5, Array.from(email).reduce((width, char) => width + (/[MW@mw]/.test(char) ? 1 : /[il1.!|]/.test(char) ? .37 : .7), .4));
 const ext = (url: string) => url.startsWith("http") ? { target: "_blank", rel: "noopener" } : {};
 const elsewhere = [
   { url: contacts.instagram, label: contacts.instagramLabel.value },
@@ -14,11 +15,13 @@ const elsewhere = [
 ---
 <footer class="footer" id="contact">
   <div class="wrap">
+    <div class="footer-contact">
     <p class="footer-lead">{site.footerLead.value}</p>
-    <a class="footer-email" href={`mailto:${email}`}>{email}</a>
+    <a class="footer-email" style={"--email-measure:" + emailMeasure} href={`mailto:${email}`}>{email}</a>
     <div class="footer-ctas">
       <a class="btn btn-light" href="/projects">{site.footerProjectsButton.value}</a>
       <a class="btn btn-light-outline" href="/about">{site.footerAboutButton.value}</a>
+    </div>
     </div>
     <div class="footer-cols">
       <div>
@@ -28,13 +31,13 @@ const elsewhere = [
           <li><a href="/projects">{site.navProjects.value}</a></li>
           <li><a href="/failures">{site.navFailures.value}</a></li>
           <li><a href="/devlog">{site.navDevlog.value}</a></li>
+          <li><a href="/games">{site.navGames.value}</a></li>
           <li><a href="/about">{site.navAbout.value}</a></li>
         </ul>
       </div>
       <div>
         <h2>{site.colTools.value}</h2>
         <ul>
-          {contacts.fuseUrl && <li><a href={contacts.fuseUrl} {...ext(contacts.fuseUrl)}>{contacts.fuseLabel.value}</a></li>}
           {contacts.chronosUrl && <li><a href={contacts.chronosUrl} {...ext(contacts.chronosUrl)}>{contacts.chronosLabel.value}</a></li>}
         </ul>
       </div>
@@ -57,15 +60,21 @@ const elsewhere = [
   </div>
 </footer>
 <style>
-  .footer { background: var(--black); color: var(--white); padding: var(--section-y) 0 40px; }
-  .footer-lead { font-size: var(--lead); color: var(--muted-dark); }
-  .footer-email { display: block; margin-top: 14px; font-family: var(--font-display); font-weight: 900; font-size: min(var(--size-email), calc((100vw - 2 * var(--gutter)) / 11.6)); line-height: 1; letter-spacing: var(--track-tight); text-decoration: none; overflow-wrap: anywhere; }
-  .footer-email:hover { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 0.06em; text-underline-offset: 0.12em; }
-  .footer-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 44px; }
-  .footer-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; margin-top: var(--space-9); padding-top: 48px; border-top: 1px solid var(--rule-dark); }
-  .footer-cols h2 { font-family: var(--font-display); font-size: 0.875rem; font-weight: 600; color: var(--muted-dark); margin-bottom: 14px; }
-  .footer-cols a { display: inline-block; padding: 6px 0; text-decoration: none; font-size: 1rem; }
+  .footer { background: var(--workbench); color: var(--workbench-ink); padding: clamp(60px, 7vw, 108px) 0 26px; }
+  .footer-contact { container-type: inline-size; }
+  .footer-lead { font-size: var(--lead); color: var(--workbench-subtle); line-height: 1.35; }
+  .footer-email { display: inline-block; max-width: 100%; margin-top: 12px; font-family: var(--font-display); font-weight: 770; font-size: min(clamp(1.55rem, 5.5vw, 5.4rem), calc(100cqi / var(--email-measure))); line-height: 1.08; letter-spacing: var(--track-tight); text-decoration: none; white-space: nowrap; }
+  .footer-email:hover { text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: 0.045em; text-underline-offset: 0.12em; }
+  .footer-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+  .footer-ctas .btn { min-height: 44px; padding-inline: 17px; border-radius: 5px; font-size: var(--size-xs); }
+  .footer-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; margin-top: clamp(35px, 6vw, 76px); padding-top: 27px; border-top: 1px solid var(--workbench-rule); }
+  .footer-cols h2 { font-family: var(--font-display); font-size: var(--size-xs); font-weight: 650; color: var(--workbench-subtle); margin-bottom: 7px; }
+  .footer-cols a { display: inline-flex; align-items: center; min-height: 35px; text-decoration: none; font-size: var(--size-s); }
   .footer-cols a:hover { text-decoration: underline; text-decoration-color: var(--sun); }
-  .footer-base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: var(--space-8); font-size: var(--size-s); color: var(--muted-dark); }
-  @media (max-width: 720px) { .footer-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .footer-base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 24px; margin-top: 35px; padding-top: 18px; border-top: 1px solid var(--workbench-rule); font-size: var(--size-xs); color: var(--workbench-subtle); }
+  @media (max-width: 720px) {
+    .footer-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .footer-cols a { min-height: 44px; }
+    .footer-base { margin-top: 24px; }
+  }
 </style>

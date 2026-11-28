@@ -1,18 +1,26 @@
-/** Every public URL that can show published content, on both hosts. Used by publish purges and the scheduled-post cron. */
-import { purgeAndWarm } from "./cache";
+/**
+ * Bounded purge after a publish (Phase 1 freshness policy, see src/core/cache.ts).
+ * Purges the listing pages that can show any published item plus the specific touched paths. Detail pages that
+ * are not named (e.g. every build page after a Settings publish) refresh within the 60 s TTL instead of being
+ * enumerated, so a publish never costs more than PURGE_LIMIT cache deletes and never warms anything.
+ */
+import { purgePaths } from "./cache";
 
-export async function purgeEverything(db: D1Database, origin: string, gameHost: string | undefined, extra: string[] = []): Promise<void> {
-  const [b, d, g] = await db.batch([
-    db.prepare("SELECT slug FROM builds WHERE published_json IS NOT NULL AND deleted_at IS NULL"),
-    db.prepare("SELECT slug FROM devlog WHERE status = 'published'"),
-    db.prepare("SELECT slug FROM games WHERE published_json IS NOT NULL AND deleted_at IS NULL"),
-  ]);
-  const slugs = (r: typeof b) => ((r?.results ?? []) as { slug: string | null }[]).map((x) => x.slug).filter((x): x is string => !!x);
-  const games = slugs(g);
-  const main = ["/", "/projects", "/failures", "/devlog", "/devlog/rss.xml", "/about",
-    ...slugs(b).map((s) => `/builds/${s}`), ...slugs(d).map((s) => `/devlog/${s}`), ...extra];
-  // Without a game host the hub lives on the main host under /games.
-  if (!gameHost) main.push("/games", ...games.map((s) => `/games/${s}`));
-  await purgeAndWarm(origin, main);
-  if (gameHost) await purgeAndWarm(`https://${gameHost}`, ["/", ...games.map((s) => `/${s}`)]);
+/** Main-host pages that list or summarise published content. /games is the journey and lives on main even with GAME_HOST. */
+export const MAIN_LISTINGS = ["/", "/projects", "/failures", "/devlog", "/devlog/rss.xml", "/about", "/games"] as const;
+
+export function affectedMainPaths(extra: string[] = []): string[] {
+  return [...MAIN_LISTINGS, ...extra];
+}
+
+/** Catalog pages: on the game host ("/", "/<slug>") or the local /hub routes when there is no game host. */
+export function affectedCatalogPaths(gameHost: string | undefined, slugs: string[] = []): { origin?: string; paths: string[] } {
+  if (gameHost) return { origin: `https://${gameHost}`, paths: ["/", ...slugs.map((s) => `/${s}`)] };
+  return { paths: ["/hub", ...slugs.map((s) => `/hub/${s}`)] };
+}
+
+export async function purgeAffected(origin: string, gameHost: string | undefined, extra: string[] = [], gameSlugs: string[] = []): Promise<void> {
+  await purgePaths(origin, affectedMainPaths(extra));
+  const cat = affectedCatalogPaths(gameHost, gameSlugs);
+  await purgePaths(cat.origin ?? origin, cat.paths);
 }

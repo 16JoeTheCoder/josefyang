@@ -24,6 +24,7 @@ export default defineModule({
       { icon: "cup", subheading: t("Coffee"), text: t("Kopi susu by day. Espresso when a build runs late.") },
       { icon: "watch", subheading: t("Watches"), text: t("Small machines that have to be right every second.") },
       { icon: "ball", subheading: t("Football"), text: t("Captain of the school team.") },
+      { icon: "globe", subheading: t("History and geopolitics"), text: t("How countries got to where they are, and why the map keeps changing.") },
     ],
   },
 });

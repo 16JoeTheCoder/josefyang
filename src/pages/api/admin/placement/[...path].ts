@@ -6,7 +6,7 @@
 import type { APIContext, APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
-import { purgeAndWarm } from "../../../../core/cache";
+import { purgeAffected } from "../../../../core/purge";
 
 type Ctx = APIContext;
 const db = () => env.DB;
@@ -17,18 +17,9 @@ const parse = <T>(s: string | null | undefined, fb: T): T => { if (!s) return fb
 interface Row { id: string; draft_json: string; published_json: string | null }
 interface Doc { meta?: { featured?: boolean; homeOrder?: number; title?: { value?: string } } }
 
-async function publicPaths(): Promise<string[]> {
-  const [b, d] = await db().batch([
-    db().prepare("SELECT slug FROM builds WHERE published_json IS NOT NULL AND deleted_at IS NULL"),
-    db().prepare("SELECT slug FROM devlog WHERE status = 'published'"),
-  ]);
-  return ["/", "/projects", "/failures", "/devlog", "/about",
-    ...((b?.results ?? []) as { slug: string }[]).map((r) => `/builds/${r.slug}`),
-    ...((d?.results ?? []) as { slug: string }[]).map((r) => `/devlog/${r.slug}`)];
-}
 function purge(ctx: Ctx) {
   if (env.CACHE_PAGES !== "1") return;
-  ctx.locals.cfContext.waitUntil(publicPaths().then((p) => purgeAndWarm(ctx.url.origin, p)));
+  ctx.locals.cfContext.waitUntil(purgeAffected(ctx.url.origin, env.GAME_HOST));
 }
 
 /** Key-order-independent JSON, so "same content, different key order" does not count as a change. */
